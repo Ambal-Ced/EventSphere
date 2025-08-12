@@ -2,17 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase";
 import { User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -123,7 +118,7 @@ export default function SettingsPage() {
           <p>
             <strong>Error:</strong> {error}
           </p>{" "}
-          // General page error display
+          {/* General page error display */}
         </div>
       )}
 

@@ -12,6 +12,9 @@ export const metadata: Metadata = {
   description: "Your event management platform",
 };
 
+// Pages that don't need the sidebar
+const noSidebarPages = ["/login", "/register", "/", "/about", "/faqs"];
+
 export default function RootLayout({
   children,
 }: {

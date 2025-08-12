@@ -1,26 +1,21 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useMemo, useCallback, memo, Suspense, lazy } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
 import { cn } from "@/lib/utils";
 import {
   User as UserIcon,
   CalendarCheck2,
-  Ticket,
   Settings,
   LogOut,
   MessageSquare,
+  BarChart2,
 } from "lucide-react";
-import { User } from "@supabase/supabase-js"; // Supabase User type
-import { Button } from "@/components/ui/button"; // Import Button
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/context/auth-context";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
+// Memoized sidebar links configuration
 const sidebarLinksConfig = [
   {
     title: "Profile",
@@ -35,6 +30,12 @@ const sidebarLinksConfig = [
     authRequired: true,
   },
   {
+    title: "Analytics",
+    href: "/analytics",
+    icon: BarChart2,
+    authRequired: true,
+  },
+  {
     title: "Settings",
     href: "/settings",
     icon: Settings,
@@ -46,94 +47,116 @@ const sidebarLinksConfig = [
     icon: MessageSquare,
     authRequired: false,
   },
-];
+] as const;
 
-export function Sidebar() {
-  const pathname = usePathname();
-  const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+// Memoized loading skeleton component
+const SidebarSkeleton = memo(() => (
+  <div className="sticky top-16 h-[calc(100vh-4rem)] w-64 border-r bg-background p-4">
+    <div className="space-y-2">
+      {sidebarLinksConfig.map((_, index) => (
+        <div
+          key={index}
+          className="flex items-center space-x-3 rounded-lg px-3 py-2"
+        >
+          <div className="h-5 w-5 rounded bg-muted animate-pulse" />
+          <div className="h-4 flex-1 rounded bg-muted animate-pulse" />
+        </div>
+      ))}
+    </div>
+  </div>
+));
 
-  useEffect(() => {
-    const getSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      setUser(session?.user ?? null);
-      setIsLoading(false);
-    };
+SidebarSkeleton.displayName = "SidebarSkeleton";
 
-    getSession();
+// Memoized sidebar link component
+const SidebarLink = memo(
+  ({
+    link,
+    isActive,
+    isDisabled,
+    onClick,
+  }: {
+    link: (typeof sidebarLinksConfig)[number];
+    isActive: boolean;
+    isDisabled: boolean;
+    onClick: (e: React.MouseEvent) => void;
+  }) => {
+    const Icon = link.icon;
 
-    // Listen for auth changes
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setUser(session?.user ?? null);
-      }
-    );
-
-    // Cleanup listener on unmount
-    return () => {
-      authListener?.subscription.unsubscribe();
-    };
-  }, []);
-
-  const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error("Error logging out:", error);
-    } else {
-      setUser(null); // Clear user state immediately
-      router.push("/login"); // Redirect to login page
-    }
-  };
-
-  // Don't render sidebar content until auth state is known
-  // or show a loading state if preferred
-  if (isLoading) {
     return (
-      <div className="sticky top-16 h-[calc(100vh-4rem)] w-64 border-r bg-background p-4">
-        {/* Optional: Add a loading skeleton here */}
-      </div>
+      <Link
+        href={link.href}
+        onClick={onClick}
+        className={cn(
+          "flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+          isActive ? "bg-primary text-primary-foreground" : "hover:bg-muted",
+          isDisabled && "cursor-not-allowed opacity-50 pointer-events-none"
+        )}
+        aria-disabled={isDisabled}
+      >
+        <Icon className="h-5 w-5" />
+        <span>{link.title}</span>
+      </Link>
     );
   }
+);
 
-  return (
-    <div className="sticky top-16 h-[calc(100vh-4rem)] w-64 border-r bg-background">
-      <div className="flex h-full flex-col">
-        <nav className="flex-1 space-y-2 p-4">
-          {sidebarLinksConfig.map((link) => {
-            const isDisabled = link.authRequired && !user;
-            const href = isDisabled ? "/login" : link.href;
-            const Icon = link.icon;
+SidebarLink.displayName = "SidebarLink";
+
+// Lazy-loaded sidebar content component
+const SidebarContent = lazy(() =>
+  Promise.resolve({
+    default: memo(() => {
+      const pathname = usePathname();
+      const router = useRouter();
+      const { user, loading, signOut } = useAuth();
+
+      const isAuthenticated = useMemo(() => !!user, [user]);
+      const activePath = useMemo(() => pathname, [pathname]);
+      const isAllDisabled = useMemo(() => !isAuthenticated, [isAuthenticated]);
+
+      const handleLogout = useCallback(async () => {
+        try {
+          await signOut();
+          router.push("/login");
+        } catch (err) {
+          console.error("Logout failed:", err);
+        }
+      }, [signOut, router]);
+
+      const handleLinkClick = useCallback(
+        (e: React.MouseEvent, isDisabled: boolean) => {
+          if (isDisabled) {
+            e.preventDefault();
+          }
+        },
+        []
+      );
+
+      const sidebarLinks = useMemo(
+        () =>
+          sidebarLinksConfig.map((link) => {
+            const isActive = activePath === link.href;
+            const isDisabled =
+              isAllDisabled || (link.authRequired && !isAuthenticated);
 
             return (
-              <Link
+              <SidebarLink
                 key={link.href}
-                href={href}
-                onClick={(e) => {
-                  if (isDisabled) {
-                    e.preventDefault(); // Prevent navigation for disabled links if needed
-                    router.push("/login"); // Ensure redirection happens
-                  }
-                }}
-                className={cn(
-                  "flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                  pathname === link.href && !isDisabled // Active state only if enabled
-                    ? "bg-primary text-primary-foreground"
-                    : "hover:bg-muted",
-                  isDisabled && "cursor-not-allowed opacity-50"
-                )}
-                aria-disabled={isDisabled}
-              >
-                <Icon className="h-5 w-5" />
-                <span>{link.title}</span>
-              </Link>
+                link={link}
+                isActive={isActive}
+                isDisabled={isDisabled}
+                onClick={(e) => handleLinkClick(e, isDisabled)}
+              />
             );
-          })}
-        </nav>
+          }),
+        [activePath, isAllDisabled, isAuthenticated, handleLinkClick]
+      );
 
-        {user && (
+      const logoutButton = useMemo(() => {
+        if (!isAuthenticated) return null;
+
+        return (
           <div className="mt-auto border-t p-4">
             <Button
               variant="ghost"
@@ -144,8 +167,32 @@ export function Sidebar() {
               <span>Log Out</span>
             </Button>
           </div>
-        )}
-      </div>
+        );
+      }, [isAuthenticated, handleLogout]);
+
+      if (loading) {
+        return <SidebarSkeleton />;
+      }
+
+      return (
+        <div className="flex h-full flex-col">
+          <nav className="flex-1 space-y-2 p-4">{sidebarLinks}</nav>
+          {logoutButton}
+        </div>
+      );
+    }),
+  })
+);
+
+// Main sidebar component with lazy loading
+export const Sidebar = memo(() => {
+  return (
+    <div className="sticky top-16 h-[calc(100vh-4rem)] w-64 border-r bg-background">
+      <Suspense fallback={<SidebarSkeleton />}>
+        <SidebarContent />
+      </Suspense>
     </div>
   );
-}
+});
+
+Sidebar.displayName = "Sidebar";

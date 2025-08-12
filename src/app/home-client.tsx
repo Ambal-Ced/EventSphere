@@ -1,5 +1,6 @@
 "use client"; // Client component
 
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -20,105 +21,131 @@ import {
   CheckCircle,
   CheckSquare,
   Clock,
+  Loader2,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
+import { Database } from "@/types/supabase";
 
-// Placeholder events - add 3 more (total 8)
-const featuredEvents = [
-  {
-    id: 1,
-    title: "Tech Conference 2024",
-    date: "March 15, 2024",
-    location: "San Francisco, CA",
-    image: "/images/tech-conf.png",
-    category: "Technology",
-    description:
-      "Join top industry leaders for the latest trends in AI, cloud, and more.",
-  },
-  {
-    id: 2,
-    title: "Music Festival",
-    date: "April 20, 2024",
-    location: "Austin, TX",
-    image: "/images/music-fest.jpg",
-    category: "Music",
-    description:
-      "Experience three days of live music from your favorite artists across multiple stages.",
-  },
-  {
-    id: 3,
-    title: "Food & Wine Expo",
-    date: "May 5, 2024",
-    location: "New York, NY",
-    image: "/images/food-expo.png",
-    category: "Food & Drink",
-    description:
-      "Taste delicious food and fine wines from around the world at this premier expo.",
-  },
-  {
-    id: 4,
-    title: "Art Exhibition",
-    date: "June 10, 2024",
-    location: "Paris, FR",
-    image: "/images/art-exhibit.jpg", // Placeholder - add this image
-    category: "Arts & Culture",
-    description:
-      "Explore stunning contemporary art pieces from renowned global artists.",
-  },
-  {
-    id: 5,
-    title: "Startup Pitch Night",
-    date: "July 22, 2024",
-    location: "London, UK",
-    image: "/images/startup-pitch.jpg", // Placeholder - add this image
-    category: "Business",
-    description:
-      "Watch innovative startups pitch their ideas to investors and industry experts.",
-  },
-  {
-    id: 6,
-    title: "Gaming Convention",
-    date: "August 5, 2024",
-    location: "Los Angeles, CA",
-    image: "/images/gaming-con.jpg", // Placeholder - add this image
-    category: "Gaming",
-    description:
-      "Play upcoming games, meet developers, and compete in tournaments.",
-  },
-  {
-    id: 7,
-    title: "Wellness Retreat",
-    date: "September 12, 2024",
-    location: "Bali, ID",
-    image: "/images/wellness-retreat.jpg", // Placeholder - add this image
-    category: "Health",
-    description:
-      "Rejuvenate your mind and body with yoga, meditation, and healthy workshops.",
-  },
-  {
-    id: 8,
-    title: "Film Festival",
-    date: "October 18, 2024",
-    location: "Toronto, CA",
-    image: "/images/film-fest.jpg", // Placeholder - add this image
-    category: "Film",
-    description: "Discover independent films and celebrate the art of cinema.",
-  },
-];
-
-// Placeholder Categories (can be fetched if needed)
-const categories = [
-  { name: "Music", count: 120, color: "bg-purple-500" },
-  { name: "Technology", count: 85, color: "bg-blue-500" },
-  { name: "Sports", count: 74, color: "bg-green-500" },
-  { name: "Food & Drink", count: 65, color: "bg-orange-500" },
-  { name: "Arts & Culture", count: 92, color: "bg-pink-500" },
-  { name: "Business", count: 45, color: "bg-yellow-500" },
-];
+type Event = Database["public"]["Tables"]["events"]["Row"];
 
 export default function HomeClient() {
+  const [featuredEvents, setFeaturedEvents] = useState<Event[]>([]);
+  const [categories, setCategories] = useState<
+    { name: string; count: number; color: string }[]
+  >([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Guard against React StrictMode double-invoking effects in dev
+  const hasInitialized = useRef(false);
+
+  useEffect(() => {
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
+    fetchFeaturedEvents();
+    fetchCategories();
+  }, []);
+
+  const fetchFeaturedEvents = async () => {
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from("events")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(8);
+
+      if (error) throw error;
+      setFeaturedEvents(data || []);
+    } catch (err: any) {
+      console.error("Error fetching featured events:", err);
+      setError("Failed to load featured events");
+      setFeaturedEvents([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const { data, error } = await supabase.from("events").select("type");
+
+      if (error) throw error;
+
+      // Count events by type and create category objects
+      const categoryCounts =
+        data?.reduce((acc: { [key: string]: number }, event) => {
+          const type = (event as any).type || "Other";
+          acc[type] = (acc[type] || 0) + 1;
+          return acc;
+        }, {}) || {};
+
+      // Convert to array format with colors
+      const categoryColors = [
+        "bg-purple-500",
+        "bg-blue-500",
+        "bg-green-500",
+        "bg-orange-500",
+        "bg-pink-500",
+        "bg-yellow-500",
+        "bg-red-500",
+        "bg-indigo-500",
+        "bg-teal-500",
+      ];
+
+      const categoriesArray = Object.entries(categoryCounts).map(
+        ([name, count], index) => ({
+          name,
+          count: count as number,
+          color: categoryColors[index % categoryColors.length],
+        })
+      );
+
+      setCategories(categoriesArray);
+    } catch (err: any) {
+      console.error("Error fetching categories:", err);
+      // Fallback to default categories if database fails
+      setCategories([
+        { name: "Music", count: 0, color: "bg-purple-500" },
+        { name: "Technology", count: 0, color: "bg-blue-500" },
+        { name: "Sports", count: 0, color: "bg-green-500" },
+        { name: "Food & Drink", count: 0, color: "bg-orange-500" },
+        { name: "Arts & Culture", count: 0, color: "bg-pink-500" },
+        { name: "Business", count: 0, color: "bg-yellow-500" },
+      ]);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    try {
+      return new Date(dateString).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+    } catch {
+      return "Date TBD";
+    }
+  };
+
+  const getDefaultImage = (type: string) => {
+    const typeImages: { [key: string]: string } = {
+      Technology: "/images/tech-conf.png",
+      Music: "/images/music-fest.jpg",
+      "Food & Drink": "/images/food-expo.png",
+      // Use existing images for other types
+      "Arts & Culture": "/images/event.jpg",
+      Business: "/images/tech-conf.png",
+      Gaming: "/images/event.jpg",
+      Health: "/images/event.jpg",
+      Film: "/images/event.jpg",
+    };
+    return typeImages[type] || "/images/event.jpg";
+  };
+
   return (
     <div className="flex flex-col gap-12">
       {/* Hero Section */}
@@ -256,60 +283,90 @@ export default function HomeClient() {
       <section>
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-3xl font-bold">Featured Events</h2>
-          <Button variant="ghost" className="gap-2">
-            View All <ArrowRight className="h-4 w-4" />
+          <Button variant="ghost" className="gap-2" asChild>
+            <Link href="/events">
+              View All <ArrowRight className="h-4 w-4" />
+            </Link>
           </Button>
         </div>
-        {/* Outer container for overflow and hover pause */}
-        <div className="group w-full overflow-hidden">
-          {/* Inner track with doubled content and animation */}
-          {/* Adjust duration-[40s] to control speed */}
-          <div className="flex w-max animate-marquee group-hover:[animation-play-state:paused]">
-            {[...featuredEvents, ...featuredEvents].map((event, index) => (
-              // Individual event card
-              <div
-                key={`${event.id}-${index}`}
-                className="w-80 flex-shrink-0 px-3"
-              >
-                <Link
-                  href={`/events/${event.id}`}
-                  className="block group/card relative overflow-hidden rounded-xl border bg-card transition-all duration-300 hover:shadow-lg hover:scale-105"
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <span className="ml-2 text-muted-foreground">
+              Loading events...
+            </span>
+          </div>
+        ) : error ? (
+          <div className="text-center py-12 text-muted-foreground">
+            <p>{error}</p>
+            <Button
+              variant="outline"
+              className="mt-4"
+              onClick={fetchFeaturedEvents}
+            >
+              Try Again
+            </Button>
+          </div>
+        ) : featuredEvents.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground">
+            <p>No events found. Be the first to create an event!</p>
+            <Button asChild className="mt-4">
+              <Link href="/create-event">Create Event</Link>
+            </Button>
+          </div>
+        ) : (
+          /* Outer container for overflow and hover pause */
+          <div className="group w-full overflow-hidden">
+            {/* Inner track with animation */}
+            <div className="flex w-max animate-marquee group-hover:[animation-play-state:paused]">
+              {featuredEvents.map((event, index) => (
+                // Individual event card
+                <div
+                  key={`${event.id}-${index}`}
+                  className="w-80 flex-shrink-0 px-3"
                 >
-                  <div className="aspect-video relative">
-                    <Image
-                      src={event.image}
-                      alt={event.title}
-                      fill
-                      className="object-cover brightness-75 transition-transform duration-300"
-                      priority={index < 4}
-                    />
-                  </div>
-                  <div className="p-4">
-                    <h3 className="mb-2 text-xl font-semibold line-clamp-1">
-                      {event.title}
-                    </h3>
-                    <p className="text-sm text-gray-400 line-clamp-2 mb-3 h-10">
-                      {event.description}
-                    </p>
-                    <div className="flex items-center gap-2 text-xs text-gray-400">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        {event.date}
-                      </div>
-                      <span className="opacity-50">|</span>
-                      <div className="flex items-center gap-1">
-                        <MapPin className="h-3 w-3" />
-                        {event.location}
+                  <Link
+                    href={`/event/${event.id}`}
+                    className="block group/card relative overflow-hidden rounded-xl border bg-card transition-all duration-300 hover:shadow-lg hover:scale-105"
+                  >
+                    <div className="aspect-video relative">
+                      <Image
+                        src={
+                          event.image_url ||
+                          getDefaultImage((event as any).type)
+                        }
+                        alt={event.title}
+                        fill
+                        className="object-cover brightness-75 transition-transform duration-300"
+                        priority={index < 4}
+                      />
+                    </div>
+                    <div className="p-4">
+                      <h3 className="mb-2 text-xl font-semibold line-clamp-1">
+                        {event.title}
+                      </h3>
+                      <p className="text-sm text-gray-400 line-clamp-2 mb-3 h-10">
+                        {event.description}
+                      </p>
+                      <div className="flex items-center gap-2 text-xs text-gray-400">
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          {formatDate(event.date)}
+                        </div>
+                        <span className="opacity-50">|</span>
+                        <div className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3" />
+                          {event.location}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  {/* Optional: Add a subtle overlay/button on hover if needed */}
-                  {/* <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/card:opacity-100 transition-opacity duration-300"></div> */}
-                </Link>
-              </div>
-            ))}
+                  </Link>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </section>
 
       {/* Call to Action Section */}

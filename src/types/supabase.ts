@@ -17,12 +17,14 @@ export interface Database {
           description: string;
           date: string;
           location: string;
-          type: string;
-          is_online: boolean;
-          creator_id: string;
+          category: string;
+          is_public: boolean;
+          user_id: string;
           max_participants: number | null;
           price: number | null;
           image_url: string | null;
+          status: string;
+          role: string;
         };
         Insert: {
           id?: string;
@@ -31,12 +33,14 @@ export interface Database {
           description: string;
           date: string;
           location: string;
-          type: string;
-          is_online: boolean;
-          creator_id: string;
+          category: string;
+          is_public: boolean;
+          user_id: string;
           max_participants?: number | null;
           price?: number | null;
           image_url?: string | null;
+          status?: string;
+          role?: string;
         };
         Update: {
           id?: string;
@@ -45,12 +49,14 @@ export interface Database {
           description?: string;
           date?: string;
           location?: string;
-          type?: string;
-          is_online?: boolean;
-          creator_id?: string;
+          category?: string;
+          is_public?: boolean;
+          user_id?: string;
           max_participants?: number | null;
           price?: number | null;
           image_url?: string | null;
+          status?: string;
+          role?: string;
         };
       };
       tickets: {

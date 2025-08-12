@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase";
 import { User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -38,11 +38,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 // Interface specifically for data fetched and displayed/edited on this page
 interface EditableProfileData {
@@ -122,78 +117,102 @@ export default function ProfilePage() {
   });
   const [birthdayDate, setBirthdayDate] = useState<Date | undefined>(undefined);
 
+  // 1) Ensure we know the current user/session
   useEffect(() => {
+    let cancelled = false;
+    const init = async () => {
+      setIsLoading(true);
+      setError(null);
+      const {
+        data: { session },
+        error,
+      } = await supabase.auth.getSession();
+      if (error || !session) {
+        router.push("/login");
+        setIsLoading(false);
+        return;
+      }
+      if (!cancelled) {
+        setUser(session.user);
+      }
+    };
+    init();
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
+
+  // 2) Fetch profile when we have a user id
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
     const fetchProfile = async () => {
       setIsLoading(true);
       setError(null);
-
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
-      if (sessionError || !session) {
-        router.push("/login");
-        return;
-      }
-      setUser(session.user);
-
       try {
         const { data: profileData, error: profileError } = await supabase
           .from("profiles")
           .select("*")
-          .eq("id", session.user.id)
+          .eq("id", user.id)
           .single();
-
         if (profileError) {
           if (profileError.code === "PGRST116") {
             setError("Profile not found. Please complete your profile.");
-            // Consider redirecting to complete-profile
-            // router.push('/complete-profile');
           } else {
             throw profileError;
           }
-          setProfile(null);
+          if (!cancelled) setProfile(null);
         } else if (profileData) {
-          setProfile(profileData as FullProfileData);
-          setAvatarUrl(profileData.avatar_url);
+          if (!cancelled) {
+            setProfile(profileData as FullProfileData);
+            setAvatarUrl(profileData.avatar_url);
+          }
         } else {
-          setError("Profile data is unexpectedly empty.");
-          setProfile(null);
+          if (!cancelled) {
+            setError("Profile data is unexpectedly empty.");
+            setProfile(null);
+          }
         }
       } catch (err: any) {
         console.error("Error fetching profile:", err);
-        setError(err.message || "An unexpected error occurred.");
-        setProfile(null);
+        if (!cancelled) {
+          setError(err.message || "An unexpected error occurred.");
+          setProfile(null);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
       }
-      setIsLoading(false);
     };
-
     fetchProfile();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
-    // Set up real-time subscription for profile updates
-    const profileSubscription = supabase
-      .channel("profile-changes")
+  // 3) Subscribe to profile changes for the current user id
+  useEffect(() => {
+    if (!user?.id) return;
+    const channel = supabase
+      .channel(`profile-changes-${user.id}`)
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
           table: "profiles",
-          filter: `id=eq.${user?.id}`,
+          filter: `id=eq.${user.id}`,
         },
         (payload) => {
-          console.log("Profile updated:", payload);
           const updatedProfile = payload.new as FullProfileData;
           setProfile(updatedProfile);
-          setAvatarUrl(updatedProfile.avatar_url);
+          setAvatarUrl(updatedProfile?.avatar_url ?? null);
         }
       )
       .subscribe();
-
     return () => {
-      profileSubscription.unsubscribe();
+      supabase.removeChannel(channel);
     };
-  }, [router, user?.id]);
+  }, [user?.id]);
 
   // -- Edit Mode Handlers --
   const handleEdit = () => {
@@ -438,8 +457,10 @@ export default function ProfilePage() {
 
   // -- Render Helpers --
   const getInitials = (fname?: string | null, lname?: string | null) => {
-    if (!fname) return "?";
-    return fname.substring(0, 2).toUpperCase();
+    const first = (fname?.trim?.()[0] ?? "").toUpperCase();
+    const last = (lname?.trim?.()[0] ?? "").toUpperCase();
+    const initials = `${first}${last}`.trim();
+    return initials || "?";
   };
 
   const renderTextField = (
