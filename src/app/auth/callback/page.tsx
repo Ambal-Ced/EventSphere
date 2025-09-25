@@ -37,7 +37,8 @@ export default function AuthCallbackPage() {
             !profile || requiredFields.some((field) => !profile[field]);
 
           if (profileError || isProfileIncomplete) {
-            router.push("/complete-profile");
+            // Force the user to authenticate (email + password) before completing profile
+            router.push("/login?next=/complete-profile");
           } else {
             router.push("/");
           }

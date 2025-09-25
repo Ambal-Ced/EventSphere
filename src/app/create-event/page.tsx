@@ -41,9 +41,7 @@ export default function CreateEventPage() {
     date: undefined as Date | undefined,
     is_online: false, // Added is_online field
   });
-  const [items, setItems] = useState([
-    { item_name: "", item_description: "", item_quantity: 1 },
-  ]);
+  const [items, setItems] = useState<{ item_name: string; item_description: string; item_quantity: number; }[]>([]);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
@@ -95,21 +93,7 @@ export default function CreateEventPage() {
       setIsSubmitting(false);
       return;
     }
-    if (!eventData.description.trim()) {
-      toast.error("Event description is required");
-      setIsSubmitting(false);
-      return;
-    }
-    if (!eventData.location.trim()) {
-      toast.error("Event location is required");
-      setIsSubmitting(false);
-      return;
-    }
-    if (!eventData.date) {
-      toast.error("Event date is required");
-      setIsSubmitting(false);
-      return;
-    }
+    // Allow optional fields; only title is strictly required for minimal draft
 
     // Additional validation for database constraints
     if (!eventData.title.trim() || eventData.title.trim().length < 1) {
@@ -118,14 +102,7 @@ export default function CreateEventPage() {
       return;
     }
 
-    if (
-      !eventData.description.trim() ||
-      eventData.description.trim().length < 1
-    ) {
-      toast.error("Event description cannot be empty");
-      setIsSubmitting(false);
-      return;
-    }
+    // Optional: skip strict description check to allow empty event items/details
 
     try {
       // Get current user
@@ -339,7 +316,9 @@ export default function CreateEventPage() {
           <DatePicker
             date={eventData.date}
             setDate={(date) => setEventData((prev) => ({ ...prev, date }))}
-            placeholder="Select event date"
+            placeholder="MM/DD/YYYY"
+            name="date"
+            required
           />
           <div className="flex items-center space-x-2">
             <input

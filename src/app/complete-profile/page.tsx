@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -16,6 +17,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { cn } from "@/lib/utils";
 import { format, differenceInYears } from "date-fns";
 import { createClient } from "@supabase/supabase-js";
+import { Camera } from "lucide-react";
 import { User } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -48,6 +50,9 @@ export default function CompleteProfilePage() {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [previewAvatarUrl, setPreviewAvatarUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     username: "",
     fname: "",
@@ -147,6 +152,7 @@ export default function CompleteProfilePage() {
         gender: formData.gender,
         interests: formData.interests.length > 0 ? formData.interests : null,
         role: formData.role === "none" ? null : formData.role || null,
+        avatar_url: avatarUrl || "/images/template/default_profile.svg",
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
@@ -225,7 +231,7 @@ export default function CompleteProfilePage() {
   if (!user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-muted/40 py-12 px-4">
-        <div className="w-full max-w-md rounded-lg bg-background p-8 shadow-lg text-center">
+        <div className="w-full max-w-md rounded-lg bg-background p-8 shadow-lg">
           <h1 className="text-2xl font-bold mb-4">
             Sign In to Complete Profile
           </h1>
@@ -294,6 +300,103 @@ export default function CompleteProfilePage() {
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Avatar uploader */}
+          <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+            <div className="relative">
+              <Avatar className="h-20 w-20 border">
+                <AvatarImage src={previewAvatarUrl || avatarUrl || "/images/template/default_profile.svg"} />
+                <AvatarFallback>?</AvatarFallback>
+              </Avatar>
+              <button
+                type="button"
+                className="absolute -bottom-2 -right-2 rounded-full bg-primary p-2 text-primary-foreground"
+                onClick={() => fileInputRef.current?.click()}
+                aria-label="Upload profile picture"
+              >
+                <Camera className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="w-full md:flex-1">
+              <p className="text-sm text-muted-foreground mb-2">
+                Upload a profile photo or keep the default.
+              </p>
+              <div className="w-full">
+                <Label className="mb-1 block">Upload Profile</Label>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file || !user) return;
+                    const objectUrl = URL.createObjectURL(file);
+                    setPreviewAvatarUrl(objectUrl);
+                    try {
+                      const { data: existing } = await supabase.storage
+                        .from("avatars")
+                        .list(user.id);
+                      if (existing && existing.length) {
+                        await supabase.storage
+                          .from("avatars")
+                          .remove(existing.map((f) => `${user.id}/${f.name}`));
+                      }
+                      const ext = file.name.split(".").pop();
+                      const ts = Date.now();
+                      const path = `${user.id}/avatar-${ts}.${ext}`;
+                      const { error: upErr } = await supabase.storage
+                        .from("avatars")
+                        .upload(path, file, { cacheControl: "0", upsert: true });
+                      if (upErr) throw upErr;
+                      const { data } = supabase.storage
+                        .from("avatars")
+                        .getPublicUrl(path);
+                      const url = `${data.publicUrl}?v=${ts}`;
+                      setAvatarUrl(url);
+                    } catch (err) {
+                      console.error("Avatar upload failed:", err);
+                    }
+                  }}
+                />
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file || !user) return;
+                  const objectUrl = URL.createObjectURL(file);
+                  setPreviewAvatarUrl(objectUrl);
+                  try {
+                    // Remove old files in user's folder
+                    const { data: existing } = await supabase.storage
+                      .from("avatars")
+                      .list(user.id);
+                    if (existing && existing.length) {
+                      await supabase.storage
+                        .from("avatars")
+                        .remove(existing.map((f) => `${user.id}/${f.name}`));
+                    }
+                    const ext = file.name.split(".").pop();
+                    const ts = Date.now();
+                    const path = `${user.id}/avatar-${ts}.${ext}`;
+                    const { error: upErr } = await supabase.storage
+                      .from("avatars")
+                      .upload(path, file, { cacheControl: "0", upsert: true });
+                    if (upErr) throw upErr;
+                    const { data } = supabase.storage
+                      .from("avatars")
+                      .getPublicUrl(path);
+                    const url = `${data.publicUrl}?v=${ts}`;
+                    setAvatarUrl(url);
+                  } catch (err) {
+                    console.error("Avatar upload failed:", err);
+                  }
+                }}
+              />
+            </div>
+          </div>
+
           {/* Reuse form fields from the original multi-step form */}
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             {/* Username */}
@@ -404,7 +507,9 @@ export default function CompleteProfilePage() {
               <DatePicker
                 date={formData.birthday}
                 setDate={handleDateChange}
-                placeholder="dd/mm/yyyy"
+                placeholder="MM/DD/YYYY"
+                name="birthday"
+                required
               />
               {errors.birthday && (
                 <p className="text-xs text-destructive mt-1">
@@ -470,7 +575,7 @@ export default function CompleteProfilePage() {
                       : "outline"
                   }
                   onClick={() => handleInterestToggle(interest)}
-                  className="justify-start text-left h-auto py-3"
+                  className="justify-start text-left h-auto py-3 whitespace-normal break-words text-pretty"
                 >
                   {interest}
                 </Button>

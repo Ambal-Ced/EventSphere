@@ -127,26 +127,64 @@ export default function EventsPage() {
     try {
       setIsLoading(true);
       setError(null); // Clear any previous errors
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
 
-      // Fetch events that are NOT archived, cancelled, or deleted
-      // These events should not appear in the main events listing but are kept for analytics
-      const { data, error } = await supabase
-        .from("events")
-        .select("*")
-        .not("status", "in", "('cancelled', 'archived')")
-        .order("date", { ascending: true });
+      if (userError) throw userError;
 
-      if (error) {
-        console.error("Error fetching events:", error);
+      if (!user) {
         setEvents([]);
-        setError(null); // Don't show error, just show "no events" message
-      } else {
-        setEvents(data || []);
-        setError(null);
+        setCategories([]);
+        return;
       }
 
+      // Fetch user-created events and joined events
+      const [{ data: collabRows, error: collabError }, { data: ownEvents, error: ownError }] = await Promise.all([
+        supabase
+          .from("event_collaborators")
+          .select("event_id")
+          .eq("user_id", user.id),
+        supabase
+        .from("events")
+        .select("*")
+          .eq("user_id", user.id)
+          .not("status", "in", "('cancelled', 'archived')"),
+      ]);
+
+      if (collabError) throw collabError;
+      if (ownError) throw ownError;
+
+      const joinedEventIds = (collabRows || []).map((r) => r.event_id);
+
+      let joinedEvents: Event[] = [];
+      if (joinedEventIds.length > 0) {
+        const { data: joinedData, error: joinedError } = await supabase
+          .from("events")
+          .select("*")
+          .in("id", joinedEventIds)
+          .not("status", "in", "('cancelled', 'archived')");
+        if (joinedError) throw joinedError;
+        joinedEvents = joinedData || [];
+      }
+
+      // Merge results, de-duplicate, and sort by date ascending
+      const mapById = new Map<string, Event>();
+      [...(ownEvents || []), ...joinedEvents].forEach((evt) => {
+        if (!mapById.has(evt.id)) mapById.set(evt.id, evt);
+      });
+      const merged = Array.from(mapById.values()).sort(
+        (a, b) => new Date(a.date as any).getTime() - new Date(b.date as any).getTime()
+      );
+
+      setEvents(merged);
+      setError(null);
+
       // Extract unique categories from events
-      const uniqueCategories = [...new Set(data?.map(event => event.category).filter(Boolean) || [])];
+      const uniqueCategories = [
+        ...new Set(merged.map((event) => event.category).filter(Boolean) as string[]),
+      ];
       setCategories(uniqueCategories);
     } catch (err: any) {
       console.error("Error fetching events:", err);
@@ -320,7 +358,7 @@ export default function EventsPage() {
     } = {
       coming_soon: {
         label: "Coming Soon",
-        className: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+        className: "bg-green-500/20 text-green-400 border-green-500/30",
       },
       ongoing: {
         label: "Ongoing",

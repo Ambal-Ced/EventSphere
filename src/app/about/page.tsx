@@ -98,32 +98,40 @@ export default function AboutPage() {
       <section className="mb-16">
         <h2 className="text-3xl font-semibold mb-8">Our Values</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="bg-muted/30 p-6 rounded-lg">
-            <h3 className="text-xl font-semibold mb-2">Simplicity</h3>
-            <p className="text-muted-foreground">
+          <div className="bg-green-500/10 border border-green-500/20 p-6 rounded-lg hover:bg-green-500/20 hover:border-green-500/40 hover:scale-105 transition-all duration-300 cursor-pointer">
+            <h3 className="text-xl font-semibold mb-2 text-green-400">
+              Simplicity
+            </h3>
+            <p className="text-green-300">
               We believe technology should make life easier, not more
               complicated. Our platform is designed to be intuitive and easy to
               use, without sacrificing power or flexibility.
             </p>
           </div>
-          <div className="bg-muted/30 p-6 rounded-lg">
-            <h3 className="text-xl font-semibold mb-2">Innovation</h3>
-            <p className="text-muted-foreground">
+          <div className="bg-amber-500/10 border border-amber-500/20 p-6 rounded-lg hover:bg-amber-500/20 hover:border-amber-500/40 hover:scale-105 transition-all duration-300 cursor-pointer">
+            <h3 className="text-xl font-semibold mb-2 text-amber-400">
+              Innovation
+            </h3>
+            <p className="text-amber-300">
               We're constantly exploring new ways to improve the event
               experience, from enhanced analytics to virtual event integration.
             </p>
           </div>
-          <div className="bg-muted/30 p-6 rounded-lg">
-            <h3 className="text-xl font-semibold mb-2">Community</h3>
-            <p className="text-muted-foreground">
+          <div className="bg-green-500/10 border border-green-500/20 p-6 rounded-lg hover:bg-green-500/20 hover:border-green-500/40 hover:scale-105 transition-all duration-300 cursor-pointer">
+            <h3 className="text-xl font-semibold mb-2 text-green-400">
+              Community
+            </h3>
+            <p className="text-green-300">
               We're building more than just a platform; we're creating a
               community of event professionals who share ideas, best practices,
               and support each other.
             </p>
           </div>
-          <div className="bg-muted/30 p-6 rounded-lg">
-            <h3 className="text-xl font-semibold mb-2">Reliability</h3>
-            <p className="text-muted-foreground">
+          <div className="bg-amber-500/10 border border-amber-500/20 p-6 rounded-lg hover:bg-amber-500/20 hover:border-amber-500/40 hover:scale-105 transition-all duration-300 cursor-pointer">
+            <h3 className="text-xl font-semibold mb-2 text-amber-400">
+              Reliability
+            </h3>
+            <p className="text-amber-300">
               Events are time-sensitive, and we understand the importance of a
               reliable platform. We're committed to providing a service you can
               count on, every time.
@@ -245,7 +253,7 @@ export default function AboutPage() {
             <span className="font-semibold">Email:</span>{" "}
             <a
               href="mailto:trybyteanalytics@gmail.com"
-              className="text-blue-500 hover:underline"
+              className="text-green-500 hover:underline"
             >
               trybyteanalytics@gmail.com
             </a>

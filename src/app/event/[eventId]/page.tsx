@@ -112,7 +112,7 @@ export default function SingleEventPage() {
 
   // Status options
   const statusOptions = [
-    { value: "coming_soon", label: "Coming Soon", color: "text-blue-400" },
+    { value: "coming_soon", label: "Coming Soon", color: "text-green-400" },
     { value: "ongoing", label: "Ongoing", color: "text-green-400" },
     { value: "done", label: "Done/Ended", color: "text-gray-400" },
     { value: "cancelled", label: "Cancelled", color: "text-red-400" },
@@ -142,6 +142,14 @@ export default function SingleEventPage() {
   });
   const [editingItem, setEditingItem] = useState<any>(null);
 
+  // Event Script state
+  const [scriptText, setScriptText] = useState<string>("");
+  // Scripts uploaded
+  const [scripts, setScripts] = useState<any[]>([]);
+  const [isUploadingScript, setIsUploadingScript] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string>("");
+  const [showScriptPreview, setShowScriptPreview] = useState(false);
+
   // Delete confirmation state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteType, setDeleteType] = useState<"item" | "event">("item");
@@ -157,6 +165,7 @@ export default function SingleEventPage() {
     if (event) {
       fetchCollaborators();
       fetchEventItems();
+      fetchEventScripts();
       checkUserAccess();
     }
   }, [event]);
@@ -615,6 +624,38 @@ export default function SingleEventPage() {
     } catch (error: any) {
       console.error("Error fetching event items:", error);
     }
+  };
+
+  const fetchEventScripts = async () => {
+    if (!event) return;
+    try {
+      const { data, error } = await supabase
+        .from("event_script")
+        .select("*")
+        .eq("event_id", event.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      setScripts(data || []);
+    } catch (error: any) {
+      console.error("Error fetching scripts:", error);
+    }
+  };
+
+  const getStoragePathFromPublicUrl = (publicUrl: string, bucketId: string) => {
+    try {
+      const url = new URL(publicUrl);
+      const idx = url.pathname.indexOf(`/${bucketId}/`);
+      if (idx !== -1) {
+        return url.pathname.substring(idx + bucketId.length + 2); // skip '/{bucketId}/'
+      }
+      // Fallback: look for last '/public/' then bucket
+      const marker = `/public/${bucketId}/`;
+      const markerIdx = url.pathname.indexOf(marker);
+      if (markerIdx !== -1) {
+        return url.pathname.substring(markerIdx + marker.length);
+      }
+    } catch {}
+    return "";
   };
 
   const handleAddItem = async () => {
@@ -1189,7 +1230,7 @@ export default function SingleEventPage() {
                           onClick={() => handleEditItem(item)}
                           className="text-green-400 hover:bg-green-500/20 hover:text-green-300"
                         >
-                          <Edit className="h-4 h-4" />
+                          <Edit className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
@@ -1197,7 +1238,7 @@ export default function SingleEventPage() {
                           onClick={() => handleDeleteItem(item.id)}
                           className="text-red-400 hover:bg-red-500/20 hover:text-red-300"
                         >
-                          <Trash2 className="h-4 h-4" />
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
 
@@ -1232,20 +1273,161 @@ export default function SingleEventPage() {
                 </div>
               </div>
             )}
+
+            {/* Event Script */}
+            <div className="p-6">
+              <h3 className="text-xl font-semibold text-white mb-4">Event Script</h3>
+              <div className="grid grid-cols-1 gap-6">
+                <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
+                  <h4 className="text-lg font-semibold text-amber-400 mb-3">
+                    Event Script
+                  </h4>
+                  {isOwner && (
+                    <div className="mb-4">
+                      <input
+                        id="script-file"
+                        type="file"
+                        accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file || !event) return;
+                          setIsUploadingScript(true);
+                          try {
+                            const safeName = `${event.id}-${Date.now()}-${file.name.replace(/[^A-Za-z0-9._-]/g, "_")}`;
+                            const { data: upload, error: upErr } = await supabase.storage
+                              .from("event-docs")
+                              .upload(safeName, file, { upsert: false });
+                            if (upErr) throw upErr;
+                            const { data: pub } = supabase.storage
+                              .from("event-docs")
+                              .getPublicUrl(upload.path);
+                            const publicUrl = pub?.publicUrl || "";
+                            const {
+                              data: { user },
+                            } = await supabase.auth.getUser();
+                            const { error: insErr } = await supabase
+                              .from("event_script")
+                              .insert({
+                                event_id: event.id,
+                                user_id: user?.id,
+                                file_url: publicUrl,
+                                file_name: file.name,
+                                file_size: file.size,
+                                mime_type: file.type,
+                              });
+                            if (insErr) throw insErr;
+                            toast.success("Script uploaded");
+                            fetchEventScripts();
+                          } catch (err: any) {
+                            toast.error(err.message || "Upload failed");
+                          } finally {
+                            setIsUploadingScript(false);
+                            (e.target as HTMLInputElement).value = "";
+                          }
+                        }}
+                      />
+                      <label
+                        htmlFor="script-file"
+                        className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-amber-600 text-white hover:bg-amber-700 cursor-pointer"
+                      >
+                        {isUploadingScript ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" /> Uploading...
+                          </>
+                        ) : (
+                          <>Upload DOCX/PDF</>
+                        )}
+                      </label>
+                    </div>
+                  )}
+                  <div className="space-y-2">
+                    {scripts.length === 0 ? (
+                      <div className="text-slate-400 text-sm">No scripts uploaded.</div>
+                    ) : (
+                      scripts.map((s) => (
+                        <div key={s.id} className="flex items-center justify-between bg-slate-800/60 border border-slate-600 rounded-md p-3">
+                          <div className="min-w-0">
+                            <div className="text-white font-medium truncate">{s.file_name}</div>
+                            <div className="text-slate-400 text-xs">{s.mime_type} • {(s.file_size || 0) / 1024 | 0} KB</div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              className="border-amber-500/30 text-amber-400 hover:bg-amber-500/20"
+                              onClick={async () => {
+                                try {
+                                  let url = s.file_url;
+                                  if (s.mime_type === "application/pdf" || url.toLowerCase().endsWith(".pdf")) {
+                                    url = `${s.file_url}#toolbar=0&navpanes=0&scrollbar=0`;
+                                  } else if (
+                                    s.mime_type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+                                    url.toLowerCase().endsWith(".docx")
+                                  ) {
+                                    url = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(s.file_url)}`;
+                                  }
+                                  setPreviewUrl(url);
+                                  setShowScriptPreview(true);
+                                } catch (err: any) {
+                                  toast.error("Failed to preview file");
+                                }
+                              }}
+                            >
+                              Preview
+                            </Button>
+                            {isOwner && (
+                              <Button
+                                variant="destructive"
+                                onClick={async () => {
+                                  try {
+                                    // First delete DB record
+                                    const { error: delErr } = await supabase
+                                      .from("event_script")
+                                      .delete()
+                                      .eq("id", s.id);
+                                    if (delErr) throw delErr;
+
+                                    // Then delete file from storage bucket
+                                    const path = getStoragePathFromPublicUrl(s.file_url, "event-docs");
+                                    if (path) {
+                                      const { error: storageErr } = await supabase.storage
+                                        .from("event-docs")
+                                        .remove([path]);
+                                      if (storageErr) console.warn("Failed to remove from storage:", storageErr);
+                                    }
+
+                                    toast.success("Deleted script");
+                                    fetchEventScripts();
+                                  } catch (err: any) {
+                                    toast.error("Failed to delete");
+                                  }
+                                }}
+                              >
+                                Delete
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Right Sidebar - Blue Rectangle Concept */}
+          {/* Right Sidebar - Green Rectangle Concept */}
           <div className="lg:col-span-1">
             <div className="sticky top-8 space-y-6 max-h-[calc(100vh-4rem)] overflow-y-auto">
               {/* Event Actions */}
-              <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-6">
-                <h3 className="text-xl font-semibold text-blue-400 mb-6">
+              <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-6">
+                <h3 className="text-xl font-semibold text-green-400 mb-6">
                   Event Actions
                 </h3>
                 <div className="space-y-4">
                   <Button
                     variant="outline"
-                    className="w-full justify-start border-blue-500/30 text-blue-400 hover:bg-blue-500/20 hover:text-blue-300"
+                    className="w-full justify-start border-green-500/30 text-green-400 hover:bg-green-500/20 hover:text-green-300"
                     onClick={() => handleEventAction("settings")}
                   >
                     <Settings className="w-4 h-4 mr-3" />
@@ -1253,7 +1435,7 @@ export default function SingleEventPage() {
                   </Button>
                   <Button
                     variant="outline"
-                    className="w-full justify-start border-blue-500/30 text-blue-400 hover:bg-blue-500/20 hover:text-blue-300"
+                    className="w-full justify-start border-green-500/30 text-green-400 hover:bg-green-500/20 hover:text-green-300"
                     onClick={() => handleEventAction("chat")}
                   >
                     <MessageCircle className="w-4 h-4 mr-3" />
@@ -1845,7 +2027,7 @@ export default function SingleEventPage() {
                 onClick={handleCancelItemForm}
                 className="text-slate-400 hover:text-white"
               >
-                <X className="h-4 h-4" />
+                <X className="h-4 w-4" />
               </Button>
             </div>
 
@@ -1959,6 +2141,26 @@ export default function SingleEventPage() {
                 )}
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Script Preview Modal */}
+      {showScriptPreview && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-slate-800 border border-amber-500/30 rounded-lg p-6 w-full max-w-3xl mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold text-white">Script Preview</h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowScriptPreview(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+            <iframe src={previewUrl} className="w-full h-[70vh] rounded-md bg-white" />
           </div>
         </div>
       )}

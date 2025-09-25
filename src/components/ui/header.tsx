@@ -2,25 +2,12 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import { User as AuthUser } from "@supabase/supabase-js"; // Supabase User type
 import { cn } from "@/lib/utils";
-import {
-  Bell,
-  MessageSquare,
-  Settings,
-  User as UserIcon,
-  LogOut,
-} from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Bell, MessageSquare } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 
@@ -115,7 +102,16 @@ export function Header() {
       {/* Logo and Main Navigation */}
       <div className="flex-shrink-0">
         <Link href="/" className="flex items-center gap-2 font-semibold">
-          {/* <Package2 className="h-6 w-6" /> Replace with your logo */}
+          <div className="relative h-8 w-8">
+            <Image
+              src="/images/template/eventsphere.jpg"
+              alt="EventSphere logo"
+              fill
+              className="object-contain rounded-full"
+              sizes="(max-width: 768px) 32px, 32px"
+              priority
+            />
+          </div>
           <span className="text-lg">EventSphere</span>
         </Link>
       </div>
@@ -180,18 +176,16 @@ export function Header() {
                 2
               </span>
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="relative rounded-full"
-            >
-              <MessageSquare className="h-5 w-5" />
-              <span className="sr-only">Messages</span>
-            </Button>
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-full">
+
+            <div className="relative group">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-full hover:bg-muted/50 transition-colors"
+                asChild
+              >
+                <Link href="/profile">
                   <Avatar className="h-8 w-8">
                     <AvatarImage
                       src={profile?.avatar_url}
@@ -201,46 +195,39 @@ export function Header() {
                       {getInitials(profile?.fname)}
                     </AvatarFallback>
                   </Avatar>
-                  <span className="sr-only">User menu</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel className="font-normal">
-                  <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">
-                      {profile?.fname} {profile?.lname}
-                    </p>
-                    <p className="text-xs leading-none text-muted-foreground">
-                      {user.email}
-                    </p>
+                  <span className="sr-only">Profile</span>
+                </Link>
+              </Button>
+
+              {/* Hover Tooltip */}
+              <div className="absolute right-0 top-full mt-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+                <div className="bg-slate-900 text-white rounded-lg p-3 shadow-lg border border-slate-700 min-w-[200px]">
+                  <div className="flex items-center gap-3 mb-2">
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage
+                        src={profile?.avatar_url}
+                        className="object-cover"
+                      />
+                      <AvatarFallback>
+                        {getInitials(profile?.fname)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-medium text-sm">
+                        {profile?.fname} {profile?.lname}
+                      </p>
+                      <p className="text-xs text-slate-300">{user?.email}</p>
+                    </div>
                   </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/profile" className="flex items-center gap-2">
-                    <UserIcon className="h-4 w-4" />
-                    Profile
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/settings" className="flex items-center gap-2">
-                    <Settings className="h-4 w-4" />
-                    Settings
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={async () => {
-                    await supabase.auth.signOut();
-                    router.push("/login");
-                  }}
-                  className="flex items-center gap-2 text-red-600 hover:text-red-700 hover:bg-red-50"
-                >
-                  <LogOut className="h-4 w-4" />
-                  Log out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                  <div className="text-xs text-slate-300 text-center">
+                    Click to view profile
+                  </div>
+                </div>
+
+                {/* Arrow pointing up */}
+                <div className="absolute -top-1 right-4 w-2 h-2 bg-slate-900 border-l border-t border-slate-700 transform rotate-45"></div>
+              </div>
+            </div>
           </>
         ) : (
           <>

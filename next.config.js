@@ -11,7 +11,27 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
   images: {
-    domains: ["localhost", ...(supabaseHost ? [supabaseHost] : [])],
+    remotePatterns: [
+      ...(supabaseHost
+        ? [
+            {
+              protocol: "https",
+              hostname: supabaseHost,
+              pathname: "/**",
+            },
+          ]
+        : []),
+      {
+        protocol: "http",
+        hostname: "localhost",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "localhost",
+        pathname: "/**",
+      },
+    ],
   },
 };
 

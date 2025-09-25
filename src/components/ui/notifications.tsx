@@ -60,7 +60,7 @@ export function NotificationsDropdown() {
       case "error":
         return "text-red-500";
       default:
-        return "text-blue-500";
+        return "text-green-500";
     }
   };
 

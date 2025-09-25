@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@supabase/supabase-js";
 import { cn } from "@/lib/utils";
+import { Eye, EyeOff } from "lucide-react";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -16,16 +17,23 @@ const supabase = createClient(
 
 export default function LoginPage() {
   const router = useRouter();
+  const [nextPath, setNextPath] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     // Always sign out the user on this page to prevent auto-login
     supabase.auth.signOut();
+    try {
+      const url = new URL(window.location.href);
+      const next = url.searchParams.get("next");
+      if (next) setNextPath(next);
+    } catch {}
   }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -59,8 +67,8 @@ export default function LoginPage() {
           .single();
 
         if (profileError || !profile) {
-          // No profile exists, redirect to complete profile
-          router.push("/complete-profile");
+          // No profile exists, redirect to next or complete-profile
+          router.push(nextPath || "/complete-profile");
         } else {
           // Profile exists, redirect to home
           router.push("/");
@@ -105,15 +113,30 @@ export default function LoginPage() {
           </div>
           <div>
             <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              value={formData.password}
-              onChange={handleInputChange}
-              required
-              className={cn(error && "border-destructive")}
-            />
+            <div className="relative">
+              <Input
+                id="password"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                value={formData.password}
+                onChange={handleInputChange}
+                required
+                className={cn("pr-10", error && "border-destructive")}
+              />
+              <button
+                type="button"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                onClick={() => setShowPassword((s) => !s)}
+                aria-label="Toggle password visibility"
+              >
+                {!showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+          <div className="text-right text-sm">
+            <Link href="/reset" className="text-primary hover:underline">
+              Forgot password?
+            </Link>
           </div>
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? "Signing In..." : "Sign In"}

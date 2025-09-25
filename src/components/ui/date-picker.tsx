@@ -1,20 +1,29 @@
 "use client";
 
 import * as React from "react";
-import { format } from "date-fns";
+import { format, isValid as isValidDate } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
+import { Calendar as CalendarIcon } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Button } from "@/components/ui/button";
 
 export function DatePicker({
   date,
   setDate,
   placeholder = "MM/DD/YYYY",
+  name,
+  required,
 }: {
   date?: Date;
   setDate: (date: Date | undefined) => void;
   placeholder?: string;
+  name?: string;
+  required?: boolean;
 }) {
   const [inputValue, setInputValue] = React.useState("");
+  const [open, setOpen] = React.useState(false);
 
   // Format date when it changes
   React.useEffect(() => {
@@ -45,26 +54,73 @@ export function DatePicker({
 
     // Try to parse the date if we have a complete format
     if (value.length === 10) {
-      const [month, day, year] = value.split("/");
-      const parsedDate = new Date(
-        parseInt(year),
-        parseInt(month) - 1,
-        parseInt(day)
-      );
+      const [monthStr, dayStr, yearStr] = value.split("/");
+      const month = parseInt(monthStr, 10);
+      const day = parseInt(dayStr, 10);
+      const year = parseInt(yearStr, 10);
+      const parsedDate = new Date(year, month - 1, day);
 
-      // Check if it's a valid date
-      if (!isNaN(parsedDate.getTime())) {
+      // Basic bounds check before accepting
+      const looksReasonable = year >= 1900 && year <= 2100 && month >= 1 && month <= 12 && day >= 1 && day <= 31;
+
+      if (looksReasonable && isValidDate(parsedDate)) {
         setDate(parsedDate);
       }
     }
   };
 
+  // We deliberately avoid native pattern validation to prevent blocking submission.
+  // Parsing/auto-formatting above will still set a valid Date when possible.
+
   return (
-    <Input
-      value={inputValue}
-      onChange={handleInputChange}
-      placeholder={placeholder}
-      className={cn("w-full", !date && "text-muted-foreground")}
-    />
+    <div className="relative flex items-center">
+      {/* Hidden input carries the canonical ISO value for form validation/submission */}
+      {name ? (
+        <input
+          type="hidden"
+          name={name}
+          value={date ? format(date, "yyyy-MM-dd") : ""}
+          required={required}
+          aria-hidden="true"
+        />
+      ) : null}
+      <Input
+        type="text"
+        value={inputValue}
+        onChange={(e) => {
+          handleInputChange(e);
+        }}
+        placeholder={placeholder}
+        inputMode="numeric"
+        maxLength={10}
+        className={cn("w-full pr-10", !date && "text-muted-foreground")}
+      />
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="absolute right-1 h-8 w-8"
+            aria-label="Open calendar"
+          >
+            <CalendarIcon className="h-4 w-4" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="end" className="w-auto p-0">
+          <Calendar
+            mode="single"
+            selected={date}
+            onSelect={(d: Date | undefined) => {
+              setDate(d);
+              if (d) {
+                setInputValue(format(d, "MM/dd/yyyy"));
+              }
+              setOpen(false);
+            }}
+          />
+        </PopoverContent>
+      </Popover>
+    </div>
   );
 }

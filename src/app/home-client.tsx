@@ -2,9 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
-  Search,
   Calendar,
   MapPin,
   ArrowRight,
@@ -52,14 +50,57 @@ export default function HomeClient() {
   const fetchFeaturedEvents = async () => {
     try {
       setIsLoading(true);
-      const { data, error } = await supabase
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError) throw userError;
+
+      if (!user) {
+        setFeaturedEvents([]);
+        return;
+      }
+
+      // Fetch event IDs the user has joined (member or moderator)
+      const [{ data: collabRows, error: collabError }, { data: ownEvents, error: ownError }] = await Promise.all([
+        supabase
+          .from("event_collaborators")
+          .select("event_id")
+          .eq("user_id", user.id),
+        supabase
+          .from("events")
+          .select("*")
+          .eq("user_id", user.id)
+          .not("status", "in", "('cancelled', 'archived')"),
+      ]);
+
+      if (collabError) throw collabError;
+      if (ownError) throw ownError;
+
+      const joinedEventIds = (collabRows || []).map((r) => r.event_id);
+
+      let joinedEvents: Event[] = [];
+      if (joinedEventIds.length > 0) {
+        const { data: joinedData, error: joinedError } = await supabase
         .from("events")
         .select("*")
-        .order("created_at", { ascending: false })
-        .limit(8);
+          .in("id", joinedEventIds)
+          .not("status", "in", "('cancelled', 'archived')");
+        if (joinedError) throw joinedError;
+        joinedEvents = joinedData || [];
+      }
 
-      if (error) throw error;
-      setFeaturedEvents(data || []);
+      // Merge, de-duplicate, sort by created_at desc, and take top 8
+      const mapById = new Map<string, Event>();
+      [...(ownEvents || []), ...joinedEvents].forEach((evt) => {
+        if (!mapById.has(evt.id)) mapById.set(evt.id, evt);
+      });
+      const merged = Array.from(mapById.values()).sort((a, b) =>
+        new Date(b.created_at as any).getTime() - new Date(a.created_at as any).getTime()
+      );
+
+      setFeaturedEvents(merged.slice(0, 8));
     } catch (err: any) {
       console.error("Error fetching featured events:", err);
       setError("Failed to load featured events");
@@ -86,7 +127,7 @@ export default function HomeClient() {
       // Convert to array format with colors
       const categoryColors = [
         "bg-purple-500",
-        "bg-blue-500",
+        "bg-green-500",
         "bg-green-500",
         "bg-orange-500",
         "bg-pink-500",
@@ -110,7 +151,7 @@ export default function HomeClient() {
       // Fallback to default categories if database fails
       setCategories([
         { name: "Music", count: 0, color: "bg-purple-500" },
-        { name: "Technology", count: 0, color: "bg-blue-500" },
+        { name: "Technology", count: 0, color: "bg-green-500" },
         { name: "Sports", count: 0, color: "bg-green-500" },
         { name: "Food & Drink", count: 0, color: "bg-orange-500" },
         { name: "Arts & Culture", count: 0, color: "bg-pink-500" },
@@ -159,28 +200,12 @@ export default function HomeClient() {
           priority
         />
         {/* Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-r from-purple-500/60 to-blue-500/60 backdrop-blur-[2px]" />
+        <div className="absolute inset-0 bg-gradient-to-r from-purple-500/60 to-green-500/60 backdrop-blur-[2px]" />
         <div className="relative z-10 flex h-full flex-col items-center justify-center px-4 text-center text-white">
-          <h1 className="mb-6 text-5xl font-bold">
-            Discover Amazing Events Near You
-          </h1>
+          <h1 className="mb-6 text-5xl font-bold">Manage Events Effortlessly</h1>
           <p className="mb-8 text-lg">
-            Find and book tickets for the best events in your area
+            Create events, add items and scripts, assign tasks, and track progress
           </p>
-          <div className="flex w-full max-w-2xl items-center gap-2 rounded-full bg-white/10 p-2 backdrop-blur-md">
-            <Search className="ml-4 h-5 w-5 text-white" />
-            <Input
-              type="text"
-              placeholder="Search events, venues, or artists..."
-              className="border-0 bg-transparent text-white placeholder:text-white/70 focus-visible:ring-0"
-            />
-            <Button
-              size="lg"
-              className="rounded-full bg-white text-primary hover:bg-white/90"
-            >
-              Search Events
-            </Button>
-          </div>
         </div>
       </section>
 
@@ -191,88 +216,98 @@ export default function HomeClient() {
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* Step 1 */}
-          <div className="flex flex-col items-center text-center p-6 rounded-xl hover:bg-muted/50 transition-colors">
-            <div className="mb-4 p-4 rounded-full bg-primary/10">
-              <Calendar className="h-8 w-8 text-primary" />
+          <div className="flex flex-col items-center text-center p-6 rounded-xl border border-green-500/10 hover:bg-green-500/5 hover:border-green-500/20 hover:scale-105 transition-all duration-300 cursor-pointer">
+            <div className="mb-4 p-4 rounded-full bg-green-500/10">
+              <Calendar className="h-8 w-8 text-green-500" />
             </div>
-            <h3 className="text-xl font-semibold mb-2">
+            <h3 className="text-xl font-semibold mb-2 text-green-400">
               Step 1: Go to Event Page
             </h3>
-            <p className="text-muted-foreground">
+            <p className="text-green-300">
               Navigate to the events page to start creating your event
             </p>
           </div>
           {/* Step 2 */}
-          <div className="flex flex-col items-center text-center p-6 rounded-xl hover:bg-muted/50 transition-colors">
-            <div className="mb-4 p-4 rounded-full bg-primary/10">
-              <Plus className="h-8 w-8 text-primary" />
+          <div className="flex flex-col items-center text-center p-6 rounded-xl border border-amber-500/10 hover:bg-amber-500/5 hover:border-amber-500/20 hover:scale-105 transition-all duration-300 cursor-pointer">
+            <div className="mb-4 p-4 rounded-full bg-amber-500/10">
+              <Plus className="h-8 w-8 text-amber-500" />
             </div>
-            <h3 className="text-xl font-semibold mb-2">Step 2: Create Event</h3>
-            <p className="text-muted-foreground">
+            <h3 className="text-xl font-semibold mb-2 text-amber-400">
+              Step 2: Create Event
+            </h3>
+            <p className="text-amber-300">
               Click the create event button to start setting up your event
             </p>
           </div>
           {/* Step 3 */}
-          <div className="flex flex-col items-center text-center p-6 rounded-xl hover:bg-muted/50 transition-colors">
-            <div className="mb-4 p-4 rounded-full bg-primary/10">
-              <Edit className="h-8 w-8 text-primary" />
+          <div className="flex flex-col items-center text-center p-6 rounded-xl border border-green-500/10 hover:bg-green-500/5 hover:border-green-500/20 hover:scale-105 transition-all duration-300 cursor-pointer">
+            <div className="mb-4 p-4 rounded-full bg-green-500/10">
+              <Edit className="h-8 w-8 text-green-500" />
             </div>
-            <h3 className="text-xl font-semibold mb-2">Step 3: Fill Details</h3>
-            <p className="text-muted-foreground">
+            <h3 className="text-xl font-semibold mb-2 text-green-400">
+              Step 3: Fill Details
+            </h3>
+            <p className="text-green-300">
               Enter all necessary information about your event
             </p>
           </div>
           {/* Step 4 */}
-          <div className="flex flex-col items-center text-center p-6 rounded-xl hover:bg-muted/50 transition-colors">
-            <div className="mb-4 p-4 rounded-full bg-primary/10">
-              <Clock className="h-8 w-8 text-primary" />
+          <div className="flex flex-col items-center text-center p-6 rounded-xl border border-amber-500/10 hover:bg-amber-500/5 hover:border-amber-500/20 hover:scale-105 transition-all duration-300 cursor-pointer">
+            <div className="mb-4 p-4 rounded-full bg-amber-500/10">
+              <Clock className="h-8 w-8 text-amber-500" />
             </div>
-            <h3 className="text-xl font-semibold mb-2">
+            <h3 className="text-xl font-semibold mb-2 text-amber-400">
               Step 4: Set Event Time
             </h3>
-            <p className="text-muted-foreground">
+            <p className="text-amber-300">
               Choose the date and time for your event
             </p>
           </div>
           {/* Step 5 */}
-          <div className="flex flex-col items-center text-center p-6 rounded-xl hover:bg-muted/50 transition-colors">
-            <div className="mb-4 p-4 rounded-full bg-primary/10">
-              <ListPlus className="h-8 w-8 text-primary" />
+          <div className="flex flex-col items-center text-center p-6 rounded-xl border border-green-500/10 hover:bg-green-500/5 hover:border-green-500/20 hover:scale-105 transition-all duration-300 cursor-pointer">
+            <div className="mb-4 p-4 rounded-full bg-green-500/10">
+              <ListPlus className="h-8 w-8 text-green-500" />
             </div>
-            <h3 className="text-xl font-semibold mb-2">Step 5: Add Items</h3>
-            <p className="text-muted-foreground">
+            <h3 className="text-xl font-semibold mb-2 text-green-400">
+              Step 5: Add Items
+            </h3>
+            <p className="text-green-300">
               Add required items like balloons, chairs, or any event supplies
             </p>
           </div>
           {/* Step 6 */}
-          <div className="flex flex-col items-center text-center p-6 rounded-xl hover:bg-muted/50 transition-colors">
-            <div className="mb-4 p-4 rounded-full bg-primary/10">
-              <Tag className="h-8 w-8 text-primary" />
+          <div className="flex flex-col items-center text-center p-6 rounded-xl border border-amber-500/10 hover:bg-amber-500/5 hover:border-amber-500/20 hover:scale-105 transition-all duration-300 cursor-pointer">
+            <div className="mb-4 p-4 rounded-full bg-amber-500/10">
+              <Tag className="h-8 w-8 text-amber-500" />
             </div>
-            <h3 className="text-xl font-semibold mb-2">Step 6: Label Items</h3>
-            <p className="text-muted-foreground">
+            <h3 className="text-xl font-semibold mb-2 text-amber-400">
+              Step 6: Label Items
+            </h3>
+            <p className="text-amber-300">
               Organize and label each item for better management
             </p>
           </div>
           {/* Step 7 */}
-          <div className="flex flex-col items-center text-center p-6 rounded-xl hover:bg-muted/50 transition-colors">
-            <div className="mb-4 p-4 rounded-full bg-primary/10">
-              <CheckCircle className="h-8 w-8 text-primary" />
+          <div className="flex flex-col items-center text-center p-6 rounded-xl border border-green-500/10 hover:bg-green-500/5 hover:border-green-500/20 hover:scale-105 transition-all duration-300 cursor-pointer">
+            <div className="mb-4 p-4 rounded-full bg-green-500/10">
+              <CheckCircle className="h-8 w-8 text-green-500" />
             </div>
-            <h3 className="text-xl font-semibold mb-2">Step 7: Confirm</h3>
-            <p className="text-muted-foreground">
+            <h3 className="text-xl font-semibold mb-2 text-green-400">
+              Step 7: Confirm
+            </h3>
+            <p className="text-green-300">
               Review and confirm all event details and items
             </p>
           </div>
           {/* Step 8 */}
-          <div className="flex flex-col items-center text-center p-6 rounded-xl hover:bg-muted/50 transition-colors">
-            <div className="mb-4 p-4 rounded-full bg-primary/10">
-              <CheckSquare className="h-8 w-8 text-primary" />
+          <div className="flex flex-col items-center text-center p-6 rounded-xl border border-amber-500/10 hover:bg-amber-500/5 hover:border-amber-500/20 hover:scale-105 transition-all duration-300 cursor-pointer">
+            <div className="mb-4 p-4 rounded-full bg-amber-500/10">
+              <CheckSquare className="h-8 w-8 text-amber-500" />
             </div>
-            <h3 className="text-xl font-semibold mb-2">
+            <h3 className="text-xl font-semibold mb-2 text-amber-400">
               Step 8: Track Progress
             </h3>
-            <p className="text-muted-foreground">
+            <p className="text-amber-300">
               Monitor and mark items as they are completed
             </p>
           </div>
@@ -376,10 +411,19 @@ export default function HomeClient() {
           Join thousands of event organizers and attendees on EventSphere
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Button size="lg" asChild>
+          <Button
+            size="lg"
+            asChild
+            className="hover:shadow-[0_0_20px_rgba(34,197,94,0.6)] hover:shadow-green-400 transition-all duration-300"
+          >
             <Link href="/create-event">Create an Event</Link>
           </Button>
-          <Button size="lg" variant="outline" asChild>
+          <Button
+            size="lg"
+            variant="outline"
+            asChild
+            className="hover:shadow-[0_0_15px_rgba(34,197,94,0.3)] hover:shadow-green-400/50 transition-all duration-300"
+          >
             <Link href="/events">Browse Events</Link>
           </Button>
         </div>
