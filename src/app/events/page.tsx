@@ -1,6 +1,6 @@
 "use client"; // Make it a Client Component
 
-import { useState, useMemo, useEffect } from "react"; // Import hooks
+import { useState, useMemo, useEffect, useRef } from "react"; // Import hooks
 import { Metadata } from "next"; // Keep Metadata type import if needed elsewhere, but can't export from client component
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,8 @@ import {
   ListFilter,
   Loader2,
   X,
+  CheckCircle,
+  AlertCircle,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -24,7 +26,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { supabase } from "@/lib/supabase";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Database } from "@/types/supabase";
 
 type Event = Database["public"]["Tables"]["events"]["Row"];
@@ -37,6 +48,8 @@ type Event = Database["public"]["Tables"]["events"]["Row"];
 // };
 
 export default function EventsPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   // State for search and filters
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -49,39 +62,42 @@ export default function EventsPage() {
   const [showJoinForm, setShowJoinForm] = useState(false);
   const [inviteCode, setInviteCode] = useState("");
   const [isJoining, setIsJoining] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [eventToJoin, setEventToJoin] = useState<any>(null);
+
+  const hasAutoTriedJoinRef = useRef(false);
 
   useEffect(() => {
     fetchEvents();
 
-    // Check if there's an invite code in the URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get("code");
-    if (code) {
-      setInviteCode(code);
+    // Read invite code from URL using Next.js search params
+    const codeParam = searchParams?.get("code") || "";
+    const normalized = codeParam.trim().toUpperCase();
+    if (normalized && normalized.length <= 12) {
+      setInviteCode(normalized);
       setShowJoinForm(true);
+      if (!hasAutoTriedJoinRef.current) {
+        hasAutoTriedJoinRef.current = true;
+        setTimeout(() => {
+          handleJoinEvent();
+        }, 50);
+      }
     }
 
-    // Set up interval to check and update event statuses
     const statusInterval = setInterval(() => {
       updateEventStatuses();
-    }, 60000); // Check every minute
+    }, 60000);
 
     return () => clearInterval(statusInterval);
-  }, []);
+  }, [searchParams]);
 
   // Function to update event statuses automatically
   const updateEventStatuses = async () => {
     try {
-      // Check if status column exists first
-      const { data: testEvent } = await supabase
-        .from("events")
-        .select("status")
-        .limit(1);
-
-      if (!testEvent || testEvent.length === 0) {
-        // No events or status column doesn't exist yet
-        return;
-      }
+      // Only update events owned by current user to avoid RLS 400s
+      const { data: { session } } = await supabase.auth.getSession();
+      const uid = session?.user?.id;
+      if (!uid) return;
 
       const now = new Date();
 
@@ -89,6 +105,7 @@ export default function EventsPage() {
       const { data: eventsToUpdate } = await supabase
         .from("events")
         .select("id, date, status")
+        .eq("user_id", uid)
         .in("status", ["coming_soon", "ongoing"])
         .not("status", "in", "('cancelled', 'archived')");
 
@@ -236,88 +253,175 @@ export default function EventsPage() {
   };
 
   const handleJoinEvent = async () => {
+    console.log("🔵 handleJoinEvent called with inviteCode:", inviteCode);
+    
     if (!inviteCode.trim()) {
-      // You can add toast notification here if you have it
       toast.error("Please enter an invite code");
       return;
     }
 
-    setIsJoining(true);
     try {
-      // Get current user
+      console.log("🔵 Starting join event process...");
+      
+      // Get current session/user (more reliable in client)
       const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-      if (userError || !user) {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+
+      const user = session?.user ?? null;
+
+      console.log("🔵 User auth result:", { user: user?.id, sessionError });
+      
+      if (sessionError || !user) {
         throw new Error("You must be logged in to join an event");
       }
+      console.log("🔵 User authenticated:", user.id);
 
-      // Find the invite
+      // Find the invite (normalize code + allow non-expired or null expiry)
+      const normalizedCode = inviteCode.trim();
+      console.log("🔵 Looking for invite code:", normalizedCode);
       const { data: inviteData, error: inviteError } = await supabase
         .from("event_invites")
-        .select(
-          `
-          *,
-          events:event_id(*)
-        `
-        )
-        .eq("invite_code", inviteCode.trim())
-        .eq("is_active", true)
-        .single();
+        .select("id,event_id,role,invite_code,created_by,expires_at,current_uses,max_uses,is_active")
+        .eq("invite_code", normalizedCode)
+        .limit(1)
+        .maybeSingle();
 
+      console.log("🔵 Invite query result:", { inviteData, inviteError });
+
+      // Validate invite before any further queries
       if (inviteError || !inviteData) {
+        console.error("🔴 Invite not found or error:", inviteError);
         throw new Error("Invalid or expired invite code");
       }
 
-      // Check if invite has expired
-      if (new Date(inviteData.expires_at) < new Date()) {
+      // Optionally fetch event for dialog display (only after invite validated)
+      let inviteWithEvent: any = inviteData;
+      try {
+        const { data: eventMeta } = await supabase
+          .from('events')
+          .select('id,title,description,date,location')
+          .eq('id', inviteData.event_id)
+          .single();
+        if (eventMeta) inviteWithEvent = { ...inviteData, events: eventMeta };
+      } catch {}
+
+      // Extra guard: local expiry check
+      if (inviteData.expires_at && new Date(inviteData.expires_at) <= new Date()) {
         throw new Error("This invite code has expired");
       }
 
       // Check if user has already used this invite
-      if (inviteData.current_uses >= inviteData.max_uses) {
+      if ((inviteData.current_uses ?? 0) >= (inviteData.max_uses ?? 1)) {
         throw new Error("This invite code has reached its maximum usage limit");
       }
 
       // Check if user is already a member
-      const { data: existingMember } = await supabase
+      const { data: existingMember, error: memberCheckError } = await supabase
         .from("event_collaborators")
         .select("*")
         .eq("event_id", inviteData.event_id)
         .eq("user_id", user.id)
-        .single();
+        .maybeSingle();
+
+      console.log("🔵 Existing member check:", { existingMember, memberCheckError });
 
       if (existingMember) {
         throw new Error("You are already a member of this event");
       }
 
-      // Add user to event collaborators
-      const { error: joinError } = await supabase
-        .from("event_collaborators")
-        .insert({
-          event_id: inviteData.event_id,
-          user_id: user.id,
-          role: inviteData.role,
-        });
+      console.log("🔵 All checks passed, showing confirmation dialog");
+      // Show confirmation dialog
+      setEventToJoin(inviteWithEvent);
+      setShowConfirmDialog(true);
+      
+    } catch (error: any) {
+      console.error("🔴 Error validating invite:", error);
+      console.error("🔴 Error details:", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
+      toast.error(error.message || "Failed to validate invite code");
+    }
+  };
 
+  const confirmJoinEvent = async () => {
+    console.log("🟢 confirmJoinEvent called with eventToJoin:", eventToJoin);
+    
+    if (!eventToJoin) {
+      console.log("🔴 No event to join");
+      return;
+    }
+
+    setIsJoining(true);
+    try {
+      // 1) Auth
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      const user = session?.user ?? null;
+      if (sessionError || !user) throw new Error('You must be logged in to join an event');
+
+      // 2) Resolve invite (use eventToJoin if present, else fetch by code)
+      const code = inviteCode.trim();
+      let invite = eventToJoin;
+      if (!invite) {
+        const { data: inviteData, error: inviteError } = await supabase
+          .from('event_invites')
+          .select(`id,event_id,role,invite_code,created_by,expires_at,current_uses,max_uses,is_active, events:event_id(*)`)
+          .eq('invite_code', code)
+          .limit(1)
+          .maybeSingle();
+        if (inviteError || !inviteData) throw new Error('Invalid or expired invite code');
+        invite = inviteData;
+      }
+
+      // 3) Business checks
+      if ((invite.current_uses ?? 0) >= (invite.max_uses ?? 1)) throw new Error('This invite code has reached its maximum usage limit');
+      const { data: existing, error: existErr } = await supabase
+        .from('event_collaborators')
+        .select('id')
+        .eq('event_id', invite.event_id)
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (existErr) throw existErr;
+      if (existing) throw new Error('You are already a member of this event');
+
+      // 4) Insert collaborator via RPC to bypass complex RLS paths
+      const { data: rpcRes, error: joinError } = await supabase
+        .rpc('join_event_with_code', { p_user: user.id, p_code: invite.invite_code });
       if (joinError) throw joinError;
 
-      // Update invite usage
-      await supabase
-        .from("event_invites")
-        .update({ current_uses: inviteData.current_uses + 1 })
-        .eq("id", inviteData.id);
+      // 5) Update usage (best-effort)
+      const nextUses = (invite.current_uses ?? 0) + 1;
+      const { error: usageErr } = await supabase
+        .from('event_invites')
+        .update({ current_uses: nextUses, is_active: nextUses < invite.max_uses })
+        .eq('id', invite.id);
+      if (usageErr) console.warn('Failed to update invite usage', usageErr);
 
-      toast.success(`Successfully joined the event as a ${inviteData.role}!`);
+      toast.success('Joined the event!');
 
-      // Reset form and hide it
-      setInviteCode("");
+      // Reset and go
+      setInviteCode('');
       setShowJoinForm(false);
+      setShowConfirmDialog(false);
+      setEventToJoin(null);
 
-      // Refresh events to show the newly joined event
-      fetchEvents();
+      if (invite.events?.id) {
+        router.push(`/event/${invite.events.id}`);
+      } else {
+        fetchEvents();
+      }
     } catch (error: any) {
+      console.error("🔴 Error joining event:", error);
+      console.error("🔴 Error details:", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
       toast.error(error.message || "Failed to join event");
     } finally {
       setIsJoining(false);
@@ -499,6 +603,12 @@ export default function EventsPage() {
                     placeholder="Enter 6-character code"
                     className="bg-background border-emerald-500/30 focus:border-emerald-500 text-center font-mono text-lg tracking-widest h-12"
                     maxLength={6}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && inviteCode.trim().length >= 6 && !isJoining) {
+                        e.preventDefault();
+                        handleJoinEvent();
+                      }
+                    }}
                   />
                   <p className="text-xs text-muted-foreground mt-1 text-center">
                     Enter the 6-character invite code
@@ -507,8 +617,8 @@ export default function EventsPage() {
 
                 <div className="flex gap-2">
                   <Button
+                    type="button"
                     onClick={handleJoinEvent}
-                    disabled={isJoining || !inviteCode.trim()}
                     className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white h-10"
                   >
                     {isJoining ? (
@@ -601,6 +711,77 @@ export default function EventsPage() {
           </div>
         )}
       </div>
+
+      {/* Confirmation Dialog */}
+      <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+              Join Event
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to join this event?
+            </DialogDescription>
+          </DialogHeader>
+          
+          {eventToJoin && (
+            <div className="py-4">
+              <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                <h4 className="font-semibold text-lg">{eventToJoin.events?.title}</h4>
+                <p className="text-sm text-muted-foreground line-clamp-2">
+                  {eventToJoin.events?.description}
+                </p>
+                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    {eventToJoin.events?.date && formatDate(eventToJoin.events.date)}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <MapPin className="h-3 w-3" />
+                    {eventToJoin.events?.location}
+                  </div>
+                </div>
+                <div className="pt-2 border-t">
+                  <p className="text-sm">
+                    <span className="font-medium">Role:</span> {eventToJoin.role}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowConfirmDialog(false);
+                setEventToJoin(null);
+              }}
+              disabled={isJoining}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmJoinEvent}
+              disabled={isJoining}
+              className="bg-emerald-600 hover:bg-emerald-700"
+            >
+              {isJoining ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Joining...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Yes, Join Event
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

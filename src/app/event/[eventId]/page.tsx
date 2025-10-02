@@ -97,6 +97,13 @@ export default function SingleEventPage() {
     string | null
   >(null);
 
+  // Chat state
+  const [showChat, setShowChat] = useState(false);
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [newMessage, setNewMessage] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const [userMap, setUserMap] = useState<Record<string, any>>({});
+
   // Invite and collaboration state
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteRole, setInviteRole] = useState<"moderator" | "member">(
@@ -289,13 +296,119 @@ export default function SingleEventPage() {
         setShowSettingsModal(true);
         break;
       case "chat":
-        toast.info("Event chat coming soon!");
+        setShowChat(true);
         break;
       case "invite":
         setShowInviteModal(true);
         break;
       default:
         break;
+    }
+  };
+
+  // Load chat messages and subscribe when chat is open
+  useEffect(() => {
+    let channel: any;
+    const loadMessages = async () => {
+      if (!showChat || !event) return;
+      try {
+        const { data, error } = await supabase
+          .from("event_chat")
+          .select("*")
+          .eq("event_id", event.id)
+          .or("is_deleted.is.null,is_deleted.eq.false")
+          .order("created_at", { ascending: true });
+        if (error) throw error;
+        setChatMessages(data || []);
+
+        // Build user cache for message authors
+        const ids = [...new Set((data || []).map((m: any) => m.user_id))];
+        if (ids.length > 0) {
+          const { data: profiles } = await supabase
+            .from("profiles")
+            .select("id, username, fname, lname, avatar_url")
+            .in("id", ids);
+          if (profiles) {
+            const next: Record<string, any> = {};
+            for (const p of profiles) next[p.id] = p;
+            setUserMap((prev) => ({ ...prev, ...next }));
+          }
+        }
+      } catch (err: any) {
+        console.error("Failed to load chat messages", err);
+      }
+
+      // Subscribe to new inserts/updates
+      channel = supabase
+        .channel(`event_chat_${event.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "event_chat",
+            filter: `event_id=eq.${event.id}`,
+          },
+          (payload: any) => {
+            setChatMessages((prev) => [...prev, payload.new]);
+            const uid = payload.new?.user_id;
+            if (uid && !userMap[uid]) {
+              supabase
+                .from("profiles")
+                .select("id, username, fname, lname, avatar_url")
+                .eq("id", uid)
+                .single()
+                .then(({ data }) => {
+                  if (data) setUserMap((prev) => ({ ...prev, [uid]: data }));
+                });
+            }
+          }
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "event_chat",
+            filter: `event_id=eq.${event.id}`,
+          },
+          (payload: any) => {
+            setChatMessages((prev) =>
+              prev.map((m) => (m.id === payload.new.id ? payload.new : m))
+            );
+          }
+        )
+        .subscribe();
+    };
+
+    loadMessages();
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, [showChat, event]);
+
+  const handleSendMessage = async () => {
+    if (!event || !newMessage.trim() || isSending) return;
+    setIsSending(true);
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("You must be signed in to chat");
+      const { error } = await supabase.from("event_chat").insert({
+        event_id: event.id,
+        user_id: user.id,
+        message: newMessage.trim(),
+        message_type: "text",
+        is_deleted: false,
+        is_edited: false,
+      });
+      if (error) throw error;
+      setNewMessage("");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to send message");
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -558,6 +671,7 @@ export default function SingleEventPage() {
           invite_code: inviteCode,
           role: inviteRole,
           created_by: user.id,
+          max_uses: 20,
           expires_at: new Date(
             Date.now() + 7 * 24 * 60 * 60 * 1000
           ).toISOString(), // 7 days
@@ -1416,8 +1530,9 @@ export default function SingleEventPage() {
             </div>
           </div>
 
-          {/* Right Sidebar - Green Rectangle Concept */}
+          {/* Right Sidebar - Green Rectangle Concept (hidden when chat open) */}
           <div className="lg:col-span-1">
+            {!showChat && (
             <div className="sticky top-8 space-y-6 max-h-[calc(100vh-4rem)] overflow-y-auto">
               {/* Event Actions */}
               <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-6">
@@ -1541,6 +1656,7 @@ export default function SingleEventPage() {
                 </div>
               </div>
             </div>
+            )}
           </div>
         </div>
       </div>
@@ -2161,6 +2277,66 @@ export default function SingleEventPage() {
               </Button>
             </div>
             <iframe src={previewUrl} className="w-full h-[70vh] rounded-md bg-white" />
+          </div>
+        </div>
+      )}
+
+      {/* Full-height Right Chat Sidebar */}
+      {showChat && (
+        <div className="fixed right-0 top-0 h-screen w-full sm:w-[420px] bg-slate-900 border-l border-slate-700 z-50 flex flex-col">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700 bg-slate-800/70 backdrop-blur">
+            <div className="flex items-center gap-2 text-white">
+              <MessageCircle className="w-4 h-4" />
+              <span className="font-semibold">Event Chat</span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowChat(false)}
+              className="text-slate-300 hover:text-white"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {chatMessages.length === 0 ? (
+              <div className="text-slate-400 text-sm">No messages yet.</div>
+            ) : (
+              chatMessages.map((m) => (
+                <div key={m.id} className="bg-slate-800/60 border border-slate-700 rounded-md p-3 text-slate-200">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="text-xs text-slate-300 font-medium truncate max-w-[60%]">
+                      {(userMap[m.user_id]?.fname && userMap[m.user_id]?.lname)
+                        ? `${userMap[m.user_id].fname} ${userMap[m.user_id].lname}`
+                        : userMap[m.user_id]?.username || "Unknown"}
+                    </div>
+                    <div className="text-xs text-slate-400">
+                      {m.created_at ? new Date(m.created_at).toLocaleString() : ""}
+                    </div>
+                  </div>
+                  <div className="whitespace-pre-wrap break-words">{m.message}</div>
+                </div>
+              ))
+            )}
+          </div>
+          <div className="p-3 border-t border-slate-700 bg-slate-800/60">
+            <div className="flex items-center gap-2">
+              <Input
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                placeholder="Type a message..."
+                className="flex-1 bg-slate-700 border-slate-600 text-white"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
+              />
+              <Button onClick={handleSendMessage} disabled={isSending || !newMessage.trim()} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                Send
+              </Button>
+            </div>
           </div>
         </div>
       )}

@@ -14,12 +14,13 @@ export default function FeedbackPage() {
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [events, setEvents] = useState<{ id: string; title: string }[]>([]);
   const [mounted, setMounted] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
   const [form, setForm] = useState({
-    feedback_type: "bug",
+    feedback_type: "bug_report",
     title: "",
     description: "",
     rating: 5,
-    priority: "normal",
+    priority: "medium",
     event_id: "",
   });
 
@@ -63,6 +64,18 @@ export default function FeedbackPage() {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  const resetForm = () => {
+    setForm({
+      feedback_type: "bug_report",
+      title: "",
+      description: "",
+      rating: 5,
+      priority: "medium",
+      event_id: "",
+    });
+    setIsSubmitted(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.title.trim() || !form.description.trim()) {
@@ -89,8 +102,14 @@ export default function FeedbackPage() {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
-      if (form.event_id.trim()) payload.event_id = form.event_id.trim();
+      // Only add event_id if it's not empty (now as string, not foreign key)
+      if (form.event_id && form.event_id.trim()) {
+        payload.event_id = form.event_id.trim();
+      }
+      
+      console.log("Feedback payload:", payload);
 
+      // Insert into feedback table
       const { data: inserted, error } = await supabase
         .from("feedback")
         .insert(payload)
@@ -98,10 +117,63 @@ export default function FeedbackPage() {
         .single();
       if (error) throw error;
       if (!inserted) throw new Error("Insert returned no row. Check RLS policies.");
+
+      // If an event was selected, also insert into event_feedback table
+      if (form.event_id && form.event_id.trim()) {
+        console.log("Inserting event feedback:", {
+          feedback_id: inserted.id,
+          event_id: form.event_id.trim()
+        });
+        
+        try {
+          const { error: eventFeedbackError } = await supabase
+            .from("event_feedback")
+            .insert({
+              feedback_id: inserted.id,
+              event_id: form.event_id.trim(),
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            });
+          
+          if (eventFeedbackError) {
+            console.error("Event feedback error:", eventFeedbackError);
+            console.error("Event feedback error details:", {
+              message: eventFeedbackError.message,
+              details: eventFeedbackError.details,
+              hint: eventFeedbackError.hint,
+              code: eventFeedbackError.code
+            });
+            
+            // Check if it's a table doesn't exist error
+            if (eventFeedbackError.code === '42P01' || eventFeedbackError.message.includes('relation "public.event_feedback" does not exist')) {
+              console.warn("event_feedback table doesn't exist yet. Migration may not have been applied.");
+              toast.warning("Feedback submitted successfully. Event linking will be available after database migration.");
+            } else {
+              toast.warning("Feedback submitted, but event linking failed.");
+            }
+          } else {
+            console.log("Event feedback inserted successfully");
+          }
+        } catch (eventFeedbackErr: any) {
+          console.error("Event feedback insertion failed:", eventFeedbackErr);
+          if (eventFeedbackErr.message.includes('relation "public.event_feedback" does not exist')) {
+            toast.warning("Feedback submitted successfully. Event linking will be available after database migration.");
+          } else {
+            toast.warning("Feedback submitted, but event linking failed.");
+          }
+        }
+      }
+
       toast.success("Thank you! Your feedback has been submitted.");
-      router.push("/");
+      setIsSubmitted(true);
     } catch (err: any) {
       console.error("Feedback error:", err);
+      console.error("Error details:", {
+        message: err.message,
+        details: err.details,
+        hint: err.hint,
+        code: err.code
+      });
       toast.error(err.message || "Failed to submit feedback");
     } finally {
       setIsSubmitting(false);
@@ -113,6 +185,23 @@ export default function FeedbackPage() {
       <div className="max-w-2xl mx-auto py-12 px-4">
         <h1 className="text-3xl font-bold mb-6">Send Feedback</h1>
         <p className="text-muted-foreground">Loading...</p>
+      </div>
+    ) : isSubmitted ? (
+      <div className="max-w-2xl mx-auto py-12 px-4">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <h1 className="text-3xl font-bold mb-4 text-green-600">Feedback Submitted</h1>
+          <p className="text-lg text-muted-foreground mb-8">
+            Thank you for your support! We appreciate your feedback and will review it soon.
+          </p>
+          <Button onClick={resetForm} className="bg-green-600 hover:bg-green-700 text-white">
+            Submit Another Feedback
+          </Button>
+        </div>
       </div>
     ) : (
     <div className="max-w-2xl mx-auto py-12 px-4">
@@ -131,9 +220,11 @@ export default function FeedbackPage() {
               onChange={handleChange}
               className="mt-1 w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
             >
-              <option value="bug">Bug</option>
-              <option value="feature">Feature Request</option>
+              <option value="bug_report">Bug Report</option>
+              <option value="feature_request">Feature Request</option>
               <option value="general">General</option>
+              <option value="event_feedback">Event Feedback</option>
+              <option value="user_experience">User Experience</option>
             </select>
           </div>
           <div>
@@ -188,7 +279,7 @@ export default function FeedbackPage() {
               className="mt-1 w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
             >
               <option value="low">Low</option>
-              <option value="normal">Normal</option>
+              <option value="medium">Medium</option>
               <option value="high">High</option>
               <option value="urgent">Urgent</option>
             </select>

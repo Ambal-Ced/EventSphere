@@ -112,15 +112,15 @@ export default function HomeClient() {
 
   const fetchCategories = async () => {
     try {
-      const { data, error } = await supabase.from("events").select("type");
+      const { data, error } = await supabase.from("events").select("category");
 
       if (error) throw error;
 
-      // Count events by type and create category objects
+      // Count events by category and create category objects
       const categoryCounts =
         data?.reduce((acc: { [key: string]: number }, event) => {
-          const type = (event as any).type || "Other";
-          acc[type] = (acc[type] || 0) + 1;
+          const category = (event as any).category || "Other";
+          acc[category] = (acc[category] || 0) + 1;
           return acc;
         }, {}) || {};
 
@@ -369,7 +369,7 @@ export default function HomeClient() {
                       <Image
                         src={
                           event.image_url ||
-                          getDefaultImage((event as any).type)
+                          getDefaultImage((event as any).category)
                         }
                         alt={event.title}
                         fill

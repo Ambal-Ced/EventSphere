@@ -45,7 +45,7 @@ function Calendar({
           day: "hidden",
         }}
         formatters={undefined}
-        components={{ Nav: () => <span /> } as any}
+        components={{ Nav: () => <span />, Head: () => <></>, HeadRow: () => <></>, Weekday: () => <></> } as any}
         captionLayout={(props as any)?.captionLayout ?? 'dropdown'}
         month={displayMonth}
         onMonthChange={setDisplayMonth}

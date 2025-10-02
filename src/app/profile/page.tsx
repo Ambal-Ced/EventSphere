@@ -551,34 +551,48 @@ export default function ProfilePage() {
                 </AvatarFallback>
               </Avatar>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px]">
+            <DialogContent className="sm:max-w-[900px]">
               <DialogHeader>
-                <DialogTitle>Profile Picture</DialogTitle>
+                <DialogTitle className="text-2xl font-bold text-center">Profile Picture</DialogTitle>
               </DialogHeader>
-              <div className="flex flex-col items-center gap-4 py-4">
-                <Avatar className="h-64 w-64 border">
+              <div className="flex flex-col items-center gap-8 py-6">
+                {/* Profile Picture */}
+                <Avatar className="h-48 w-48">
                   <AvatarImage
                     src={previewAvatarUrl || avatarUrl || undefined}
+                    className="object-cover"
                   />
-                  <AvatarFallback className="text-8xl">
+                  <AvatarFallback className="text-6xl bg-gradient-to-br from-blue-100 to-purple-100">
                     {getInitials(
                       isEditing ? editableProfile.fname : profile.fname,
                       isEditing ? editableProfile.lname : profile.lname
                     )}
                   </AvatarFallback>
                 </Avatar>
+
+                {/* Action Buttons */}
                 {isEditing && (
+                  <div className="flex gap-3">
                   <Button
                     variant="outline"
                     onClick={() => {
                       setIsAvatarDialogOpen(false);
                       fileInputRef.current?.click();
                     }}
-                    className="mt-4"
                   >
                     <Camera className="mr-2 h-4 w-4" />
-                    Change Profile Picture
+                      Change Picture
                   </Button>
+                    <Button
+                      onClick={() => {
+                        setIsAvatarDialogOpen(false);
+                        toast.success("Profile picture updated!");
+                      }}
+                    >
+                      <Save className="mr-2 h-4 w-4" />
+                      Save Changes
+                    </Button>
+                  </div>
                 )}
               </div>
             </DialogContent>
@@ -593,7 +607,7 @@ export default function ProfilePage() {
                 className="hidden"
               />
               <div
-                className="absolute bottom-0 right-0 rounded-full bg-primary p-2 cursor-pointer hover:bg-primary/90 transition-colors"
+                className="absolute bottom-0 right-0 rounded-full bg-primary p-2 cursor-pointer hover:bg-primary/90 transition-colors z-20"
                 onClick={() => fileInputRef.current?.click()}
               >
                 <Camera className="h-4 w-4 text-primary-foreground" />
