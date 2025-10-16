@@ -57,6 +57,12 @@ export default function EventsPage() {
   const [categories, setCategories] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 7;
 
   // Join event state
   const [showJoinForm, setShowJoinForm] = useState(false);
@@ -67,7 +73,31 @@ export default function EventsPage() {
 
   const hasAutoTriedJoinRef = useRef(false);
 
+  // Check authentication first
   useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error || !user) {
+          // User not authenticated, redirect to login
+          router.push('/login');
+          return;
+        }
+        setIsAuthenticated(true);
+        setAuthLoading(false);
+      } catch (err) {
+        console.error('Auth check failed:', err);
+        router.push('/login');
+      }
+    };
+
+    checkAuth();
+  }, [router]);
+
+  useEffect(() => {
+    // Only fetch events if authenticated
+    if (!isAuthenticated) return;
+
     fetchEvents();
 
     // Read invite code from URL using Next.js search params
@@ -89,7 +119,7 @@ export default function EventsPage() {
     }, 60000);
 
     return () => clearInterval(statusInterval);
-  }, [searchParams]);
+  }, [searchParams, isAuthenticated]);
 
   // Function to update event statuses automatically
   const updateEventStatuses = async () => {
@@ -158,22 +188,48 @@ export default function EventsPage() {
       }
 
       // Fetch user-created events and joined events
-      const [{ data: collabRows, error: collabError }, { data: ownEvents, error: ownError }] = await Promise.all([
-        supabase
-          .from("event_collaborators")
-          .select("event_id")
-          .eq("user_id", user.id),
-        supabase
+      // Try multiple approaches to get collaborations
+      
+      // Approach 1: Direct query
+      const { data: collabRows, error: collabError } = await supabase
+        .from("event_collaborators")
+        .select("event_id, role")
+        .eq("user_id", user.id);
+      
+      // Approach 2: Try using RPC if direct query fails
+      let fallbackCollabRows = [];
+      if (collabError || !collabRows || collabRows.length === 0) {
+        console.log("Direct query failed or returned empty, trying RPC...");
+        const { data: rpcData, error: rpcError } = await supabase
+          .rpc('get_user_collaborations', { p_user_id: user.id });
+        if (!rpcError && rpcData) {
+          fallbackCollabRows = rpcData;
+          console.log("RPC returned:", fallbackCollabRows);
+        }
+      }
+      
+      // Use whichever approach worked
+      const finalCollabRows = collabRows || fallbackCollabRows;
+      
+      // Fetch own events
+      const { data: ownEvents, error: ownError } = await supabase
         .from("events")
         .select("*")
-          .eq("user_id", user.id)
-          .not("status", "in", "('cancelled', 'archived')"),
-      ]);
+        .eq("user_id", user.id)
+        .not("status", "in", "('cancelled', 'archived')");
 
-      if (collabError) throw collabError;
-      if (ownError) throw ownError;
+      if (ownError) {
+        console.error("Error fetching own events:", ownError);
+        throw ownError;
+      }
 
-      const joinedEventIds = (collabRows || []).map((r) => r.event_id);
+      console.log("User ID:", user.id);
+      console.log("Collaboration rows (direct):", collabRows);
+      console.log("Collaboration rows (final):", finalCollabRows);
+      console.log("Own events:", ownEvents);
+
+      const joinedEventIds = (finalCollabRows || []).map((r: any) => r.event_id);
+      console.log("Joined event IDs:", joinedEventIds);
 
       let joinedEvents: Event[] = [];
       if (joinedEventIds.length > 0) {
@@ -182,8 +238,12 @@ export default function EventsPage() {
           .select("*")
           .in("id", joinedEventIds)
           .not("status", "in", "('cancelled', 'archived')");
-        if (joinedError) throw joinedError;
+        if (joinedError) {
+          console.error("Error fetching joined events:", joinedError);
+          throw joinedError;
+        }
         joinedEvents = joinedData || [];
+        console.log("Joined events data:", joinedEvents);
       }
 
       // Merge results, de-duplicate, and sort by date ascending
@@ -195,6 +255,7 @@ export default function EventsPage() {
         (a, b) => new Date(a.date as any).getTime() - new Date(b.date as any).getTime()
       );
 
+      console.log("Final merged events:", merged);
       setEvents(merged);
       setError(null);
 
@@ -241,6 +302,27 @@ export default function EventsPage() {
       return matchesSearch && matchesCategory;
     });
   }, [searchTerm, selectedCategories, events]); // Recalculate when search, filters, or events change
+
+  // Reset to first page when filters/search change
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, selectedCategories]);
+
+  // Compute current page slice
+  const totalPages = useMemo(() => {
+    return Math.max(1, Math.ceil(filteredEvents.length / PAGE_SIZE));
+  }, [filteredEvents.length]);
+
+  // Clamp page if data shrinks
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [totalPages, page]);
+
+  const currentPageEvents = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    const end = start + PAGE_SIZE;
+    return filteredEvents.slice(start, end);
+  }, [filteredEvents, page]);
 
   // Handler for category filter changes
   const handleCategoryChange = (category: string, checked: boolean) => {
@@ -393,7 +475,61 @@ export default function EventsPage() {
         .rpc('join_event_with_code', { p_user: user.id, p_code: invite.invite_code });
       if (joinError) throw joinError;
 
-      // 5) Update usage (best-effort)
+      // 5) Create notifications for successful event joining
+      try {
+        // Get event details for notification
+        const { data: eventData } = await supabase
+          .from('events')
+          .select('title, user_id')
+          .eq('id', invite.event_id)
+          .single();
+
+        if (eventData) {
+          // Notification for the user who joined
+          await supabase.from("notifications").insert({
+            user_id: user.id,
+            type: "event_joined",
+            title: "Successfully Joined Event",
+            message: `You have successfully joined "${eventData.title}" as a ${rpcRes?.[0]?.role || 'member'}.`,
+            event_id: invite.event_id,
+            link_url: `/event/${invite.event_id}`,
+            metadata: { role: rpcRes?.[0]?.role || 'member', event_title: eventData.title }
+          });
+
+          // Notification for the event owner (if different from joiner)
+          if (eventData.user_id !== user.id) {
+            const { data: joinerProfile } = await supabase
+              .from('profiles')
+              .select('fname, lname, username')
+              .eq('id', user.id)
+              .single();
+
+            const joinerName = joinerProfile?.fname && joinerProfile?.lname 
+              ? `${joinerProfile.fname} ${joinerProfile.lname}`
+              : joinerProfile?.username || 'Someone';
+
+            await supabase.from("notifications").insert({
+              user_id: eventData.user_id,
+              type: "event_joined",
+              title: "New Event Member",
+              message: `${joinerName} has joined your event "${eventData.title}" as a ${rpcRes?.[0]?.role || 'member'}.`,
+              event_id: invite.event_id,
+              link_url: `/event/${invite.event_id}`,
+              metadata: { 
+                joiner_id: user.id,
+                joiner_name: joinerName,
+                role: rpcRes?.[0]?.role || 'member',
+                event_title: eventData.title
+              }
+            });
+          }
+        }
+      } catch (notifError) {
+        console.warn("Failed to create event join notifications:", notifError);
+        // Don't fail the whole join process if notification fails
+      }
+
+      // 6) Update usage (best-effort)
       const nextUses = (invite.current_uses ?? 0) + 1;
       const { error: usageErr } = await supabase
         .from('event_invites')
@@ -490,6 +626,17 @@ export default function EventsPage() {
     );
   };
 
+  // Show loading while checking authentication
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-2 text-muted-foreground">Checking authentication...</span>
+      </div>
+    );
+  }
+
+  // Show loading while fetching events
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -647,7 +794,7 @@ export default function EventsPage() {
         )}
 
         {filteredEvents.length > 0 ? (
-          filteredEvents.map((event) => (
+          currentPageEvents.map((event) => (
             <Link
               key={event.id}
               href={`/event/${event.id}`} // Link to detail page
@@ -711,6 +858,40 @@ export default function EventsPage() {
           </div>
         )}
       </div>
+
+      {/* Pagination Controls */}
+      {filteredEvents.length > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="text-sm text-muted-foreground">
+            {(() => {
+              const start = (page - 1) * PAGE_SIZE + 1;
+              const end = Math.min(page * PAGE_SIZE, filteredEvents.length);
+              return `Showing ${start}-${end} of ${filteredEvents.length}`;
+            })()}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page === 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              Prev
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Page {page} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Confirmation Dialog */}
       <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>

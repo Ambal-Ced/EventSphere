@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useCallback, memo, Suspense, lazy } from "react";
+import React, { useMemo, useCallback, memo, Suspense, lazy, useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -75,11 +75,13 @@ const SidebarLink = memo(
     isActive,
     isDisabled,
     onClick,
+    showLabel,
   }: {
     link: (typeof sidebarLinksConfig)[number];
     isActive: boolean;
     isDisabled: boolean;
     onClick: (e: React.MouseEvent) => void;
+    showLabel: boolean;
   }) => {
     const Icon = link.icon;
 
@@ -88,14 +90,15 @@ const SidebarLink = memo(
         href={link.href}
         onClick={onClick}
         className={cn(
-          "flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+          "flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors",
           isActive ? "bg-primary text-primary-foreground" : "hover:bg-muted",
-          isDisabled && "cursor-not-allowed opacity-50 pointer-events-none"
+          isDisabled && "cursor-not-allowed opacity-50 pointer-events-none",
+          showLabel ? "space-x-3 justify-start" : "justify-center"
         )}
         aria-disabled={isDisabled}
       >
-        <Icon className="h-5 w-5" />
-        <span>{link.title}</span>
+        <Icon className={cn(showLabel ? "h-5 w-5" : "h-4 w-4")} />
+        {showLabel && <span>{link.title}</span>}
       </Link>
     );
   }
@@ -106,7 +109,7 @@ SidebarLink.displayName = "SidebarLink";
 // Lazy-loaded sidebar content component
 const SidebarContent = lazy(() =>
   Promise.resolve({
-    default: memo(() => {
+    default: memo(({ isOpen }: { isOpen: boolean }) => {
       const pathname = usePathname();
       const router = useRouter();
       const { user, loading, signOut } = useAuth();
@@ -118,11 +121,14 @@ const SidebarContent = lazy(() =>
       const handleLogout = useCallback(async () => {
         try {
           await signOut();
-          router.push("/");
+          // Force refresh to homepage after logout
+          window.location.href = "/";
         } catch (err) {
           console.error("Logout failed:", err);
+          // Still redirect even if logout fails
+          window.location.href = "/";
         }
-      }, [signOut, router]);
+      }, [signOut]);
 
       const handleLinkClick = useCallback(
         (e: React.MouseEvent, isDisabled: boolean) => {
@@ -147,17 +153,18 @@ const SidebarContent = lazy(() =>
                 isActive={isActive}
                 isDisabled={isDisabled}
                 onClick={(e) => handleLinkClick(e, isDisabled)}
+                showLabel={isOpen}
               />
             );
           }),
-        [activePath, isAllDisabled, isAuthenticated, handleLinkClick]
+        [activePath, isAllDisabled, isAuthenticated, handleLinkClick, isOpen]
       );
 
       const logoutButton = useMemo(() => {
         if (!isAuthenticated) return null;
 
         return (
-          <div className="mt-auto border-t p-4">
+          <div className={cn("mt-auto border-t p-4", !isOpen && "hidden") }>
             <Button
               variant="ghost"
               onClick={handleLogout}
@@ -168,7 +175,7 @@ const SidebarContent = lazy(() =>
             </Button>
           </div>
         );
-      }, [isAuthenticated, handleLogout]);
+      }, [isAuthenticated, handleLogout, isOpen]);
 
       if (loading) {
         return <SidebarSkeleton />;
@@ -186,12 +193,34 @@ const SidebarContent = lazy(() =>
 
 // Main sidebar component with lazy loading
 export const Sidebar = memo(() => {
+  const [open, setOpen] = useState(false);
+
+  // Collapse by default on small screens
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    setOpen(!mq.matches ? true : false);
+  }, []);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    if (mq.matches) setOpen(false); // always collapsed on small screens
+  }, []);
+
   return (
-    <div className="sticky top-16 h-[calc(100vh-4rem)] w-64 border-r bg-background">
-      <Suspense fallback={<SidebarSkeleton />}>
-        <SidebarContent />
-      </Suspense>
-    </div>
+    <>
+      <div
+        className={cn(
+          "sticky top-16 h-[calc(100vh-4rem)] border-r bg-background transition-all",
+          open ? "w-64" : "w-16"
+        )}
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+      >
+        <Suspense fallback={<SidebarSkeleton />}>
+          <SidebarContent isOpen={open} />
+        </Suspense>
+      </div>
+    </>
   );
 });
 

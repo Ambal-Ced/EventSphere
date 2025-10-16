@@ -7,9 +7,10 @@ import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { User as AuthUser } from "@supabase/supabase-js"; // Supabase User type
 import { cn } from "@/lib/utils";
-import { Bell, MessageSquare } from "lucide-react";
+import { Bell, MessageSquare, Loader2, Menu, X } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 // Use shared singleton client from lib
 
@@ -19,6 +20,10 @@ export function Header() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifs, setNotifs] = useState<any[]>([]);
+  const [notifLoading, setNotifLoading] = useState(false);
+  const unreadCount = notifs.filter((n) => !n.read_at).length;
 
   useEffect(() => {
     const getSession = async () => {
@@ -88,11 +93,93 @@ export function Header() {
     };
   }, [router, user?.id]);
 
+  // Notifications: load latest and subscribe realtime
+  useEffect(() => {
+    if (!user) return;
+    let channel: any;
+    const load = async (limit = 5) => {
+      try {
+        setNotifLoading(true);
+        const { data } = await supabase
+          .from('notifications')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(limit);
+        setNotifs(data || []);
+      } finally {
+        setNotifLoading(false);
+      }
+    };
+    load();
+    channel = supabase
+      .channel('realtime-notifs')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload) => {
+        const n = payload.new as any;
+        // RLS ensures user sees only own when fetching; client-side guard to be safe
+        if (n.user_id === user.id) {
+          setNotifs((prev) => [n, ...prev].slice(0, 5));
+        }
+      })
+      .subscribe();
+    return () => { if (channel) supabase.removeChannel(channel); };
+  }, [user?.id]);
+
+  // Listen for notification read events from notifications page
+  useEffect(() => {
+    const handleNotificationRead = (event: CustomEvent) => {
+      const { id } = event.detail;
+      setNotifs(prev => 
+        prev.map(n => n.id === id ? { ...n, read_at: new Date().toISOString() } : n)
+      );
+    };
+
+    const handleAllNotificationsRead = () => {
+      setNotifs(prev => 
+        prev.map(n => ({ ...n, read_at: n.read_at || new Date().toISOString() }))
+      );
+    };
+
+    window.addEventListener('notificationRead', handleNotificationRead as EventListener);
+    window.addEventListener('allNotificationsRead', handleAllNotificationsRead);
+
+    return () => {
+      window.removeEventListener('notificationRead', handleNotificationRead as EventListener);
+      window.removeEventListener('allNotificationsRead', handleAllNotificationsRead);
+    };
+  }, []);
+
+  const expandNotifications = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('notifications')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(20);
+    setNotifs(data || []);
+  };
+
+  const markRead = async (id: string) => {
+    await supabase.rpc('mark_notification_read', { p_id: id });
+    setNotifs((prev) => prev.map((n) => n.id === id ? { ...n, read_at: new Date().toISOString() } : n));
+  };
+
+  const markAllRead = async () => {
+    // Mark all unread as read for current user
+    const nowIso = new Date().toISOString();
+    await supabase
+      .from('notifications')
+      .update({ read_at: nowIso })
+      .is('read_at', null);
+    setNotifs((prev) => prev.map((n) => n.read_at ? n : { ...n, read_at: nowIso }));
+  };
+
   // Function to get initials from first name
   const getInitials = (fname?: string | null) => {
     if (!fname) return "?";
     return fname.substring(0, 2).toUpperCase();
   };
+
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background px-4 md:px-6">
@@ -113,8 +200,8 @@ export function Header() {
         </Link>
       </div>
 
-      {/* Center Navigation */}
-      <nav className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+      {/* Center Navigation (desktop) */}
+      <nav className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 hidden md:block">
         <div className="flex items-center gap-8">
           <Link
             href="/"
@@ -155,24 +242,69 @@ export function Header() {
         </div>
       </nav>
 
+      {/* Mobile menu trigger moved to right side near profile */}
+
       {/* Right side: Icons and User Menu/Login */}
       <div className="flex items-center gap-4">
         {isLoading ? (
           <div className="h-8 w-8 animate-pulse rounded-full bg-muted"></div>
         ) : user ? (
           <>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="relative rounded-full"
-            >
-              <Bell className="h-5 w-5" />
-              <span className="sr-only">Notifications</span>
-              {/* Optional: Add notification badge */}
-              <span className="absolute -right-1 -top-1 h-4 w-4 rounded-full bg-primary text-[10px] font-medium text-primary-foreground">
-                2
-              </span>
-            </Button>
+            <Popover open={notifOpen} onOpenChange={setNotifOpen}>
+              <PopoverTrigger asChild>
+                {/* Desktop icon (PopoverTrigger requires a single child) */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="relative rounded-full hidden md:inline-flex"
+                  aria-label="Notifications"
+                >
+                  <Bell className="h-5 w-5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -right-1 -top-1 min-w-[16px] h-4 px-1 rounded-full bg-primary text-[10px] font-medium text-primary-foreground flex items-center justify-center">
+                      {Math.min(unreadCount, 99)}
+                    </span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-80 p-0">
+                <div className="p-3 border-b">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-medium">Notifications</div>
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" size="sm" onClick={markAllRead}>Mark all read</Button>
+                      <Button variant="outline" size="sm" onClick={expandNotifications}>Expand</Button>
+                    </div>
+                  </div>
+                </div>
+                <div className="max-h-80 overflow-auto">
+                  {notifLoading ? (
+                    <div className="flex items-center gap-2 p-3 text-slate-400 text-sm"><Loader2 className="w-4 h-4 animate-spin"/> Loading…</div>
+                  ) : notifs.length === 0 ? (
+                    <div className="p-3 text-slate-400 text-sm">No notifications</div>
+                  ) : (
+                    notifs.map((n) => (
+                      <button
+                        key={n.id}
+                        className={`w-full text-left p-3 border-b hover:bg-muted/40 ${!n.read_at ? 'bg-muted/20' : ''}`}
+                        onClick={async () => {
+                          await markRead(n.id);
+                          if (n.link_url) router.push(n.link_url);
+                        }}
+                      >
+                        <div className="text-sm font-medium">{n.title}</div>
+                        <div className="text-xs text-slate-400 line-clamp-2">{n.message}</div>
+                      </button>
+                    ))
+                  )}
+                </div>
+                <div className="p-2">
+                  <Button asChild variant="ghost" className="w-full">
+                    <Link href="/notifications">View all notifications</Link>
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
 
 
             <div className="relative group">
@@ -225,6 +357,15 @@ export function Header() {
                 <div className="absolute -top-1 right-4 w-2 h-2 bg-slate-900 border-l border-t border-slate-700 transform rotate-45"></div>
               </div>
             </div>
+
+            {/* Mobile menu trigger next to profile */}
+            <button
+              className="md:hidden inline-flex h-10 w-10 items-center justify-center rounded-md hover:bg-muted/50"
+              aria-label="Open menu"
+              onClick={() => setMobileOpen((v) => !v)}
+            >
+              {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
           </>
         ) : (
           <>
@@ -237,6 +378,25 @@ export function Header() {
           </>
         )}
       </div>
+      {/* Mobile sheet */}
+      {mobileOpen && (
+        <div className="md:hidden absolute top-16 left-0 right-0 border-b bg-background px-4 py-3">
+          <div className="flex flex-col gap-3">
+            <Link href="/" className={cn("text-base", pathname === "/" ? "text-primary" : "text-muted-foreground")} onClick={()=>setMobileOpen(false)}>Home</Link>
+            <Link href="/events" className={cn("text-base", pathname === "/events" ? "text-primary" : "text-muted-foreground")} onClick={()=>setMobileOpen(false)}>Events</Link>
+            <Link href="/about" className={cn("text-base", pathname === "/about" ? "text-primary" : "text-muted-foreground")} onClick={()=>setMobileOpen(false)}>About</Link>
+            <Link href="/faqs" className={cn("text-base", pathname === "/faqs" ? "text-primary" : "text-muted-foreground")} onClick={()=>setMobileOpen(false)}>FAQs</Link>
+            <Link href="/notifications" className="flex items-center justify-between text-base" onClick={()=>setMobileOpen(false)}>
+              <span className={cn(pathname === "/notifications" ? "text-primary" : "text-muted-foreground")}>Notifications</span>
+              {unreadCount > 0 && (
+                <span className="min-w-[18px] h-5 px-1 rounded-full bg-primary text-[11px] font-medium text-primary-foreground inline-flex items-center justify-center">
+                  {Math.min(unreadCount, 99)}
+                </span>
+              )}
+            </Link>
+          </div>
+        </div>
+      )}
     </header>
   );
 }

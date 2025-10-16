@@ -19,7 +19,16 @@ function Calendar({
   );
   const [displayMonth, setDisplayMonth] = React.useState<Date>(new Date());
 
-  // (Inline caption removed for revert)
+  // Keep visible month in sync with selected date from props
+  React.useEffect(() => {
+    const sel = (props as any)?.selected as Date | undefined;
+    if (sel && sel instanceof Date && !isNaN(sel.getTime())) {
+      const m = new Date(sel.getFullYear(), sel.getMonth(), 1);
+      if (m.toDateString() !== displayMonth.toDateString()) {
+        setDisplayMonth(m);
+      }
+    }
+  }, [(props as any)?.selected]);
 
   return (
     <div className={cn("p-3 w-72", className)}>
@@ -70,7 +79,7 @@ function Calendar({
         ))}
       </div>
 
-      {/* Duplicate date grid for debugging under chips */}
+      {/* Month grid */}
       <DayPicker
         showOutsideDays={false}
         className="p-0 mt-2"

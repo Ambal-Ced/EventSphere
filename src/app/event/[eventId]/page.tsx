@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
+import { CohereClientV2 } from 'cohere-ai';
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,17 +30,32 @@ import {
 import {
   Settings,
   MessageCircle,
+  BarChart3,
+  TrendingUp,
+  DollarSign,
+  Package,
+  Users,
   Calendar,
+  Brain,
+  Sparkles,
   MapPin,
   ArrowLeft,
-  Users,
   X,
   Camera,
   Loader2,
   Edit,
   UserPlus,
   Trash2,
+  Download,
   Plus,
+  CheckCircle,
+  FileText,
+  AlertCircle,
+  Save,
+  ChevronDown,
+  ChevronUp,
+  Link2,
+  QrCode,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -46,6 +63,7 @@ import { toast } from "sonner";
 
 import { supabase } from "@/lib/supabase";
 import { deleteEventImage } from "@/lib/utils";
+import AIChat from "@/components/ai-chat";
 
 interface Event {
   id: string;
@@ -61,6 +79,15 @@ interface Event {
   updated_at: string;
   status: string;
   role: string;
+  markup_type: "percentage" | "fixed";
+  markup_value: number;
+  discount_type: "none" | "percentage" | "fixed";
+  discount_value: number;
+  data_analytics_enabled?: boolean;
+  ai_chat_enabled?: boolean;
+  ai_insights?: string;
+  insights_generated_at?: string;
+  insights_generated_by?: string;
 }
 
 interface EventMember {
@@ -86,16 +113,19 @@ export default function SingleEventPage() {
   const [collaborators, setCollaborators] = useState<any[]>([]);
   const [userRole, setUserRole] = useState<string>("");
   const [isOwner, setIsOwner] = useState(false);
+  const canEdit = isOwner || userRole === "moderator";
 
   // Event settings state
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [aiChatEnabled, setAiChatEnabled] = useState(false);
-  const [dataAnalyticsEnabled, setDataAnalyticsEnabled] = useState(false);
+  const [dataAnalyticsEnabled, setDataAnalyticsEnabled] = useState(true); // Default to true
   const [allowInvites, setAllowInvites] = useState(true);
   const [isDeletingEvent, setIsDeletingEvent] = useState(false);
   const [isRemovingCollaborator, setIsRemovingCollaborator] = useState<
     string | null
   >(null);
+  const [isLeavingEvent, setIsLeavingEvent] = useState(false);
+  const [showLeaveConfirmDialog, setShowLeaveConfirmDialog] = useState(false);
 
   // Chat state
   const [showChat, setShowChat] = useState(false);
@@ -103,6 +133,11 @@ export default function SingleEventPage() {
   const [newMessage, setNewMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [userMap, setUserMap] = useState<Record<string, any>>({});
+  const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [showMessageDeleteConfirm, setShowMessageDeleteConfirm] = useState(false);
+  const [showMessageDeleteSuccess, setShowMessageDeleteSuccess] = useState(false);
+  const [messageToDelete, setMessageToDelete] = useState<string | null>(null);
 
   // Invite and collaboration state
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -116,6 +151,47 @@ export default function SingleEventPage() {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<string>("");
+
+  // Event notes state
+  const [showNotesModal, setShowNotesModal] = useState(false);
+  const [eventNotes, setEventNotes] = useState<string>("");
+  const [isSavingNotes, setIsSavingNotes] = useState(false);
+  const [originalNotes, setOriginalNotes] = useState<string>("");
+
+  // Analytics state
+  const [analyticsData, setAnalyticsData] = useState<any>(null);
+  const [aiInsights, setAiInsights] = useState<string>("");
+  const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [insightsUsageInfo, setInsightsUsageInfo] = useState<{
+    insightsGenerated: number;
+    canGenerateMore: boolean;
+    weekStart: string;
+  } | null>(null);
+  // Attendees stats
+  const [attendeesStats, setAttendeesStats] = useState<{ expected_attendees: number; event_attendees: number } | null>(null);
+  const [isSavingExpected, setIsSavingExpected] = useState(false);
+  const [expectedInput, setExpectedInput] = useState<string>("");
+  // Feedback metrics
+  const [feedbackMetrics, setFeedbackMetrics] = useState<{ total: number; averageRating: number; positive: number; neutral: number; negative: number } | null>(null);
+  // Attendance records
+  const [attendanceRecords, setAttendanceRecords] = useState<any[]>([]);
+  // Manual attendance editing
+  const [actualInput, setActualInput] = useState<string>("");
+  // Public portal modals/links
+  const [showMoreActions, setShowMoreActions] = useState(false);
+  const [showPortalModal, setShowPortalModal] = useState<{ type: 'feedback' | 'attendance' | null, url: string | null }>({ type: null, url: null });
+  const [portalModalKey, setPortalModalKey] = useState(0);
+
+  // Markup editing state
+  const [isEditingMarkup, setIsEditingMarkup] = useState(false);
+  const [editingMarkup, setEditingMarkup] = useState({
+    markup_type: "percentage" as "percentage" | "fixed",
+    markup_value: 0,
+    discount_type: "none" as "none" | "percentage" | "fixed",
+    discount_value: 0,
+  });
+  const [isSavingMarkup, setIsSavingMarkup] = useState(false);
 
   // Status options
   const statusOptions = [
@@ -146,6 +222,7 @@ export default function SingleEventPage() {
     item_name: "",
     item_description: "",
     item_quantity: 1,
+    cost: 0.00,
   });
   const [editingItem, setEditingItem] = useState<any>(null);
 
@@ -161,6 +238,20 @@ export default function SingleEventPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteType, setDeleteType] = useState<"item" | "event">("item");
   const [itemToDelete, setItemToDelete] = useState<any>(null);
+  // Event type combobox state
+  const eventTypeOptions = [
+    'Technology',
+    'Music',
+    'Food & Drink',
+    'Arts & Culture',
+    'Business',
+    'Gaming',
+    'Health',
+    'Film',
+    'Sports',
+    'Other',
+  ];
+  const [isTypeMenuOpen, setIsTypeMenuOpen] = useState(false);
 
   useEffect(() => {
     if (eventId) {
@@ -170,10 +261,15 @@ export default function SingleEventPage() {
 
   useEffect(() => {
     if (event) {
-      fetchCollaborators();
-      fetchEventItems();
-      fetchEventScripts();
-      checkUserAccess();
+      const loadAll = async () => {
+        await Promise.allSettled([
+          fetchCollaborators(),
+          fetchEventItems(),
+          fetchEventScripts(),
+          checkUserAccess(),
+        ]);
+      };
+      loadAll();
     }
   }, [event]);
 
@@ -239,6 +335,15 @@ export default function SingleEventPage() {
       console.log("fetchEvent: Event creator_id:", eventData?.user_id);
 
       setEvent(eventData);
+      
+      // Set analytics settings from database
+      setDataAnalyticsEnabled(eventData?.data_analytics_enabled ?? true);
+      setAiChatEnabled(eventData?.ai_chat_enabled ?? false);
+      
+      // Load existing AI insights from database
+      if (eventData?.ai_insights) {
+        setAiInsights(eventData.ai_insights);
+      }
 
       // Fetch event members (you'll need to create this table)
       await fetchEventMembers();
@@ -280,14 +385,18 @@ export default function SingleEventPage() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
+    const date = new Date(dateString);
+    // Format date in local time without timezone conversion
+    const options: Intl.DateTimeFormatOptions = {
       weekday: "long",
       year: "numeric",
       month: "long",
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
-    });
+      timeZone: "Asia/Manila", // Use Philippines timezone
+    };
+    return date.toLocaleDateString("en-US", options);
   };
 
   const handleEventAction = (action: string) => {
@@ -300,6 +409,9 @@ export default function SingleEventPage() {
         break;
       case "invite":
         setShowInviteModal(true);
+        break;
+      case "notes":
+        handleOpenNotes();
         break;
       default:
         break;
@@ -316,9 +428,9 @@ export default function SingleEventPage() {
           .from("event_chat")
           .select("*")
           .eq("event_id", event.id)
-          .or("is_deleted.is.null,is_deleted.eq.false")
           .order("created_at", { ascending: true });
         if (error) throw error;
+        console.log("Loaded chat messages:", data);
         setChatMessages(data || []);
 
         // Build user cache for message authors
@@ -387,6 +499,120 @@ export default function SingleEventPage() {
     };
   }, [showChat, event]);
 
+  // Load attendees stats and feedback metrics
+  useEffect(() => {
+    (async () => {
+      if (!event) return;
+      try {
+        const { data: att } = await supabase
+          .from("attendees")
+          .select("expected_attendees, event_attendees")
+          .eq("event_id", event.id)
+          .maybeSingle();
+        if (att) {
+          setAttendeesStats(att as any);
+          setExpectedInput(String((att as any).expected_attendees ?? 0));
+          setActualInput(String((att as any).event_attendees ?? 0));
+        }
+
+        const { data: fb } = await supabase
+          .from("feedback_responses")
+          .select("rating, sentiment, comments, created_at")
+          .eq("event_id", event.id);
+        if (fb && fb.length > 0) {
+          const total = fb.length;
+          const ratings = (fb as any[]).map((r) => r.rating).filter((n) => typeof n === 'number');
+          const avg = ratings.length > 0 ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0;
+          const positive = (fb as any[]).filter((r) => r.sentiment === 'positive').length;
+          const neutral = (fb as any[]).filter((r) => r.sentiment === 'neutral').length;
+          const negative = (fb as any[]).filter((r) => r.sentiment === 'negative').length;
+          setFeedbackMetrics({ total, averageRating: avg, positive, neutral, negative });
+        } else {
+          setFeedbackMetrics({ total: 0, averageRating: 0, positive: 0, neutral: 0, negative: 0 });
+        }
+
+        // Fetch attendance records
+        const { data: ar } = await supabase
+          .from("attendance_records")
+          .select("attendee_name, attendee_email, created_at, note")
+          .eq("event_id", event.id);
+        setAttendanceRecords(ar || []);
+      } catch (e) {
+        console.warn('Failed to load attendees/feedback metrics');
+      }
+    })();
+  }, [event]);
+
+  const saveExpectedAttendees = async () => {
+    if (!event) return;
+    setIsSavingExpected(true);
+    try {
+      const expected = Math.max(0, parseInt(expectedInput || '0'));
+      const { error } = await supabase
+        .from('attendees')
+        .upsert({ event_id: event.id, expected_attendees: expected }, { onConflict: 'event_id' });
+      if (error) throw error;
+      setAttendeesStats((prev)=> ({ expected_attendees: expected, event_attendees: prev?.event_attendees ?? 0 }));
+      toast.success('Expected attendees updated');
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to save expected attendees');
+    } finally {
+      setIsSavingExpected(false);
+    }
+  };
+
+  // Generate or reuse a public portal and open modal with URL/QR
+  const generatePublicPortal = async (kind: 'feedback' | 'attendance') => {
+    try {
+      if (!event) return;
+      // Reuse active portal if one exists
+      const table = kind === 'feedback' ? 'feedback_portals' : 'attendance_portals';
+      // Try reuse any active portal quickly (no ordering to avoid sort cost)
+      const { data: existing, error: selErr } = await supabase
+        .from(table)
+        .select('token')
+        .eq('event_id', event.id)
+        .eq('is_active', true)
+        .limit(1);
+      if (selErr) throw selErr;
+
+      let token: string | null = existing && existing.length > 0 ? (existing[0] as any).token : null;
+
+      if (!token) {
+        // Create a new portal
+        const newToken = Math.random().toString(36).slice(2, 10);
+        const insertPayload: any = {
+          event_id: event.id,
+          token: newToken,
+          is_active: true,
+          // Provide optional fields to satisfy schema if present
+          title: kind === 'feedback' ? `Feedback Portal - ${event.title}` : `Attendance Portal - ${event.title}`,
+          description: kind === 'feedback' ? `Feedback collection portal for ${event.title}` : `Attendance check-in portal for ${event.title}`,
+          expires_at: null,
+        };
+        if (currentUserId) insertPayload.created_by = currentUserId;
+        const { data: created, error: insErr } = await supabase
+          .from(table)
+          .insert(insertPayload)
+          .select('token')
+          .single();
+        if (insErr) throw insErr;
+        token = created?.token;
+      }
+
+      if (!token) throw new Error('Failed to prepare link');
+      const url = `${window.location.origin}/${kind === 'feedback' ? 'feedback' : 'checkin'}/${token}`;
+      // Reset and force remount so it reliably re-opens even with the same URL
+      setShowPortalModal({ type: null, url: null });
+      setPortalModalKey((k) => k + 1);
+      setTimeout(() => setShowPortalModal({ type: kind, url }), 0);
+      toast.success(`${kind === 'feedback' ? 'Feedback' : 'Attendance'} link ready`);
+    } catch (e: any) {
+      console.error('Portal generation failed', e);
+      toast.error(e.message || 'Failed to generate link');
+    }
+  };
+
   const handleSendMessage = async () => {
     if (!event || !newMessage.trim() || isSending) return;
     setIsSending(true);
@@ -410,6 +636,116 @@ export default function SingleEventPage() {
     } finally {
       setIsSending(false);
     }
+  };
+
+  const handleDeleteMessage = (messageId: string) => {
+    if (!event || deletingMessageId) return;
+    setMessageToDelete(messageId);
+    setShowMessageDeleteConfirm(true);
+  };
+
+  const confirmDeleteMessage = async () => {
+    if (!messageToDelete) return;
+    
+    setDeletingMessageId(messageToDelete);
+    setShowMessageDeleteConfirm(false);
+    
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("You must be signed in to delete messages");
+      
+      // Replace the message content with "Message deleted" text
+      const { error } = await supabase
+        .from("event_chat")
+        .update({ 
+          message: "Message deleted",
+          is_deleted: true,
+          deleted_at: new Date().toISOString(),
+          deleted_by: user.id
+        })
+        .eq("id", messageToDelete);
+      
+      if (error) throw error;
+      
+      // Show success dialog
+      setShowMessageDeleteSuccess(true);
+      
+      // Auto-close success dialog after 2 seconds
+      setTimeout(() => {
+        setShowMessageDeleteSuccess(false);
+      }, 2000);
+      
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete message");
+    } finally {
+      setDeletingMessageId(null);
+      setMessageToDelete(null);
+    }
+  };
+
+  const cancelDeleteMessage = () => {
+    setShowMessageDeleteConfirm(false);
+    setMessageToDelete(null);
+  };
+
+  // Event Notes functions
+  const handleOpenNotes = async () => {
+    if (!event || !isOwner) return;
+    
+    try {
+      // Fetch existing notes
+      const { data, error } = await supabase
+        .from("event_notes")
+        .select("notes")
+        .eq("event_id", event.id)
+        .eq("user_id", event.user_id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+        throw error;
+      }
+
+      const notes = data?.notes || "";
+      setEventNotes(notes);
+      setOriginalNotes(notes);
+      setShowNotesModal(true);
+    } catch (error: any) {
+      console.error("Error fetching notes:", error);
+      toast.error("Failed to load notes");
+    }
+  };
+
+  const handleSaveNotes = async () => {
+    if (!event || !isOwner) return;
+    
+    setIsSavingNotes(true);
+    try {
+      const { error } = await supabase
+        .from("event_notes")
+        .upsert({
+          event_id: event.id,
+          user_id: event.user_id,
+          notes: eventNotes,
+        });
+
+      if (error) throw error;
+
+      setOriginalNotes(eventNotes);
+      setShowNotesModal(false);
+      toast.success("Notes saved successfully!");
+    } catch (error: any) {
+      console.error("Error saving notes:", error);
+      toast.error("Failed to save notes");
+    } finally {
+      setIsSavingNotes(false);
+    }
+  };
+
+  const handleDiscardNotes = () => {
+    setEventNotes(originalNotes);
+    setShowNotesModal(false);
   };
 
   // Event settings functions
@@ -598,16 +934,178 @@ export default function SingleEventPage() {
     }
   };
 
-  const handleToggleAiChat = () => {
-    setAiChatEnabled(!aiChatEnabled);
-    toast.info(`AI Chat ${!aiChatEnabled ? "enabled" : "disabled"}`);
+  const handleLeaveEvent = () => {
+    setShowLeaveConfirmDialog(true);
   };
 
-  const handleToggleDataAnalytics = () => {
-    setDataAnalyticsEnabled(!dataAnalyticsEnabled);
-    toast.info(
-      `Data Analytics ${!dataAnalyticsEnabled ? "enabled" : "disabled"}`
-    );
+  const confirmLeaveEvent = async () => {
+    setIsLeavingEvent(true);
+    setShowLeaveConfirmDialog(false);
+    
+    try {
+      // Get current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        throw new Error("You must be logged in to leave an event");
+      }
+
+      // Remove user from event_collaborators table
+      const { error } = await supabase
+        .from("event_collaborators")
+        .delete()
+        .eq("event_id", eventId)
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+
+      // Create notifications for leaving the event
+      try {
+        console.log("Creating leave event notifications for user:", user.id, "event:", eventId);
+        
+        // Get event details and user profile for notifications
+        const { data: eventData } = await supabase
+          .from('events')
+          .select('title, user_id')
+          .eq('id', eventId)
+          .single();
+
+        const { data: userProfile } = await supabase
+          .from('profiles')
+          .select('fname, lname, username')
+          .eq('id', user.id)
+          .single();
+
+        console.log("Event data:", eventData);
+        console.log("User profile:", userProfile);
+
+        if (eventData) {
+          const userName = userProfile?.fname && userProfile?.lname 
+            ? `${userProfile.fname} ${userProfile.lname}`
+            : userProfile?.username || 'Someone';
+
+          // Notification for the user who left
+          const leaverNotification = {
+            user_id: user.id,
+            type: "event_left",
+            title: "Left Event Successfully",
+            message: `You have successfully left "${eventData.title}".`,
+            event_id: eventId,
+            link_url: `/events`,
+            metadata: { event_title: eventData.title }
+          };
+          
+          console.log("Creating leaver notification:", leaverNotification);
+          const { data: leaverNotifData, error: leaverNotifError } = await supabase
+            .from("notifications")
+            .insert(leaverNotification)
+            .select();
+          
+          if (leaverNotifError) {
+            console.error("Leaver notification error:", leaverNotifError);
+          } else {
+            console.log("Leaver notification created:", leaverNotifData);
+          }
+
+          // Notification for the event owner (if different from leaver)
+          if (eventData.user_id !== user.id) {
+            const ownerNotification = {
+              user_id: eventData.user_id,
+              type: "event_left",
+              title: "Member Left Event",
+              message: `${userName} has left your event "${eventData.title}".`,
+              event_id: eventId,
+              link_url: `/event/${eventId}`,
+              metadata: { 
+                leaver_id: user.id,
+                leaver_name: userName,
+                event_title: eventData.title
+              }
+            };
+            
+            console.log("Creating owner notification:", ownerNotification);
+            const { data: ownerNotifData, error: ownerNotifError } = await supabase
+              .from("notifications")
+              .insert(ownerNotification)
+              .select();
+            
+            if (ownerNotifError) {
+              console.error("Owner notification error:", ownerNotifError);
+            } else {
+              console.log("Owner notification created:", ownerNotifData);
+            }
+          }
+        }
+      } catch (notifError) {
+        console.error("Failed to create leave event notifications:", notifError);
+        // Don't fail the leave process if notification fails
+      }
+
+      toast.success("You have successfully left the event!");
+      
+      // Redirect to events page
+      router.push("/events");
+    } catch (error: any) {
+      toast.error("Failed to leave event: " + error.message);
+    } finally {
+      setIsLeavingEvent(false);
+    }
+  };
+
+  const handleToggleAiChat = async () => {
+    if (!event) return;
+    
+    const newValue = !aiChatEnabled;
+    setAiChatEnabled(newValue);
+    
+    try {
+      const { error } = await supabase
+        .from("events")
+        .update({ ai_chat_enabled: newValue })
+        .eq("id", event.id);
+        
+      if (error) throw error;
+      
+      toast.info(`AI Chat ${newValue ? "enabled" : "disabled"}`);
+    } catch (error: any) {
+      // Revert on error
+      setAiChatEnabled(!newValue);
+      toast.error("Failed to update AI chat settings");
+    }
+  };
+
+  const handleToggleDataAnalytics = async () => {
+    if (!event) return;
+    
+    const newValue = !dataAnalyticsEnabled;
+    setDataAnalyticsEnabled(newValue);
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { error } = await supabase
+        .from("events")
+        .update({ data_analytics_enabled: newValue })
+        // Allow owner updates; RLS should still enforce
+        .eq('id', event.id)
+        .eq('user_id', user.id);
+        
+      if (error) throw error;
+      
+      toast.info(
+        `Data Analytics ${newValue ? "enabled" : "disabled"}`
+      );
+    } catch (error: any) {
+      // Revert on error
+      setDataAnalyticsEnabled(!newValue);
+      console.error("Failed to update analytics settings:", {
+        message: error?.message,
+        details: error?.details,
+        hint: error?.hint,
+        code: error?.code,
+      });
+      toast.error(error?.message || "Failed to update analytics settings");
+    }
   };
 
   const handleUpdateEventPrivacy = async (isPublic: boolean) => {
@@ -786,6 +1284,7 @@ export default function SingleEventPage() {
         item_name: newItem.item_name.trim(),
         item_description: newItem.item_description.trim(),
         item_quantity: newItem.item_quantity,
+        cost: newItem.cost,
       });
 
       const { data, error } = await supabase
@@ -795,6 +1294,7 @@ export default function SingleEventPage() {
           item_name: newItem.item_name.trim(),
           item_description: newItem.item_description.trim(),
           item_quantity: newItem.item_quantity,
+          cost: newItem.cost,
         })
         .select()
         .single();
@@ -806,7 +1306,7 @@ export default function SingleEventPage() {
 
       console.log("Item inserted successfully:", data);
       setEventItems((prev) => [...prev, data]);
-      setNewItem({ item_name: "", item_description: "", item_quantity: 1 });
+      setNewItem({ item_name: "", item_description: "", item_quantity: 1, cost: 0.00 });
       setShowAddForm(false);
       toast.success("Item added successfully!");
     } catch (error: any) {
@@ -822,6 +1322,7 @@ export default function SingleEventPage() {
       item_name: item.item_name,
       item_description: item.item_description,
       item_quantity: item.item_quantity,
+      cost: item.cost || 0.00,
     });
     setShowAddForm(true);
   };
@@ -840,6 +1341,7 @@ export default function SingleEventPage() {
         item_name: newItem.item_name.trim(),
         item_description: newItem.item_description.trim(),
         item_quantity: newItem.item_quantity,
+        cost: newItem.cost,
       });
 
       const { error } = await supabase
@@ -848,6 +1350,7 @@ export default function SingleEventPage() {
           item_name: newItem.item_name.trim(),
           item_description: newItem.item_description.trim(),
           item_quantity: newItem.item_quantity,
+          cost: newItem.cost,
         })
         .eq("id", editingItem.id);
 
@@ -865,12 +1368,13 @@ export default function SingleEventPage() {
                 item_name: newItem.item_name.trim(),
                 item_description: newItem.item_description.trim(),
                 item_quantity: newItem.item_quantity,
+                cost: newItem.cost,
               }
             : item
         )
       );
 
-      setNewItem({ item_name: "", item_description: "", item_quantity: 1 });
+      setNewItem({ item_name: "", item_description: "", item_quantity: 1, cost: 0.00 });
       setShowAddForm(false);
       setEditingItem(null);
       toast.success("Item updated successfully!");
@@ -922,7 +1426,7 @@ export default function SingleEventPage() {
   const handleCancelItemForm = () => {
     setShowAddForm(false);
     setEditingItem(null);
-    setNewItem({ item_name: "", item_description: "", item_quantity: 1 });
+    setNewItem({ item_name: "", item_description: "", item_quantity: 1, cost: 0.00 });
   };
 
   // Check user role and ownership
@@ -947,6 +1451,9 @@ export default function SingleEventPage() {
         console.log("checkUserAccess: No authenticated user");
         return;
       }
+
+      // Set current user ID for chat message ownership checks
+      setCurrentUserId(user.id);
 
       console.log("checkUserAccess: User ID:", user.id);
       console.log("checkUserAccess: Event creator_id:", event.user_id);
@@ -1002,6 +1509,7 @@ export default function SingleEventPage() {
 
   const handleCancelEditEvent = () => {
     setIsEditingEvent(false);
+  setIsTypeMenuOpen(false);
     setSelectedImage(null);
     setImagePreview("");
   };
@@ -1062,7 +1570,7 @@ export default function SingleEventPage() {
           title: editingEvent.title.trim(),
           description: editingEvent.description.trim(),
           image_url: finalImageUrl,
-          date: editingEvent.date,
+          date: editingEvent.date ? new Date(editingEvent.date).toISOString() : null,
           location: editingEvent.location.trim(),
           category: editingEvent.type.trim(),
         })
@@ -1071,6 +1579,22 @@ export default function SingleEventPage() {
         .single();
 
       if (error) throw error;
+
+      // Update attendees (expected and actual) if changed
+      const expected = Math.max(0, parseInt(expectedInput || '0'));
+      const actual = Math.max(0, parseInt(actualInput || '0'));
+      const prevExpected = attendeesStats?.expected_attendees ?? 0;
+      const prevActual = attendeesStats?.event_attendees ?? 0;
+      if (expected !== prevExpected || actual !== prevActual) {
+        const { error: attendeesError } = await supabase
+          .from('attendees')
+          .upsert({ event_id: eventId, expected_attendees: expected, event_attendees: actual }, { onConflict: 'event_id' });
+        if (attendeesError) {
+          console.error('Error updating attendees:', attendeesError);
+        } else {
+          setAttendeesStats({ expected_attendees: expected, event_attendees: actual });
+        }
+      }
 
       // Update local state
       setEvent(data);
@@ -1082,6 +1606,473 @@ export default function SingleEventPage() {
       toast.error("Failed to update event: " + error.message);
       console.error("Error updating event:", error);
     }
+  };
+
+  // Analytics functions
+  const generateAnalyticsData = () => {
+    if (!event || !eventItems) return null;
+
+    const totalItemCost = eventItems.length > 0 ? eventItems.reduce((sum, item) => sum + ((item.cost || 0) * (item.item_quantity || 1)), 0) : 0;
+    const totalQuantity = eventItems.length > 0 ? eventItems.reduce((sum, item) => sum + (item.item_quantity || 0), 0) : 0;
+    const itemCount = eventItems.length;
+    const memberCount = collaborators.length + 1; // +1 for owner
+
+    // Calculate markup amount
+    let markupAmount = 0;
+    if (event.markup_type === "percentage") {
+      markupAmount = totalItemCost * (event.markup_value / 100);
+    } else if (event.markup_type === "fixed") {
+      markupAmount = event.markup_value;
+    }
+
+    // Calculate price after markup
+    const priceAfterMarkup = totalItemCost + markupAmount;
+
+    // Calculate discount amount
+    let discountAmount = 0;
+    if (event.discount_type === "percentage") {
+      discountAmount = priceAfterMarkup * (event.discount_value / 100);
+    } else if (event.discount_type === "fixed") {
+      discountAmount = event.discount_value;
+    }
+
+    // Final event price
+    const finalEventPrice = Math.max(0, priceAfterMarkup - discountAmount);
+
+    // Profit calculations
+    const grossProfit = finalEventPrice - totalItemCost;
+    const profitMargin = finalEventPrice > 0 ? (grossProfit / finalEventPrice) * 100 : 0;
+
+    // Statistical analysis of item costs
+    const itemCosts = eventItems.map(item => item.cost || 0).sort((a, b) => a - b);
+    const itemQuantities = eventItems.map(item => item.item_quantity || 0).sort((a, b) => a - b);
+    
+    // Calculate mean, median, mode for costs
+    const meanCost = itemCount > 0 ? totalItemCost / itemCount : 0;
+    const medianCost = itemCount > 0 ? 
+      (itemCount % 2 === 0 ? 
+        (itemCosts[itemCount / 2 - 1] + itemCosts[itemCount / 2]) / 2 : 
+        itemCosts[Math.floor(itemCount / 2)]
+      ) : 0;
+    
+    // Calculate mode (most frequent cost)
+    const costFrequency = itemCosts.length > 0 ? itemCosts.reduce((acc, cost) => {
+      acc[cost] = (acc[cost] || 0) + 1;
+      return acc;
+    }, {} as Record<number, number>) : {};
+    const modeCost = Object.keys(costFrequency).length > 0 ? 
+      Object.entries(costFrequency).reduce((a, b) => 
+      costFrequency[Number(a[0])] > costFrequency[Number(b[0])] ? a : b
+      )[0] : 0;
+
+    // Calculate standard deviation
+    const variance = itemCount > 0 ? 
+      itemCosts.reduce((sum, cost) => sum + Math.pow(cost - meanCost, 2), 0) / itemCount : 0;
+    const standardDeviation = Math.sqrt(variance);
+
+    // Calculate min, max, range
+    const minCost = itemCosts.length > 0 ? itemCosts[0] : 0;
+    const maxCost = itemCosts.length > 0 ? itemCosts[itemCosts.length - 1] : 0;
+    const costRange = maxCost - minCost;
+
+    // Quantity statistics
+    const meanQuantity = itemCount > 0 ? totalQuantity / itemCount : 0;
+    const medianQuantity = itemCount > 0 ? 
+      (itemCount % 2 === 0 ? 
+        (itemQuantities[itemCount / 2 - 1] + itemQuantities[itemCount / 2]) / 2 : 
+        itemQuantities[Math.floor(itemCount / 2)]
+      ) : 0;
+
+    // Cost distribution by category (for reference, but we'll use stats instead)
+    const costByCategory = eventItems.length > 0 ? eventItems.reduce((acc, item) => {
+      const category = item.category || 'Uncategorized';
+      acc[category] = (acc[category] || 0) + (item.cost || 0);
+      return acc;
+    }, {} as Record<string, number>) : {};
+
+    // Quantity distribution
+    const quantityData = eventItems.map(item => ({
+      name: item.item_name,
+      quantity: item.item_quantity || 0,
+      cost: item.cost || 0
+    }));
+
+    // Cost trend (simulated based on item count)
+    const costTrend = eventItems.length > 0 ? eventItems.map((item, index) => ({
+      item: `Item ${index + 1}`,
+      cost: item.cost || 0,
+      cumulative: eventItems.slice(0, index + 1).reduce((sum, i) => sum + (i.cost || 0), 0)
+    })) : [];
+
+    // Descriptive analysis
+    const getCostDistributionDescription = () => {
+      if (standardDeviation === 0) return "All items have the same cost";
+      if (standardDeviation < meanCost * 0.1) return "Costs are very consistent";
+      if (standardDeviation < meanCost * 0.3) return "Costs are moderately consistent";
+      return "Costs vary significantly";
+    };
+
+    const getQuantityDistributionDescription = () => {
+      const quantityRange = Math.max(...itemQuantities) - Math.min(...itemQuantities);
+      if (quantityRange === 0) return "All items have the same quantity";
+      if (quantityRange <= 2) return "Quantities are very similar";
+      if (quantityRange <= 5) return "Quantities are moderately varied";
+      return "Quantities vary significantly";
+    };
+
+    return {
+      totalItemCost,
+      totalQuantity,
+      itemCount,
+      memberCount,
+      markupAmount,
+      discountAmount,
+      finalEventPrice,
+      grossProfit,
+      profitMargin,
+      // attendance - enhanced with attendance records
+      expectedAttendees: attendeesStats?.expected_attendees ?? 0,
+      actualAttendees: attendeesStats?.event_attendees ?? 0,
+      attendanceRecordsCount: attendanceRecords.length,
+      attendanceRate: (attendeesStats && (attendeesStats.expected_attendees ?? 0) > 0)
+        ? ((attendeesStats.event_attendees ?? 0) / (attendeesStats.expected_attendees ?? 1)) * 100
+        : 0,
+      attendanceRecordsRate: (attendeesStats && (attendeesStats.expected_attendees ?? 0) > 0)
+        ? (attendanceRecords.length / (attendeesStats.expected_attendees ?? 1)) * 100
+        : 0,
+      costByCategory,
+      quantityData,
+      costTrend,
+      averageCostPerItem: itemCount > 0 ? totalItemCost / itemCount : 0,
+      averageCostPerMember: memberCount > 0 ? totalItemCost / memberCount : 0,
+      averagePricePerMember: memberCount > 0 ? finalEventPrice / memberCount : 0,
+      // Enhanced feedback analytics
+      feedbackMetrics: feedbackMetrics || { total: 0, averageRating: 0, positive: 0, neutral: 0, negative: 0 },
+      feedbackResponseRate: (attendeesStats && (attendeesStats.expected_attendees ?? 0) > 0)
+        ? ((feedbackMetrics?.total ?? 0) / (attendeesStats.expected_attendees ?? 1)) * 100
+        : 0,
+      // Attendance records analytics
+      attendanceRecords: attendanceRecords,
+      // Statistical data
+      statistics: {
+        cost: {
+          mean: meanCost,
+          median: medianCost,
+          mode: Number(modeCost),
+          min: minCost,
+          max: maxCost,
+          range: costRange,
+          standardDeviation,
+          variance,
+          description: getCostDistributionDescription()
+        },
+        quantity: {
+          mean: meanQuantity,
+          median: medianQuantity,
+          min: itemQuantities.length > 0 ? itemQuantities[0] : 0,
+          max: itemQuantities.length > 0 ? itemQuantities[itemQuantities.length - 1] : 0,
+          range: itemQuantities.length > 0 ? itemQuantities[itemQuantities.length - 1] - itemQuantities[0] : 0,
+          description: getQuantityDistributionDescription()
+        }
+      }
+    };
+  };
+
+  const fetchInsightsUsage = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase.rpc('get_or_create_insights_weekly_usage', {
+        p_user_id: user.id,
+        p_event_id: eventId
+      });
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        const usage = data[0];
+        setInsightsUsageInfo({
+          insightsGenerated: usage.insights_generated,
+          canGenerateMore: usage.can_generate_more,
+          weekStart: usage.week_start_date_return
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching insights usage info:', error);
+    }
+  };
+
+  const incrementInsightsUsage = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error } = await supabase
+        .from('ai_insights_usage')
+        .update({
+          insights_generated: (insightsUsageInfo?.insightsGenerated || 0) + 1,
+          last_generation_at: new Date().toISOString()
+        })
+        .eq('user_id', user.id)
+        .eq('event_id', eventId)
+        .eq('week_start_date', insightsUsageInfo?.weekStart);
+
+      if (error) throw error;
+
+      // Update local state
+      setInsightsUsageInfo(prev => prev ? {
+        ...prev,
+        insightsGenerated: prev.insightsGenerated + 1,
+        canGenerateMore: prev.insightsGenerated + 1 < 3
+      } : null);
+    } catch (error) {
+      console.error('Error incrementing insights usage:', error);
+    }
+  };
+
+  const saveInsightsToDatabase = async (insights: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error } = await supabase
+        .from('events')
+        .update({
+          ai_insights: insights,
+          insights_generated_at: new Date().toISOString(),
+          insights_generated_by: user.id
+        })
+        .eq('id', eventId);
+
+      if (error) throw error;
+      
+      console.log('Insights saved to database successfully');
+    } catch (error) {
+      console.error('Error saving insights to database:', error);
+    }
+  };
+
+  const generateAIInsights = async () => {
+    if (!event || !eventItems) return;
+    
+    // If usage info is not loaded yet, fetch it first
+    if (!insightsUsageInfo) {
+      await fetchInsightsUsage();
+      return; // Will retry after usage info is loaded
+    }
+    
+    // Check if user can generate more insights
+    if (!insightsUsageInfo.canGenerateMore) return;
+
+    setIsGeneratingInsights(true);
+    try {
+      // Increment usage counter
+      await incrementInsightsUsage();
+      
+      const analytics = generateAnalyticsData();
+      if (!analytics) return;
+
+      const prompt = `Analyze this event's data and write a detailed descriptive analysis summary:
+
+Event: ${event.title}
+Category: ${event.category}
+Date: ${event.date}
+Members: ${analytics.memberCount}
+Items: ${analytics.itemCount}
+
+PRICING BREAKDOWN:
+- Total Item Cost: PHP ${analytics.totalItemCost.toFixed(2)}
+- Markup (${event.markup_type === 'percentage' ? `${event.markup_value}%` : `PHP ${event.markup_value}`}): PHP ${analytics.markupAmount.toFixed(2)}
+- Price After Markup: PHP ${(analytics.totalItemCost + analytics.markupAmount).toFixed(2)}
+${event.discount_type !== 'none' ? `- Discount (${event.discount_type === 'percentage' ? `${event.discount_value}%` : `PHP ${event.discount_value}`}): PHP ${analytics.discountAmount.toFixed(2)}` : ''}
+- Final Event Price: PHP ${analytics.finalEventPrice.toFixed(2)}
+- Gross Profit: PHP ${analytics.grossProfit.toFixed(2)}
+- Profit Margin: ${analytics.profitMargin.toFixed(1)}%
+
+STATISTICAL ANALYSIS:
+Cost Statistics:
+- Mean Cost: PHP ${analytics.statistics.cost.mean.toFixed(2)}
+- Median Cost: PHP ${analytics.statistics.cost.median.toFixed(2)}
+- Mode Cost: PHP ${analytics.statistics.cost.mode.toFixed(2)}
+- Min Cost: PHP ${analytics.statistics.cost.min.toFixed(2)}
+- Max Cost: PHP ${analytics.statistics.cost.max.toFixed(2)}
+- Cost Range: PHP ${analytics.statistics.cost.range.toFixed(2)}
+- Standard Deviation: PHP ${analytics.statistics.cost.standardDeviation.toFixed(2)}
+- Cost Distribution: ${analytics.statistics.cost.description}
+
+Quantity Statistics:
+- Mean Quantity: ${analytics.statistics.quantity.mean.toFixed(1)} units
+- Median Quantity: ${analytics.statistics.quantity.median.toFixed(1)} units
+- Min Quantity: ${analytics.statistics.quantity.min} units
+- Max Quantity: ${analytics.statistics.quantity.max} units
+- Quantity Range: ${analytics.statistics.quantity.range} units
+- Quantity Distribution: ${analytics.statistics.quantity.description}
+
+Item Details:
+${eventItems.map(item => `- ${item.item_name}: ${item.item_quantity} units, PHP ${(item.cost || 0).toFixed(2)}`).join('\n')}
+
+ATTENDANCE ANALYSIS:
+- Expected Attendees: ${analytics.expectedAttendees}
+- Actual Attendees: ${analytics.actualAttendees}
+- Attendance Records: ${analytics.attendanceRecordsCount}
+- Attendance Rate: ${analytics.attendanceRate.toFixed(1)}%
+- Attendance Records Rate: ${analytics.attendanceRecordsRate.toFixed(1)}%
+
+FEEDBACK ANALYSIS:
+- Total Feedback Responses: ${analytics.feedbackMetrics.total}
+- Average Rating: ${analytics.feedbackMetrics.averageRating.toFixed(1)}/5
+- Positive Feedback: ${analytics.feedbackMetrics.positive}
+- Neutral Feedback: ${analytics.feedbackMetrics.neutral}
+- Negative Feedback: ${analytics.feedbackMetrics.negative}
+- Feedback Response Rate: ${analytics.feedbackResponseRate.toFixed(1)}%
+
+Write 5 short paragraphs (1–3 sentences each), with bold labels, no lists:
+1) **Overview**: key takeaways across pricing, attendance, feedback.
+2) **Pricing Analysis**: interpret costs, markup/discount impact, margin.
+3) **Attendance Analysis**: expected vs actual, engagement signals.
+4) **Feedback Signals**: average rating and sentiment patterns.
+5) **Risks & Recommendations**: 2–3 prioritized actions.
+Constraints: 150–220 words total, no extra blank lines, no tables.`;
+
+      // Initialize Cohere client
+      const cohere = new CohereClientV2({
+        token: process.env.NEXT_PUBLIC_COHERE_API_KEY || 'TbnKkS2gKZIx4enseFsd5KIvfpnxqDhSmqK2pVmA',
+      });
+
+      // Use the new chat API
+      const response = await cohere.chat({
+        model: 'command-a-03-2025',
+        messages: [
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        maxTokens: 450,
+        temperature: 0.65,
+      });
+
+      if (response.message && response.message.content && response.message.content[0]) {
+        const content = response.message.content[0];
+        if ('text' in content) {
+          // post-process: collapse extra blank lines and strip leading headings
+          const raw = content.text || '';
+          const collapsed = raw
+            .replace(/\n{2,}/g, '\n')
+            .replace(/^\s*#{1,6}\s*/gm, '')
+            .trim();
+          setAiInsights(collapsed);
+          
+          // Save insights to database
+          await saveInsightsToDatabase(collapsed);
+        } else {
+          throw new Error('Invalid response format from AI service');
+        }
+      } else {
+        throw new Error('Invalid response from AI service');
+      }
+    } catch (error) {
+      console.error('Error generating AI insights:', error);
+      
+      // Provide fallback insights when API fails
+      const fallbackAnalytics = generateAnalyticsData();
+      if (fallbackAnalytics) {
+        const fallbackInsights = `SUMMARY: ${event.title} · Items ${fallbackAnalytics.itemCount}, Members ${fallbackAnalytics.memberCount}
+- Final price PHP ${fallbackAnalytics.finalEventPrice.toFixed(2)}, Profit margin ${fallbackAnalytics.profitMargin.toFixed(1)}%
+- Attendance rate ${fallbackAnalytics.attendanceRate.toFixed(1)}%, Feedback ${fallbackAnalytics.feedbackMetrics.averageRating.toFixed(1)}/5
+PRICING:
+- Total item cost PHP ${fallbackAnalytics.totalItemCost.toFixed(2)}; markup/discount applied
+- Gross profit PHP ${fallbackAnalytics.grossProfit.toFixed(2)}
+ATTENDANCE:
+- Expected ${fallbackAnalytics.expectedAttendees}; records ${fallbackAnalytics.attendanceRecordsCount}
+FEEDBACK:
+- ${fallbackAnalytics.feedbackMetrics.total} responses; +${fallbackAnalytics.feedbackMetrics.positive}/-${fallbackAnalytics.feedbackMetrics.negative}
+RECOMMENDATIONS:
+- Optimize high-cost items; validate supplier quotes
+- Align markup with target margin; avoid underpricing
+- Promote earlier to raise attendance; streamline check-in
+- Close feedback loop; fix top 1–2 pain points`;
+        
+        setAiInsights(fallbackInsights);
+        
+        // Save fallback insights to database
+        await saveInsightsToDatabase(fallbackInsights);
+      } else {
+        const errorMessage = 'Unable to generate AI insights at this time. Please try again later.';
+        setAiInsights(errorMessage);
+        
+        // Save error message to database
+        await saveInsightsToDatabase(errorMessage);
+      }
+    } finally {
+      setIsGeneratingInsights(false);
+    }
+  };
+
+  const handleShowAnalytics = () => {
+    const data = generateAnalyticsData();
+    setAnalyticsData(data);
+    setShowAnalytics(true);
+    // Fetch insights usage when analytics opens
+    fetchInsightsUsage();
+  };
+
+  // Fetch insights usage when analytics modal opens
+  useEffect(() => {
+    if (showAnalytics && !insightsUsageInfo) {
+      fetchInsightsUsage();
+    }
+  }, [showAnalytics, insightsUsageInfo]);
+
+  // Markup editing functions
+  const handleEditMarkup = () => {
+    if (!event) return;
+    setEditingMarkup({
+      markup_type: event.markup_type,
+      markup_value: event.markup_value,
+      discount_type: event.discount_type,
+      discount_value: event.discount_value,
+    });
+    setIsEditingMarkup(true);
+  };
+
+  const handleSaveMarkup = async () => {
+    if (!event) return;
+    setIsSavingMarkup(true);
+    try {
+      const { error } = await supabase
+        .from("events")
+        .update({
+          markup_type: editingMarkup.markup_type,
+          markup_value: editingMarkup.markup_value,
+          discount_type: editingMarkup.discount_type,
+          discount_value: editingMarkup.discount_value,
+        })
+        .eq("id", event.id);
+
+      if (error) throw error;
+
+      // Update local state
+      setEvent({
+        ...event,
+        markup_type: editingMarkup.markup_type,
+        markup_value: editingMarkup.markup_value,
+        discount_type: editingMarkup.discount_type,
+        discount_value: editingMarkup.discount_value,
+      });
+
+      setIsEditingMarkup(false);
+      toast.success("Markup and discount updated successfully!");
+    } catch (error: any) {
+      toast.error("Failed to update markup: " + error.message);
+    } finally {
+      setIsSavingMarkup(false);
+    }
+  };
+
+  const handleCancelMarkupEdit = () => {
+    setIsEditingMarkup(false);
   };
 
   if (loading) {
@@ -1145,14 +2136,21 @@ export default function SingleEventPage() {
                   />
                   <div className="flex items-center justify-center gap-4 text-slate-300 text-sm mb-6">
                     <div className="flex items-center gap-1">
-                      <Calendar className="w-4 h-4" />
+                      <Calendar className="w-4 h-4 ml-3" />
                       <Input
                         type="datetime-local"
                         value={
                           editingEvent.date
-                            ? new Date(editingEvent.date)
-                                .toISOString()
-                                .slice(0, 16)
+                            ? (() => {
+                                const date = new Date(editingEvent.date);
+                                // Get local date/time without timezone conversion
+                                const year = date.getFullYear();
+                                const month = String(date.getMonth() + 1).padStart(2, '0');
+                                const day = String(date.getDate()).padStart(2, '0');
+                                const hours = String(date.getHours()).padStart(2, '0');
+                                const minutes = String(date.getMinutes()).padStart(2, '0');
+                                return `${year}-${month}-${day}T${hours}:${minutes}`;
+                              })()
                             : ""
                         }
                         onChange={(e) =>
@@ -1178,7 +2176,7 @@ export default function SingleEventPage() {
                         className="bg-slate-800 border-amber-500/30 text-white text-sm w-auto"
                       />
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 relative">
                       <Input
                         value={editingEvent.type}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
@@ -1188,56 +2186,82 @@ export default function SingleEventPage() {
                           })
                         }
                         placeholder="Type"
-                        className="bg-slate-800 border-amber-500/30 text-white text-sm w-auto"
+                        onFocus={() => setIsTypeMenuOpen(true)}
+                        className="bg-slate-800 border-amber-500/30 text-white text-sm w-auto pr-8"
                       />
+                      {/* Dropdown trigger indicator */}
+                      <button
+                        type="button"
+                        aria-label="Toggle event type options"
+                        onClick={() => setIsTypeMenuOpen((o) => !o)}
+                        className="absolute right-1.5 p-1 rounded text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"
+                      >
+                        <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clipRule="evenodd"/></svg>
+                      </button>
+                      {/* Choices dropdown with filtering */}
+                      {isTypeMenuOpen && (
+                        <div className="absolute top-full mt-1 left-0 z-20 w-56 bg-slate-900 border border-slate-700 rounded-md shadow-lg max-h-72 overflow-auto">
+                          {eventTypeOptions
+                            .filter((opt) =>
+                              (editingEvent.type || '').trim() === ''
+                                ? true
+                                : opt.toLowerCase().includes(editingEvent.type.toLowerCase())
+                            )
+                            .map((opt) => (
+                              <button
+                                key={opt}
+                                type="button"
+                                className={`w-full text-left px-3 py-2 hover:bg-slate-800 ${editingEvent.type === opt ? 'text-white' : 'text-slate-300'}`}
+                                onClick={() => {
+                                  setEditingEvent({ ...editingEvent, type: opt });
+                                  setIsTypeMenuOpen(false);
+                                }}
+                              >
+                                {opt}
+                              </button>
+                            ))}
+                          {(editingEvent.type || '').trim() === '' && (
+                            <div className="px-3 py-2 text-xs text-slate-500 border-t border-slate-700">
+                              You can also type a custom type.
                     </div>
-                  </div>
-                  <div className="flex gap-3 justify-center">
-                    <Button
-                      onClick={handleSaveEvent}
-                      className="bg-amber-600 hover:bg-amber-700 text-white"
-                    >
-                      Save Changes
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={handleCancelEditEvent}
-                      className="border-amber-500/30 text-amber-400 hover:bg-amber-500/20"
-                    >
-                      Cancel
-                    </Button>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               ) : (
                 <div>
-                  <h1 className="text-4xl font-bold text-white mb-4">
+                  <h1 className="text-4xl font-bold text-white mb-2">
                     {event.title}
                   </h1>
-                  <div className="flex items-center justify-between text-slate-300 text-sm mb-6">
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="w-4 h-4" />
-                        {formatDate(event.date)}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <MapPin className="w-4 h-4" />
-                        {event.location}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-slate-400">Type:</span>
-                        <span className="px-2 py-1 text-xs rounded-full bg-slate-700 text-slate-200">
-                          {event.category}
-                        </span>
-                      </div>
+                    {canEdit && (
+                    <div className="flex justify-end mb-3">
+                      <Button
+                        variant="ghost"
+                        onClick={handleEditEvent}
+                        className="border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300"
+                      >
+                        <Edit className="w-4 h-4 mr-2" />
+                        Edit Event
+                      </Button>
                     </div>
-                    <Button
-                      variant="outline"
-                      onClick={handleEditEvent}
-                      className="border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300"
-                    >
-                      <Edit className="w-4 h-4 mr-2" />
-                      Edit Event
-                    </Button>
+                  )}
+                  <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-2 text-slate-300 text-sm mb-6">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4" />
+                      <span>{formatDate(event.date)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-4 h-4" />
+                      <span>{event.location}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-slate-400">Type:</span>
+                      <span className="px-2 py-1 text-xs rounded-full bg-slate-700 text-slate-200">
+                        {event.category}
+                      </span>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1284,9 +2308,46 @@ export default function SingleEventPage() {
 
             {/* Event Description - Yellow Box Concept */}
             <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-6">
-              <h3 className="text-xl font-semibold text-amber-400 mb-3">
+              <h3 className="text-xl font-semibold text-amber-400 mb-2">
                 Event Description
               </h3>
+              <div className="mb-4">
+                {isEditingEvent ? (
+                  <div className="space-y-3">
+                    <label className="text-amber-300 text-sm font-medium">
+                      Expected Event Participant:
+                    </label>
+                    <Input
+                      type="number"
+                      value={expectedInput}
+                      onChange={(e) => setExpectedInput(e.target.value)}
+                      placeholder="Enter expected participants"
+                      className="bg-slate-800 border-amber-500/30 text-white w-32"
+                    />
+
+                    <label className="text-amber-300 text-sm font-medium">
+                      Actual Event Participant:
+                    </label>
+                    <Input
+                      type="number"
+                      value={actualInput}
+                      onChange={(e) => setActualInput(e.target.value)}
+                      placeholder="Enter actual participants"
+                      className="bg-slate-800 border-amber-500/30 text-white w-32"
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <p className="text-amber-300 text-sm font-medium">
+                      Expected Event Participant: {attendeesStats?.expected_attendees || 'Not specified'}
+                    </p>
+                    <p className="text-amber-300 text-sm font-medium">
+                      Actual Event Participant: {attendeesStats?.event_attendees ?? 0}
+                    </p>
+                  </div>
+                )}
+              </div>
+              <div className="mb-4 pt-3 border-t border-amber-500/20">
               {isEditingEvent ? (
                 <div className="space-y-4">
                   <Input
@@ -1307,19 +2368,190 @@ export default function SingleEventPage() {
                     "No description provided for this event."}
                 </p>
               )}
+              </div>
             </div>
 
+            {/* Save/Cancel Buttons - Only show when editing */}
+            {isEditingEvent && (
+              <div className="flex gap-3 justify-center mt-6">
+                <Button
+                  variant="ghost"
+                  onClick={handleSaveEvent}
+                  className="border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300"
+                >
+                  Save Changes
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={handleCancelEditEvent}
+                  className="border border-red-500/30 text-red-400 hover:bg-red-500/20 hover:text-red-300"
+                >
+                  Cancel
+                </Button>
+              </div>
+            )}
+
             {/* Event Items Management */}
-            {isOwner && (
-              <div className="p-6">
-                <h3 className="text-xl font-semibold text-white mb-6">
+            <div className="p-6">
+              <div className="mb-6">
+                <h3 className="text-xl font-semibold text-white mb-4">
                   Event Items
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  {/* Add New Item Box */}
+                
+                {/* Pricing Summary - Always Show */}
+                {(() => {
+                  const analytics = generateAnalyticsData();
+                  return (
+                    <div className="bg-slate-800/50 rounded-lg border border-slate-600 overflow-hidden mb-6">
+                      <div className="flex items-center justify-between p-3 bg-slate-700/50 border-b border-slate-600">
+                        <h4 className="text-slate-300 text-sm font-medium">Pricing Summary</h4>
+                        {isOwner && !isEditingMarkup && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleEditMarkup}
+                            className="text-amber-400 hover:bg-amber-500/20 hover:text-amber-300"
+                          >
+                            <Edit className="w-4 h-4 mr-1" />
+                            Edit
+                          </Button>
+                        )}
+                      </div>
+                      <table className="w-full">
+                        <thead>
+                          <tr className="bg-slate-700/30">
+                            <th className="text-left p-3 text-slate-300 text-sm font-medium">Total Item Cost</th>
+                            <th className="text-left p-3 text-slate-300 text-sm font-medium">Markup</th>
+                            <th className="text-left p-3 text-slate-300 text-sm font-medium">Discount</th>
+                            <th className="text-left p-3 text-slate-300 text-sm font-medium">Total Event Cost</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td className="p-3">
+                              <div className="text-green-400 text-lg font-bold">
+                                PHP {analytics?.totalItemCost.toFixed(2) || '0.00'}
+                              </div>
+                            </td>
+                            <td className="p-3">
+                              {isEditingMarkup ? (
+                                <div className="space-y-2">
+                                  <Select
+                                    value={editingMarkup.markup_type}
+                                    onValueChange={(value: "percentage" | "fixed") =>
+                                      setEditingMarkup(prev => ({ ...prev, markup_type: value }))
+                                    }
+                                  >
+                                    <SelectTrigger className="w-24 h-8">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="percentage">%</SelectItem>
+                                      <SelectItem value="fixed">PHP</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  <Input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={editingMarkup.markup_value}
+                                    onChange={(e) =>
+                                      setEditingMarkup(prev => ({ ...prev, markup_value: parseFloat(e.target.value) || 0 }))
+                                    }
+                                    className="w-20 h-8"
+                                  />
+                                </div>
+                              ) : (
+                                <div className="text-blue-400 text-lg font-bold">
+                                  {event.markup_type === 'percentage' ? `${event.markup_value}%` : `PHP ${event.markup_value}`}
+                                </div>
+                              )}
+                            </td>
+                            <td className="p-3">
+                              {isEditingMarkup ? (
+                                <div className="space-y-2">
+                                  <Select
+                                    value={editingMarkup.discount_type}
+                                    onValueChange={(value: "none" | "percentage" | "fixed") =>
+                                      setEditingMarkup(prev => ({ ...prev, discount_type: value }))
+                                    }
+                                  >
+                                    <SelectTrigger className="w-24 h-8">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="none">None</SelectItem>
+                                      <SelectItem value="percentage">%</SelectItem>
+                                      <SelectItem value="fixed">PHP</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  {editingMarkup.discount_type !== 'none' && (
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      min="0"
+                                      value={editingMarkup.discount_value}
+                                      onChange={(e) =>
+                                        setEditingMarkup(prev => ({ ...prev, discount_value: parseFloat(e.target.value) || 0 }))
+                                      }
+                                      className="w-20 h-8"
+                                    />
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="text-red-400 text-lg font-bold">
+                                  {event.discount_type === 'none' ? 'None' : 
+                                   event.discount_type === 'percentage' ? `${event.discount_value}%` : `PHP ${event.discount_value}`}
+                                </div>
+                              )}
+                            </td>
+                            <td className="p-3">
+                              <div className="text-purple-400 text-xl font-bold">
+                                PHP {analytics?.finalEventPrice.toFixed(2) || '0.00'}
+                              </div>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                      {isEditingMarkup && (
+                        <div className="p-3 bg-slate-700/30 border-t border-slate-600 flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleCancelMarkupEdit}
+                            disabled={isSavingMarkup}
+                            className="border border-red-500 text-red-400 hover:bg-red-500/20 hover:text-red-300"
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleSaveMarkup}
+                            disabled={isSavingMarkup}
+                            className="border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300"
+                          >
+                            {isSavingMarkup ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                                Saving...
+                              </>
+                            ) : (
+                              'Save Changes'
+                            )}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {/* Add New Item Box (only editors) */}
+                {canEdit && (
                   <div
                     onClick={() => setShowAddForm(true)}
-                    className="border-2 border-dashed border-green-500/50 rounded-lg p-6 text-center cursor-pointer hover:border-green-500/70 hover:bg-green-500/5 transition-all h-48 flex flex-col items-center justify-center bg-slate-700/50"
+                    className="border-2 border-dashed border-green-500/50 rounded-lg p-6 text-center cursor-pointer hover:border-green-500/70 hover:bg-green-500/5 transition-all h-52 flex flex-col items-center justify-center bg-slate-700/50"
                   >
                     <Plus className="w-12 h-12 text-green-500 mb-3" />
                     <div className="text-green-500 text-lg font-semibold mb-2">
@@ -1329,14 +2561,16 @@ export default function SingleEventPage() {
                       Click to add items to this event
                     </div>
                   </div>
+                )}
 
-                  {/* Existing Items */}
-                  {eventItems.map((item) => (
-                    <div
-                      key={item.id}
-                      className="bg-slate-700/50 border border-green-500/30 rounded-lg p-6 h-48 relative"
-                    >
-                      {/* Action Buttons - Top Right */}
+                {/* Existing Items (view for all; actions only for editors) */}
+                {eventItems.map((item) => (
+                  <div
+                    key={item.id}
+                    className="bg-slate-700/50 border border-green-500/30 rounded-lg p-4 h-52 relative flex flex-col"
+                  >
+                    {/* Action Buttons - Top Right (editors only) */}
+                    {canEdit && (
                       <div className="flex items-center gap-2 absolute top-3 right-3">
                         <Button
                           variant="ghost"
@@ -1355,38 +2589,48 @@ export default function SingleEventPage() {
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
+                    )}
 
-                      {/* Content */}
-                      <div className="pt-8">
-                        <div className="text-green-400 text-xl font-semibold mb-3 truncate">
-                          {item.item_name}
+                    {/* Content */}
+                    <div className="pt-8 flex-1 flex flex-col">
+                      <div className="text-green-400 text-lg font-semibold mb-2 truncate">
+                        {item.item_name}
+                      </div>
+                      <div
+                        className="text-slate-300 text-sm mb-3 overflow-hidden flex-1"
+                        style={{
+                          display: "-webkit-box",
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: "vertical",
+                          lineHeight: "1.4",
+                          maxHeight: "2.8em",
+                        }}
+                      >
+                        {item.item_description}
+                      </div>
+                      <div className="space-y-2 mt-auto">
+                        <div className="flex items-center gap-2">
+                          <span className="text-slate-400 text-xs font-medium">
+                          Quantity:
+                        </span>
+                          <span className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center text-white text-xs font-bold">
+                          {item.item_quantity}
+                        </span>
                         </div>
-                        <div
-                          className="text-slate-300 text-base mb-4 overflow-hidden"
-                          style={{
-                            display: "-webkit-box",
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: "vertical",
-                            lineHeight: "1.4",
-                            maxHeight: "2.8em",
-                          }}
-                        >
-                          {item.item_description}
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-slate-400 text-sm font-medium">
-                            Quantity:
+                        <div className="flex items-center gap-2">
+                          <span className="text-slate-400 text-xs font-medium">
+                            Cost:
                           </span>
-                          <span className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white text-sm font-bold">
-                            {item.item_quantity}
+                          <span className="text-green-400 text-xs font-bold">
+                            PHP {(item.cost || 0).toFixed(2)}
                           </span>
                         </div>
                       </div>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
-            )}
+            </div>
 
             {/* Event Script */}
             <div className="p-6">
@@ -1396,7 +2640,7 @@ export default function SingleEventPage() {
                   <h4 className="text-lg font-semibold text-amber-400 mb-3">
                     Event Script
                   </h4>
-                  {isOwner && (
+                  {canEdit && (
                     <div className="mb-4">
                       <input
                         id="script-file"
@@ -1489,9 +2733,35 @@ export default function SingleEventPage() {
                             >
                               Preview
                             </Button>
-                            {isOwner && (
+                            {/* Download button */}
+                            <Button
+                              variant="outline"
+                              className="border-slate-500/40 text-slate-200 hover:bg-slate-500/20"
+                              onClick={async () => {
+                                try {
+                                  // Force download by fetching as Blob and creating an object URL
+                                  const res = await fetch(s.file_url, { mode: 'cors' });
+                                  if (!res.ok) throw new Error('Network error');
+                                  const blob = await res.blob();
+                                  const url = URL.createObjectURL(blob);
+                                  const link = document.createElement('a');
+                                  link.href = url;
+                                  link.download = s.file_name || 'script';
+                                  document.body.appendChild(link);
+                                  link.click();
+                                  document.body.removeChild(link);
+                                  URL.revokeObjectURL(url);
+                                } catch (err) {
+                                  toast.error('Failed to download file');
+                                }
+                              }}
+                            >
+                              <Download className="w-4 h-4 mr-2" /> Download
+                            </Button>
+                            {canEdit && (
                               <Button
                                 variant="destructive"
+                                size="icon"
                                 onClick={async () => {
                                   try {
                                     // First delete DB record
@@ -1517,7 +2787,8 @@ export default function SingleEventPage() {
                                   }
                                 }}
                               >
-                                Delete
+                                <Trash2 className="w-4 h-4" />
+                                <span className="sr-only">Delete</span>
                               </Button>
                             )}
                           </div>
@@ -1528,14 +2799,106 @@ export default function SingleEventPage() {
                 </div>
               </div>
             </div>
+
+        {/* Portal Modal */}
+        {showPortalModal.type && showPortalModal.url && (
+          <Dialog key={portalModalKey} open={true} onOpenChange={() => setShowPortalModal({ type: null, url: null })}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{showPortalModal.type === 'feedback' ? 'Feedback Link' : 'Attendance Link'}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3">
+                <Input readOnly value={showPortalModal.url} onFocus={(e)=>e.currentTarget.select()} />
+                <div className="flex items-center gap-2">
+                  <Button onClick={() => navigator.clipboard.writeText(showPortalModal.url || '')}>Copy Link</Button>
+                </div>
+                {/* Robust QR: quickchart primary, google charts fallback */}
+                <img
+                  src={`https://quickchart.io/qr?text=${encodeURIComponent(showPortalModal.url || '')}&size=220&margin=2`}
+                  onError={(e) => {
+                    const target = e.currentTarget as HTMLImageElement;
+                    target.onerror = null;
+                    target.src = `https://chart.googleapis.com/chart?cht=qr&chs=220x220&chl=${encodeURIComponent(showPortalModal.url || '')}`;
+                  }}
+                  alt="QR Code"
+                  className="mx-auto border rounded"
+                />
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
+
+            {/* Analytics Section */}
+            <div className="p-6">
+              <h3 className="text-xl font-semibold text-white mb-4">Event Analytics</h3>
+              <div className="grid grid-cols-1 gap-6">
+                <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
+                  <h4 className="text-lg font-semibold text-green-400 mb-3 flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5" />
+                    Analytics Dashboard
+                  </h4>
+                  
+                  {/* Analytics Toggle Button */}
+                  <div className="mb-4">
+                    <Button
+                      onClick={handleShowAnalytics}
+                      className="bg-green-600 hover:bg-green-700 text-white"
+                    >
+                      <TrendingUp className="w-4 h-4 mr-2" />
+                      View Analytics
+                    </Button>
+                  </div>
+
+                  {/* Quick Stats Preview */}
+                  {eventItems && eventItems.length > 0 && (() => {
+                    const analytics = generateAnalyticsData();
+                    return (
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                        <div className="bg-slate-800/60 rounded-lg p-3 text-center border border-green-500/20">
+                          <DollarSign className="w-6 h-6 text-green-400 mx-auto mb-1" />
+                          <div className="text-white font-semibold">
+                            PHP {analytics?.totalItemCost.toFixed(2) || '0.00'}
+                          </div>
+                          <div className="text-slate-400 text-xs">Total Item Cost</div>
+                        </div>
+                        <div className="bg-slate-800/60 rounded-lg p-3 text-center border border-blue-500/20">
+                          <TrendingUp className="w-6 h-6 text-blue-400 mx-auto mb-1" />
+                          <div className="text-white font-semibold">
+                            PHP {analytics?.finalEventPrice.toFixed(2) || '0.00'}
+                          </div>
+                          <div className="text-slate-400 text-xs">Event Price</div>
+                        </div>
+                        <div className="bg-slate-800/60 rounded-lg p-3 text-center border border-purple-500/20">
+                          <Users className="w-6 h-6 text-purple-400 mx-auto mb-1" />
+                          <div className="text-white font-semibold">{collaborators.length + 1}</div>
+                          <div className="text-slate-400 text-xs">Members</div>
+                        </div>
+                        <div className="bg-slate-800/60 rounded-lg p-3 text-center border border-amber-500/20">
+                          <Package className="w-6 h-6 text-amber-400 mx-auto mb-1" />
+                          <div className="text-white font-semibold">{eventItems.length}</div>
+                          <div className="text-slate-400 text-xs">Items</div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {eventItems && eventItems.length === 0 && (
+                    <div className="text-center py-8">
+                      <BarChart3 className="w-12 h-12 text-slate-500 mx-auto mb-3" />
+                      <div className="text-slate-400">Add event items to see analytics</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Right Sidebar - Green Rectangle Concept (hidden when chat open) */}
           <div className="lg:col-span-1">
             {!showChat && (
-            <div className="sticky top-8 space-y-6 max-h-[calc(100vh-4rem)] overflow-y-auto">
+            <div className="sticky top-8 space-y-6">
               {/* Event Actions */}
-              <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-6">
+              <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-6 flex flex-col">
                 <h3 className="text-xl font-semibold text-green-400 mb-6">
                   Event Actions
                 </h3>
@@ -1557,29 +2920,89 @@ export default function SingleEventPage() {
                     Event Chat
                   </Button>
 
-                  {/* Set Status Button - Only visible to event owners */}
-                  {isOwner && (
+                  {/* Event Notes & Set Status - Role-based visibility */}
+                  {((isOwner && showMoreActions) || (userRole === "moderator" && showMoreActions)) && (
+                    <>
                     <Button
                       variant="outline"
                       className="w-full justify-start border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300"
-                      onClick={() => {
-                        setSelectedStatus(event?.status || "coming_soon");
-                        setShowStatusModal(true);
-                      }}
+                      onClick={() => handleEventAction("notes")}
                     >
-                      <Calendar className="w-4 h-4 mr-3" />
-                      Set Status
+                      <FileText className="w-4 h-4 mr-3" />
+                      Event Notes
                     </Button>
+
+                    {/* Set Status - Only for owners and moderators */}
+                    {(isOwner || userRole === "moderator") && (
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300"
+                        onClick={() => {
+                          setSelectedStatus(event?.status || "coming_soon");
+                          setShowStatusModal(true);
+                        }}
+                      >
+                        <Calendar className="w-4 h-4 mr-3" />
+                        Set Status
+                      </Button>
+                    )}
+                    </>
+                  )}
+
+                  {/* Public links - Available to owners, moderators, and members */}
+                  {((isOwner && showMoreActions) || (userRole === "moderator" && showMoreActions) || (userRole === "member" && showMoreActions)) && (
+                        <div className="mt-3 space-y-3">
+                          <Button
+                            variant="outline"
+                            className="w-full justify-start border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300"
+                            onClick={() => generatePublicPortal('feedback')}
+                          >
+                            <span className="flex items-center gap-2 text-sm whitespace-normal break-words leading-snug text-left">
+                              <Link2 className="w-4 h-4" />
+                              Feedback Link
+                            </span>
+                          </Button>
+
+                          <Button
+                            variant="outline"
+                            className="w-full justify-start border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300"
+                            onClick={() => generatePublicPortal('attendance')}
+                          >
+                            <span className="flex items-center gap-2 text-sm whitespace-normal break-words leading-snug text-left">
+                              <QrCode className="w-4 h-4" />
+                              Attendance Link
+                            </span>
+                          </Button>
+                        </div>
+                      )}
+
+                  {/* Expand/Collapse button */}
+                  {(isOwner || userRole === "moderator" || userRole === "member") && (
+                      <div className="mt-auto pt-2">
+                        <button
+                          type="button"
+                          aria-label="Toggle more actions"
+                          className="w-full flex items-center justify-center py-1"
+                          onClick={() => setShowMoreActions((s) => !s)}
+                        >
+                          {showMoreActions ? (
+                            <ChevronUp className="w-6 h-6 text-green-400" />
+                          ) : (
+                            <ChevronDown className="w-6 h-6 text-green-400" />
+                          )}
+                        </button>
+                      </div>
                   )}
                 </div>
               </div>
 
               {/* Event Members/People */}
-              <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-6">
-                <h3 className="text-xl font-semibold text-purple-400 mb-6">
+              <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-6 max-h-[400px] flex flex-col">
+                <h3 className="text-xl font-semibold text-purple-400 mb-6 flex-shrink-0">
                   Event Members
                 </h3>
-                <div className="space-y-4">
+                <div className="flex-1 flex flex-col min-h-0">
+                  <div className="space-y-4 flex-1 overflow-y-auto">
                   {collaborators.length > 0 ? (
                     collaborators.map((collaborator) => (
                       <div
@@ -1643,16 +3066,19 @@ export default function SingleEventPage() {
                       </div>
                     </div>
                   )}
-
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start border-purple-500/30 text-purple-400 hover:bg-purple-500/20 hover:text-purple-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                    onClick={() => handleEventAction("invite")}
-                    disabled={!allowInvites}
-                  >
-                    <UserPlus className="w-4 h-4 mr-3" />
-                    Add Members
-                  </Button>
+                  </div>
+                  
+                  <div className="mt-4 flex-shrink-0">
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start border-purple-500/30 text-purple-400 hover:bg-purple-500/20 hover:text-purple-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={() => handleEventAction("invite")}
+                      disabled={!allowInvites}
+                    >
+                      <UserPlus className="w-4 h-4 mr-3" />
+                      Add Members
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1813,10 +3239,11 @@ export default function SingleEventPage() {
                     </p>
                   </div>
                   <button
-                    onClick={() => setAiChatEnabled(!aiChatEnabled)}
+                    onClick={canEdit ? handleToggleAiChat : undefined}
+                    disabled={!canEdit}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${
                       aiChatEnabled ? "bg-emerald-500" : "bg-slate-600"
-                    }`}
+                    } ${!canEdit ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
                   >
                     <span
                       className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -1827,33 +3254,7 @@ export default function SingleEventPage() {
                 </div>
               </div>
 
-              {/* Data Analytics */}
-              <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-lg font-semibold text-amber-400 mb-2">
-                      Data Analytics
-                    </h4>
-                    <p className="text-slate-300 text-sm">
-                      Enable detailed analytics and insights for your event
-                    </p>
-                  </div>
-                  <button
-                    onClick={() =>
-                      setDataAnalyticsEnabled(!dataAnalyticsEnabled)
-                    }
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 ${
-                      dataAnalyticsEnabled ? "bg-amber-500" : "bg-slate-600"
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        dataAnalyticsEnabled ? "translate-x-6" : "translate-x-1"
-                      }`}
-                    />
-                  </button>
-                </div>
-              </div>
+              {/* Data Analytics removed per request */}
 
               {/* Event Invites */}
               <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-4">
@@ -1979,6 +3380,36 @@ export default function SingleEventPage() {
                   </div>
                 )}
               </div>
+
+              {/* Leave Event - Only for moderators and members */}
+              {!isOwner && (userRole === "moderator" || userRole === "member") && (
+                <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-4">
+                  <h4 className="text-lg font-semibold text-orange-400 mb-2">
+                    Leave Event
+                  </h4>
+                  <p className="text-slate-300 text-sm mb-4">
+                    Leave this event and remove yourself from all event activities.
+                  </p>
+                  <Button
+                    variant="outline"
+                    onClick={handleLeaveEvent}
+                    disabled={isLeavingEvent}
+                    className="border-orange-500/30 text-orange-400 hover:bg-orange-500/20 hover:text-orange-300"
+                  >
+                    {isLeavingEvent ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Leaving...
+                      </>
+                    ) : (
+                      <>
+                        <ArrowLeft className="w-4 h-4 mr-2" />
+                        Leave Event
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
 
               {/* Danger Zone - Delete Event */}
               {isOwner && (
@@ -2188,6 +3619,24 @@ export default function SingleEventPage() {
                 />
               </div>
 
+              <div>
+                <Label className="text-white">Cost *</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={newItem.cost}
+                  onChange={(e) =>
+                    setNewItem({
+                      ...newItem,
+                      cost: parseFloat(e.target.value) || 0.00,
+                    })
+                  }
+                  placeholder="0.00"
+                  className="bg-slate-700 border-green-500/30 text-white"
+                />
+              </div>
+
               <div className="flex gap-3 pt-4">
                 <Button
                   onClick={editingItem ? handleUpdateItem : handleAddItem}
@@ -2302,21 +3751,50 @@ export default function SingleEventPage() {
             {chatMessages.length === 0 ? (
               <div className="text-slate-400 text-sm">No messages yet.</div>
             ) : (
-              chatMessages.map((m) => (
-                <div key={m.id} className="bg-slate-800/60 border border-slate-700 rounded-md p-3 text-slate-200">
+              chatMessages.map((m) => {
+                // Check if current user owns this message
+                const isCurrentUserMessage = m.user_id === currentUserId;
+                
+                return (
+                  <div key={m.id} className="bg-slate-800/60 border border-slate-700 rounded-md p-3 text-slate-200 group relative">
                   <div className="flex items-center justify-between mb-1">
                     <div className="text-xs text-slate-300 font-medium truncate max-w-[60%]">
                       {(userMap[m.user_id]?.fname && userMap[m.user_id]?.lname)
                         ? `${userMap[m.user_id].fname} ${userMap[m.user_id].lname}`
                         : userMap[m.user_id]?.username || "Unknown"}
                     </div>
+                      <div className="flex items-center gap-2">
                     <div className="text-xs text-slate-400">
                       {m.created_at ? new Date(m.created_at).toLocaleString() : ""}
                     </div>
+                        {/* Show delete button for message owner, event owner, or moderators */}
+                        {m.message !== "Message deleted" && (isCurrentUserMessage || canEdit) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteMessage(m.id)}
+                            disabled={deletingMessageId === m.id}
+                            className="h-6 w-6 p-0 text-slate-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            {deletingMessageId === m.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-3 w-3" />
+                            )}
+                          </Button>
+                        )}
                   </div>
-                  <div className="whitespace-pre-wrap break-words">{m.message}</div>
                 </div>
-              ))
+                    <div className="whitespace-pre-wrap break-words">
+                      {m.message === "Message deleted" ? (
+                        <span className="text-slate-500 italic">{m.message}</span>
+                      ) : (
+                        m.message
+                      )}
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
           <div className="p-3 border-t border-slate-700 bg-slate-800/60">
@@ -2340,6 +3818,606 @@ export default function SingleEventPage() {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showMessageDeleteConfirm} onOpenChange={setShowMessageDeleteConfirm}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-red-500" />
+              Confirm Message Deletion
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-muted-foreground">
+              Are you sure you want to delete this message? This action cannot be undone.
+            </p>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Button
+              variant="outline"
+              onClick={cancelDeleteMessage}
+              disabled={deletingMessageId === messageToDelete}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDeleteMessage}
+              disabled={deletingMessageId === messageToDelete}
+            >
+              {deletingMessageId === messageToDelete ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Success Dialog */}
+      <Dialog open={showMessageDeleteSuccess} onOpenChange={setShowMessageDeleteSuccess}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-green-600">
+              <CheckCircle className="h-5 w-5" />
+              Message Deleted
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-muted-foreground">
+              The message has been successfully deleted.
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Event Notes Modal */}
+      <Dialog open={showNotesModal} onOpenChange={setShowNotesModal}>
+        <DialogContent className="sm:max-w-2xl max-h-[75vh] bg-slate-900 border-amber-500/30 flex flex-col">
+          <DialogHeader className="border-b border-amber-500/20 pb-4 flex-shrink-0">
+            <DialogTitle className="flex items-center gap-2 text-amber-400">
+              <FileText className="h-5 w-5" />
+              Event Notes
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4 flex-1 flex flex-col min-h-0">
+            <div className="space-y-3 flex-1 flex flex-col">
+              <div className="flex-1 flex flex-col">
+                <Label className="text-sm font-medium text-amber-300 mb-2 block">
+                  Private Notes (Only visible to you)
+                </Label>
+                <textarea
+                  value={eventNotes}
+                  onChange={(e) => {
+                    if (e.target.value.length <= 2500) {
+                      setEventNotes(e.target.value);
+                    }
+                  }}
+                  placeholder="Write your private notes about this event..."
+                  className="w-full flex-1 p-4 bg-slate-800 border border-amber-500/30 rounded-lg text-white resize-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 placeholder-slate-400 min-h-[200px]"
+                  maxLength={2500}
+                />
+              </div>
+              <div className="flex justify-between items-center text-xs flex-shrink-0">
+                <span className={`font-medium ${eventNotes.length > 2000 ? 'text-red-400' : eventNotes.length > 1500 ? 'text-yellow-400' : 'text-amber-300'}`}>
+                  Characters: {eventNotes.length}/2500
+                </span>
+                <span className="text-slate-400">These notes are private and only visible to event creators</span>
+              </div>
+            </div>
+          </div>
+          <div className="flex gap-3 justify-end border-t border-amber-500/20 pt-4 flex-shrink-0">
+            <Button
+              variant="outline"
+              onClick={handleDiscardNotes}
+              disabled={isSavingNotes}
+              className="border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white"
+            >
+              Discard Changes
+            </Button>
+            <Button
+              onClick={handleSaveNotes}
+              disabled={isSavingNotes}
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              {isSavingNotes ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Notes"
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Analytics Modal */}
+      <Dialog open={showAnalytics} onOpenChange={setShowAnalytics}>
+        <DialogContent className="sm:max-w-6xl max-h-[90vh] bg-slate-900 border-green-500/30 flex flex-col">
+          <DialogHeader className="border-b border-green-500/20 pb-4 flex-shrink-0">
+            <DialogTitle className="text-2xl font-bold text-green-400 flex items-center gap-2">
+              <BarChart3 className="w-6 h-6" />
+              Event Analytics Dashboard
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-y-auto p-1">
+            {analyticsData ? (
+              <div className="space-y-6">
+                {/* Key Metrics */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-slate-800/60 rounded-lg p-4 text-center border border-green-500/20">
+                    <DollarSign className="w-8 h-8 text-green-400 mx-auto mb-2" />
+                    <div className="text-2xl font-bold text-white">
+                      PHP {analyticsData.totalItemCost.toFixed(2)}
+                    </div>
+                    <div className="text-slate-400 text-sm">Total Item Cost</div>
+                  </div>
+                  <div className="bg-slate-800/60 rounded-lg p-4 text-center border border-blue-500/20">
+                    <TrendingUp className="w-8 h-8 text-blue-400 mx-auto mb-2" />
+                    <div className="text-2xl font-bold text-white">
+                      PHP {analyticsData.finalEventPrice.toFixed(2)}
+                    </div>
+                    <div className="text-slate-400 text-sm">Event Price</div>
+                  </div>
+                  <div className="bg-slate-800/60 rounded-lg p-4 text-center border border-purple-500/20">
+                    <Users className="w-8 h-8 text-purple-400 mx-auto mb-2" />
+                    <div className="text-2xl font-bold text-white">{analyticsData.memberCount}</div>
+                    <div className="text-slate-400 text-sm">Members</div>
+                  </div>
+                  <div className="bg-slate-800/60 rounded-lg p-4 text-center border border-amber-500/20">
+                    <Package className="w-8 h-8 text-amber-400 mx-auto mb-2" />
+                    <div className="text-2xl font-bold text-white">{analyticsData.itemCount}</div>
+                    <div className="text-slate-400 text-sm">Items</div>
+                  </div>
+                </div>
+
+                {/* Pricing Breakdown */}
+                <div className="bg-slate-800/60 rounded-lg p-4 border border-slate-600">
+                  <h3 className="text-lg font-semibold text-white mb-4">Pricing Breakdown</h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Total Item Cost:</span>
+                      <span className="text-white font-semibold">PHP {analyticsData.totalItemCost.toFixed(2)}</span>
+                    </div>
+                    {analyticsData.markupAmount > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">
+                          Markup ({event.markup_type === 'percentage' ? `${event.markup_value}%` : `PHP ${event.markup_value}`}):
+                        </span>
+                        <span className="text-green-400 font-semibold">+PHP {analyticsData.markupAmount.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {analyticsData.discountAmount > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">
+                          Discount ({event.discount_type === 'percentage' ? `${event.discount_value}%` : `PHP ${event.discount_value}`}):
+                        </span>
+                        <span className="text-red-400 font-semibold">-PHP {analyticsData.discountAmount.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between border-t border-slate-600 pt-2 font-semibold text-lg">
+                      <span>Final Event Price:</span>
+                      <span className="text-blue-400">PHP {analyticsData.finalEventPrice.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Gross Profit:</span>
+                      <span className={`font-semibold ${analyticsData.grossProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                        PHP {analyticsData.grossProfit.toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Profit Margin:</span>
+                      <span className={`font-semibold ${analyticsData.profitMargin >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                        {analyticsData.profitMargin.toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Charts Row */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Statistical Analysis */}
+                  <div className="bg-slate-800/60 rounded-lg p-4 border border-slate-600">
+                    <h3 className="text-lg font-semibold text-white mb-4">Statistical Analysis</h3>
+                    <div className="space-y-4">
+                      <div className="bg-slate-900/50 rounded-lg p-3">
+                        <h4 className="text-blue-400 font-medium mb-2">Cost Statistics</h4>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Mean:</span>
+                            <span className="text-white font-semibold">PHP {analyticsData.statistics.cost.mean.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Median:</span>
+                            <span className="text-white font-semibold">PHP {analyticsData.statistics.cost.median.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Mode:</span>
+                            <span className="text-white font-semibold">PHP {analyticsData.statistics.cost.mode.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Range:</span>
+                            <span className="text-white font-semibold">PHP {analyticsData.statistics.cost.range.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Std Dev:</span>
+                            <span className="text-white font-semibold">PHP {analyticsData.statistics.cost.standardDeviation.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Min/Max:</span>
+                            <span className="text-white font-semibold">PHP {analyticsData.statistics.cost.min.toFixed(2)} - PHP {analyticsData.statistics.cost.max.toFixed(2)}</span>
+                          </div>
+                        </div>
+                        <div className="mt-2 p-2 bg-blue-500/10 rounded border-l-2 border-blue-500">
+                          <p className="text-blue-300 text-xs">{analyticsData.statistics.cost.description}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="bg-slate-900/50 rounded-lg p-3">
+                        <h4 className="text-green-400 font-medium mb-2">Quantity Statistics</h4>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Mean:</span>
+                            <span className="text-white font-semibold">{analyticsData.statistics.quantity.mean.toFixed(1)} units</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Median:</span>
+                            <span className="text-white font-semibold">{analyticsData.statistics.quantity.median.toFixed(1)} units</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Range:</span>
+                            <span className="text-white font-semibold">{analyticsData.statistics.quantity.range} units</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Min/Max:</span>
+                            <span className="text-white font-semibold">{analyticsData.statistics.quantity.min} - {analyticsData.statistics.quantity.max} units</span>
+                          </div>
+                        </div>
+                        <div className="mt-2 p-2 bg-green-500/10 rounded border-l-2 border-green-500">
+                          <p className="text-green-300 text-xs">{analyticsData.statistics.quantity.description}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Quantity vs Cost Chart */}
+                  <div className="bg-slate-800/60 rounded-lg p-4 border border-slate-600">
+                    <h3 className="text-lg font-semibold text-white mb-4">Items Overview</h3>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={analyticsData.quantityData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                        <XAxis dataKey="name" tick={{ fill: '#9CA3AF', fontSize: 12 }} />
+                        <YAxis tick={{ fill: '#9CA3AF', fontSize: 12 }} />
+                        <Tooltip 
+                          formatter={(value, name) => [
+                            name === 'quantity' ? `${value} units` : `PHP ${Number(value).toFixed(2)}`,
+                            name === 'quantity' ? 'Quantity' : 'Cost'
+                          ]}
+                          labelStyle={{ color: '#F3F4F6' }}
+                          contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151' }}
+                        />
+                        <Bar dataKey="quantity" fill="#3B82F6" name="Quantity" />
+                        <Bar dataKey="cost" fill="#10B981" name="Cost" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* Cost Trend Chart */}
+                <div className="bg-slate-800/60 rounded-lg p-4 border border-slate-600">
+                  <h3 className="text-lg font-semibold text-white mb-4">Cost Accumulation Trend</h3>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={analyticsData.costTrend}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                      <XAxis dataKey="item" tick={{ fill: '#9CA3AF', fontSize: 12 }} />
+                      <YAxis tick={{ fill: '#9CA3AF', fontSize: 12 }} />
+                      <Tooltip 
+                        formatter={(value) => [`PHP ${Number(value).toFixed(2)}`, 'Cumulative Cost']}
+                        labelStyle={{ color: '#F3F4F6' }}
+                        contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151' }}
+                      />
+                      <Line type="monotone" dataKey="cumulative" stroke="#F59E0B" strokeWidth={3} dot={{ fill: '#F59E0B' }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Additional Analytics */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-slate-800/60 rounded-lg p-4 border border-slate-600">
+                    <h3 className="text-lg font-semibold text-white mb-4">Cost Analysis</h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Average Cost per Item:</span>
+                        <span className="text-white font-semibold">PHP {analyticsData.averageCostPerItem.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Average Cost per Member:</span>
+                        <span className="text-white font-semibold">PHP {analyticsData.averageCostPerMember.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Cost Efficiency Score:</span>
+                        <span className="text-white font-semibold">
+                          {analyticsData.statistics.cost.standardDeviation < analyticsData.statistics.cost.mean * 0.2 ? 'High' : 
+                           analyticsData.statistics.cost.standardDeviation < analyticsData.statistics.cost.mean * 0.5 ? 'Medium' : 'Low'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Cost Variability:</span>
+                        <span className="text-white font-semibold">
+                          {analyticsData.statistics.cost.range > 0 ? 
+                            `${((analyticsData.statistics.cost.range / analyticsData.statistics.cost.mean) * 100).toFixed(1)}%` : 
+                            '0%'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="mt-3 p-2 bg-slate-900/50 rounded text-xs text-slate-300">
+                      <p><strong>Interpretation:</strong> {analyticsData.statistics.cost.description}</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-800/60 rounded-lg p-4 border border-slate-600">
+                    <h3 className="text-lg font-semibold text-white mb-4">Attendance & Engagement</h3>
+                    {attendeesStats && (
+                      <div className="mb-4 grid grid-cols-2 gap-3 text-sm">
+                        <div className="flex justify-between"><span className="text-slate-400">Expected:</span><span className="text-white font-semibold">{attendeesStats.expected_attendees}</span></div>
+                        <div className="flex justify-between"><span className="text-slate-400">Actual:</span><span className="text-white font-semibold">{attendeesStats.event_attendees}</span></div>
+                        <div className="flex justify-between"><span className="text-slate-400">Records:</span><span className="text-white font-semibold">{analyticsData.attendanceRecordsCount}</span></div>
+                        <div className="flex justify-between"><span className="text-slate-400">Attendance Rate:</span><span className="text-white font-semibold">{analyticsData.attendanceRate.toFixed(1)}%</span></div>
+                        <div className="flex justify-between"><span className="text-slate-400">Records Rate:</span><span className="text-white font-semibold">{analyticsData.attendanceRecordsRate.toFixed(1)}%</span></div>
+                      </div>
+                    )}
+                    
+                    {/* Feedback Section */}
+                    <div className="mt-4 pt-4 border-t border-slate-600">
+                      <h4 className="text-md font-semibold text-white mb-3">Feedback Analysis</h4>
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div className="flex justify-between"><span className="text-slate-400">Total Responses:</span><span className="text-white font-semibold">{analyticsData.feedbackMetrics.total}</span></div>
+                        <div className="flex justify-between"><span className="text-slate-400">Avg Rating:</span><span className="text-white font-semibold">{analyticsData.feedbackMetrics.averageRating.toFixed(1)}/5</span></div>
+                        <div className="flex justify-between"><span className="text-slate-400">Positive:</span><span className="text-green-400 font-semibold">{analyticsData.feedbackMetrics.positive}</span></div>
+                        <div className="flex justify-between"><span className="text-slate-400">Neutral:</span><span className="text-yellow-400 font-semibold">{analyticsData.feedbackMetrics.neutral}</span></div>
+                        <div className="flex justify-between"><span className="text-slate-400">Negative:</span><span className="text-red-400 font-semibold">{analyticsData.feedbackMetrics.negative}</span></div>
+                        <div className="flex justify-between"><span className="text-slate-400">Response Rate:</span><span className="text-white font-semibold">{analyticsData.feedbackResponseRate.toFixed(1)}%</span></div>
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Total Item Cost:</span>
+                        <span className="text-white font-semibold">PHP {analyticsData.totalItemCost.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Markup Amount:</span>
+                        <span className="text-white font-semibold">PHP {analyticsData.markupAmount.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Final Event Price:</span>
+                        <span className="text-white font-semibold">PHP {analyticsData.finalEventPrice.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Available Buffer:</span>
+                        <span className="text-white font-semibold">PHP {(analyticsData.finalEventPrice - analyticsData.totalItemCost).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Buffer Percentage:</span>
+                        <span className="text-white font-semibold">
+                          {analyticsData.totalItemCost > 0 ? 
+                            `${(((analyticsData.finalEventPrice - analyticsData.totalItemCost) / analyticsData.totalItemCost) * 100).toFixed(1)}%` : 
+                            '0%'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Resources per Member:</span>
+                        <span className="text-white font-semibold">
+                          {analyticsData.memberCount > 0 ? (analyticsData.totalQuantity / analyticsData.memberCount).toFixed(1) : 0} units
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Budget per Member:</span>
+                        <span className="text-white font-semibold">
+                          {analyticsData.memberCount > 0 ? (analyticsData.finalEventPrice / analyticsData.memberCount).toFixed(2) : 0} PHP
+                        </span>
+                    </div>
+                      <div className="flex items-center gap-2 mt-2">
+                        <Input
+                          value={expectedInput}
+                          onChange={(e)=>setExpectedInput(e.target.value)}
+                          placeholder="Update expected attendees"
+                        />
+                        <Button onClick={saveExpectedAttendees} disabled={isSavingExpected}>Save</Button>
+                      </div>
+                    </div>
+                    <div className="mt-3 p-2 bg-slate-900/50 rounded text-xs text-slate-300">
+                      <p><strong>Budget Allocation:</strong> You have PHP {(analyticsData.finalEventPrice - analyticsData.totalItemCost).toFixed(2)} available for contingencies, additional resources, or profit. This represents {analyticsData.totalItemCost > 0 ? `${(((analyticsData.finalEventPrice - analyticsData.totalItemCost) / analyticsData.totalItemCost) * 100).toFixed(1)}%` : '0%'} of your base costs.</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* AI Insights - Moved to Bottom */}
+                <div className="bg-slate-800/60 rounded-lg p-4 border border-purple-500/20">
+                  <h3 className="text-lg font-semibold text-purple-400 mb-4 flex items-center gap-2">
+                    <Brain className="w-5 h-5" />
+                    AI-Powered Insights
+                  </h3>
+                  <div className="bg-slate-900/50 rounded-lg p-4">
+                    {isGeneratingInsights ? (
+                      <div className="flex items-center gap-2 text-purple-300">
+                        <Sparkles className="w-4 h-4 animate-pulse" />
+                        Generating insights...
+                      </div>
+                    ) : aiInsights ? (
+                      <div>
+                        <div className="text-slate-300 whitespace-pre-wrap text-sm leading-relaxed mb-3">
+                          {aiInsights}
+                        </div>
+                        {event?.insights_generated_at && (
+                          <div className="text-xs text-slate-500 border-t border-slate-700 pt-2">
+                            Generated on {new Date(event.insights_generated_at).toLocaleDateString()} at {new Date(event.insights_generated_at).toLocaleTimeString()}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-slate-400 text-sm">
+                        <div className="flex items-center gap-2 mb-2">
+                          <AlertCircle className="w-4 h-4 text-yellow-400" />
+                          <span className="text-yellow-400 font-medium">Insights Required</span>
+                        </div>
+                        <p>You must generate AI insights before you can save or view detailed analytics. Click "Generate Insights" below to get AI-powered recommendations based on your event's statistical data.</p>
+                      </div>
+                    )}
+                  </div>
+                  {/* Usage Info */}
+                  <div className="mb-4 p-3 bg-slate-700/50 border border-slate-600 rounded-lg">
+                    <p className="text-xs text-slate-300">
+                      {insightsUsageInfo ? (
+                        <>
+                          Insights generated this week: {insightsUsageInfo.insightsGenerated}/5
+                          {!insightsUsageInfo.canGenerateMore && (
+                            <span className="text-red-400 ml-2">(Limit reached)</span>
+                          )}
+                        </>
+                      ) : (
+                        "Loading usage information..."
+                      )}
+                    </p>
+                  </div>
+
+                  <div className="mt-4 flex gap-2">
+                    <Button
+                      onClick={generateAIInsights}
+                      disabled={Boolean(isGeneratingInsights || !(insightsUsageInfo?.canGenerateMore ?? true))}
+                      className={`text-white ${
+                        !insightsUsageInfo || insightsUsageInfo.canGenerateMore
+                          ? "bg-purple-600 hover:bg-purple-700" 
+                          : "bg-slate-600 cursor-not-allowed opacity-50"
+                      }`}
+                    >
+                      {isGeneratingInsights ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Brain className="w-4 h-4 mr-2" />
+                          Generate Insights
+                        </>
+                      )}
+                    </Button>
+                    {aiInsights && (
+                      <Button
+                        onClick={() => {
+                          // Save insights functionality can be added here
+                          toast.success("Insights saved successfully!");
+                        }}
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        <Save className="w-4 h-4 mr-2" />
+                        Save Insights
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <BarChart3 className="w-16 h-16 text-slate-500 mx-auto mb-4" />
+                <div className="text-slate-400">No analytics data available</div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Leave Event Confirmation Dialog */}
+      {showLeaveConfirmDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-slate-800 border border-orange-500/30 rounded-lg p-6 w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-semibold text-orange-400">
+                Leave Event
+              </h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowLeaveConfirmDialog(false)}
+                className="text-slate-400 hover:text-white"
+                disabled={isLeavingEvent}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 text-orange-300">
+                <AlertCircle className="w-5 h-5 text-orange-400" />
+                <span className="font-medium">Are you sure you want to leave this event?</span>
+              </div>
+              
+              <p className="text-slate-300 text-sm">
+                This action will remove you from all event activities and you will no longer have access to:
+              </p>
+              
+              <ul className="text-slate-400 text-sm space-y-1 ml-4">
+                <li>• Event chat and discussions</li>
+                <li>• Event analytics and insights</li>
+                <li>• Collaboration features</li>
+                <li>• Event updates and notifications</li>
+              </ul>
+              
+              <p className="text-slate-300 text-sm font-medium">
+                This action cannot be undone.
+              </p>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <Button
+                variant="outline"
+                onClick={() => setShowLeaveConfirmDialog(false)}
+                disabled={isLeavingEvent}
+                className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-700"
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="outline"
+                onClick={confirmLeaveEvent}
+                disabled={isLeavingEvent}
+                className="flex-1 border-orange-500/30 text-orange-400 hover:bg-orange-500/20 hover:text-orange-300"
+              >
+                {isLeavingEvent ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Leaving...
+                  </>
+                ) : (
+                  <>
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Leave Event
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Chat Component */}
+      <AIChat 
+        eventId={eventId}
+        eventTitle={event.title}
+        eventDescription={event.description}
+        isEnabled={aiChatEnabled}
+      />
     </div>
   );
 }

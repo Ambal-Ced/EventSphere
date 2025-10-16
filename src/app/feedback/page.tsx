@@ -118,6 +118,7 @@ export default function FeedbackPage() {
       if (error) throw error;
       if (!inserted) throw new Error("Insert returned no row. Check RLS policies.");
 
+
       // If an event was selected, also insert into event_feedback table
       if (form.event_id && form.event_id.trim()) {
         console.log("Inserting event feedback:", {

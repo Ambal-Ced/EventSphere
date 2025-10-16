@@ -20,12 +20,15 @@ import {
   CheckSquare,
   Clock,
   Loader2,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { Database } from "@/types/supabase";
+import { format as formatFns } from "date-fns";
 
 type Event = Database["public"]["Tables"]["events"]["Row"];
 
@@ -36,6 +39,9 @@ export default function HomeClient() {
   >([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [eventCountByDate, setEventCountByDate] = useState<Record<string, number>>({});
+  const [eventsByDate, setEventsByDate] = useState<Record<string, { id: string; title: string; date: string }[]>>({});
 
   // Guard against React StrictMode double-invoking effects in dev
   const hasInitialized = useRef(false);
@@ -160,6 +166,78 @@ export default function HomeClient() {
     }
   };
 
+  // Build YYYY-MM-DD key in local time
+  const buildDateKey = (d: Date) => {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  // Fetch counts for the visible month (own + joined events only)
+  useEffect(() => {
+    const fetchMonthCounts = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          setEventCountByDate({});
+          setEventsByDate({});
+          return;
+        }
+
+        // Month range (local time)
+        const start = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+        const end = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0, 23, 59, 59, 999);
+
+        // Joined events ids
+        const { data: collabRows } = await supabase
+          .from('event_collaborators')
+          .select('event_id')
+          .eq('user_id', user.id);
+        const joinedIds = (collabRows || []).map((r: any) => r.event_id);
+        const joinedCsv = joinedIds.length > 0 ? joinedIds.join(',') : '';
+
+        // Query events in month, created by user or joined
+        // Using OR filter to combine own and joined
+        let query = supabase
+          .from('events')
+          .select('id,date,status,user_id,title')
+          .gte('date', start.toISOString())
+          .lte('date', end.toISOString())
+          .not('status', 'in', "('cancelled','archived')");
+
+        if (joinedCsv) {
+          query = query.or(`user_id.eq.${user.id},id.in.(${joinedCsv})`);
+        } else {
+          query = query.eq('user_id', user.id);
+        }
+
+        const { data: monthEvents, error: monthErr } = await query;
+        if (monthErr) throw monthErr;
+
+        const counts: Record<string, number> = {};
+        const grouped: Record<string, { id: string; title: string; date: string }[]> = {};
+        (monthEvents || []).forEach((evt: any) => {
+          if (!evt?.date) return;
+          const d = new Date(evt.date);
+          const key = buildDateKey(d);
+          counts[key] = (counts[key] || 0) + 1;
+          const title = (evt as any).title ?? 'Untitled Event';
+          if (!grouped[key]) grouped[key] = [];
+          grouped[key].push({ id: evt.id, title, date: evt.date });
+        });
+        setEventCountByDate(counts);
+        setEventsByDate(grouped);
+      } catch (e) {
+        // Fail-soft: just clear counts
+        setEventCountByDate({});
+        setEventsByDate({});
+      }
+    };
+
+    fetchMonthCounts();
+  }, [selectedDate]);
+
   const formatDate = (dateString: string) => {
     try {
       return new Date(dateString).toLocaleDateString("en-US", {
@@ -206,6 +284,140 @@ export default function HomeClient() {
           <p className="mb-8 text-lg">
             Create events, add items and scripts, assign tasks, and track progress
           </p>
+        </div>
+      </section>
+
+      {/* Large Calendar Section */}
+      <section className="rounded-3xl border bg-card p-6 md:p-10">
+        <h2 className="text-3xl font-bold mb-6 text-center">Event Calendar</h2>
+        <div className="flex flex-col lg:flex-row items-stretch gap-6">
+          {/* Big date display */}
+          <div className="flex-1 flex items-center justify-center rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-background border px-6 py-10 md:py-14">
+            <div className="text-center">
+              <div className="uppercase tracking-widest text-sm text-muted-foreground mb-2">
+                {formatFns(selectedDate, "EEEE")} {/* Day of week */}
+              </div>
+              <div className="flex items-end justify-center gap-4">
+                <div className="text-6xl md:text-7xl font-extrabold leading-none">
+                  {formatFns(selectedDate, "d")}
+                </div>
+                <div className="text-left pb-1">
+                  <div className="text-2xl md:text-3xl font-semibold">
+                    {formatFns(selectedDate, "MMMM")}
+                  </div>
+                  <div className="text-lg md:text-xl text-muted-foreground">
+                    {formatFns(selectedDate, "yyyy")}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Controls */}
+          <div className="w-full lg:w-[420px] space-y-4">
+            <div className="flex items-center justify-between gap-2">
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => setSelectedDate((d) => new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1))}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Previous Day
+              </Button>
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => setSelectedDate((d) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1))}
+              >
+                Next Day <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+            {/* Month/Year pickers (sync both calendars) */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <label className="text-sm text-muted-foreground">Pick a month</label>
+                <select
+                  className="w-full h-10 rounded-md border bg-background"
+                  value={selectedDate.getMonth()}
+                  onChange={(e) => {
+                    const m = parseInt(e.target.value, 10);
+                    setSelectedDate((d) => new Date(d.getFullYear(), m, Math.min(d.getDate(), 28)));
+                  }}
+                >
+                  {[
+                    'January','February','March','April','May','June','July','August','September','October','November','December'
+                  ].map((m, idx) => (
+                    <option key={m} value={idx}>{m}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm text-muted-foreground">Pick a year</label>
+                <select
+                  className="w-full h-10 rounded-md border bg-background"
+                  value={selectedDate.getFullYear()}
+                  onChange={(e) => {
+                    const y = parseInt(e.target.value, 10);
+                    setSelectedDate((d) => new Date(y, d.getMonth(), Math.min(d.getDate(), 28)));
+                  }}
+                >
+                  {Array.from({ length: 11 }).map((_, i) => {
+                    const y = new Date().getFullYear() - 5 + i;
+                    return (
+                      <option key={y} value={y}>{y}</option>
+                    );
+                  })}
+                </select>
+              </div>
+            </div>
+            {/* Selected day events summary */}
+            <div className="rounded-xl border bg-muted/40 p-4 text-sm">
+              {(() => {
+                const key = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2,'0')}-${String(selectedDate.getDate()).padStart(2,'0')}`;
+                const count = eventCountByDate[key] || 0;
+                if (count === 0) return <span className="text-muted-foreground">No events on this day.</span>;
+                const titles = (eventsByDate as any)?.[key]?.map((e: any) => e.title) || [];
+                const firstThree = titles.slice(0, 3);
+                const overflow = Math.max(0, titles.length - firstThree.length);
+                return (
+                  <div className="space-y-1">
+                    <div className="font-medium">{count} {count === 1 ? 'Event' : 'Events'}</div>
+                    <ul className="list-disc list-inside text-muted-foreground">
+                      {firstThree.map((t: string, i: number) => (
+                        <li key={i} className="truncate">{t}</li>
+                      ))}
+                      {overflow > 0 && (
+                        <li className="truncate">+{overflow} more</li>
+                      )}
+                    </ul>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+
+        {/* Month grid calendar (standalone) */}
+        <div className="mt-6 rounded-2xl border bg-muted/40 p-4">
+          {/* Lazy import to avoid SSR issues */}
+          {/* eslint-disable-next-line @typescript-eslint/no-var-requires */}
+          {(() => {
+            const MonthGrid = require("@/components/home/month-grid-calendar").default;
+            const getEventsCountForDate = (d: Date) => {
+              const yyyy = d.getFullYear();
+              const mm = String(d.getMonth() + 1).padStart(2, '0');
+              const dd = String(d.getDate()).padStart(2, '0');
+              const key = `${yyyy}-${mm}-${dd}`;
+              return eventCountByDate[key] || 0;
+            };
+            return (
+              <MonthGrid
+                selected={selectedDate}
+                onSelect={(d: Date | undefined) => d && setSelectedDate(d)}
+                getEventsCountForDate={getEventsCountForDate}
+              />
+            );
+          })()}
         </div>
       </section>
 
