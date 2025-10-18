@@ -24,7 +24,8 @@ interface Notification {
   id: string;
   title: string;
   message: string;
-  type: 'info' | 'success' | 'warning' | 'error' | 'event' | 'invitation' | 'system';
+  type: 'info' | 'success' | 'warning' | 'error' | 'event' | 'event_joined' | 'event_created' | 'event_left' | 'invitation' | 'system';
+  level?: 'info' | 'success' | 'warning' | 'error'; // Optional level field for backward compatibility
   read_at: string | null;
   created_at: string;
   link_url: string | null;

@@ -195,7 +195,7 @@ Keep responses concise and relevant to the event context.
         size="lg"
       >
         <img 
-          src="/images/template/chatbot.png" 
+          src="/images/template/chatbot.webp" 
           alt="AI Chat" 
           className="w-full h-full object-cover rounded-full"
         />
@@ -209,7 +209,7 @@ Keep responses concise and relevant to the event context.
             <div className="flex items-center justify-between p-4 border-b border-slate-600">
               <div className="flex items-center gap-2">
                 <img 
-                  src="/images/template/chatbot.png" 
+                  src="/images/template/chatbot.webp" 
                   alt="AI Assistant" 
                   className="w-6 h-6 object-contain"
                 />
@@ -242,7 +242,7 @@ Keep responses concise and relevant to the event context.
               {messages.length === 0 && (
                 <div className="text-center text-slate-400 text-sm">
                   <img 
-                    src="/images/template/chatbot.png" 
+                    src="/images/template/chatbot.webp" 
                     alt="AI Assistant" 
                     className="w-12 h-12 mx-auto mb-2 object-contain"
                   />

@@ -163,10 +163,10 @@ export default function CreateEventPage() {
         const fileToUpload: File | Blob | null = imageFile
           ? imageFile
           : await (async () => {
-              const res = await fetch("/images/template/event_template.jpg");
+              const res = await fetch("/images/template/event_template.webp");
               if (!res.ok) return null;
               const blob = await res.blob();
-              return new File([blob], "event_template.jpg", {
+              return new File([blob], "event_template.webp", {
                 type: blob.type,
               });
             })();
@@ -397,7 +397,7 @@ export default function CreateEventPage() {
           <div className="space-y-2">
             <div className="overflow-hidden rounded-lg border">
               <img
-                src={imagePreview || "/images/template/event_template.jpg"}
+                src={imagePreview || "/images/template/event_template.webp"}
                 alt="Event cover preview"
                 className="h-48 w-full object-cover"
               />

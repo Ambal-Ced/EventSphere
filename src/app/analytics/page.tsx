@@ -803,7 +803,7 @@ export default function AnalyticsPage() {
             <div className="mt-3">
               <Button 
                 onClick={generateInsights} 
-                disabled={isGenerating || (insightsUsageInfo && !insightsUsageInfo.canGenerateMore)} 
+                disabled={isGenerating || (insightsUsageInfo ? !insightsUsageInfo.canGenerateMore : false)} 
                 className={`text-white ${
                   !insightsUsageInfo || insightsUsageInfo.canGenerateMore
                     ? "bg-purple-600 hover:bg-purple-700" 

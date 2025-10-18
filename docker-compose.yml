@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  eventsphere:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      - COHERE_API_KEY=${COHERE_API_KEY}
+    restart: unless-stopped
+    volumes:
+      - ./uploads:/app/uploads
+    networks:
+      - eventsphere-network
+
+networks:
+  eventsphere-network:
+    driver: bridge

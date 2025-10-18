@@ -616,13 +616,13 @@ export default function ProfilePage() {
           )}
         </div>
         <div className="text-center md:text-left">
-          <h1 className="text-3xl font-bold">{headerName}</h1>
-          <p className="text-muted-foreground">@{headerUsername}</p>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="font-bold leading-tight break-words text-[clamp(1.25rem,4vw,2.25rem)]">{headerName}</h1>
+          <p className="text-muted-foreground break-all max-w-full leading-snug">@{headerUsername}</p>
+          <p className="text-sm text-muted-foreground break-words whitespace-normal leading-snug">
             Joined: {format(new Date(profile.created_at), "PPP")}
           </p>
         </div>
-        <div className="ml-auto mt-4 flex gap-2 md:mt-0">
+        <div className="mt-4 flex gap-2 md:mt-0 justify-center md:justify-end">
           {isEditing ? (
             <>
               <Button
@@ -644,9 +644,9 @@ export default function ProfilePage() {
       </div>
 
       {/* --- Main Content Grid --- */}
-      <div className="grid gap-8 md:grid-cols-3">
+      <div className="grid gap-6 md:gap-8 md:grid-cols-3 w-full px-0 md:px-0">
         {/* --- Contact Info Card --- */}
-        <div className="rounded-lg border bg-card p-6 md:col-span-1">
+        <div className="rounded-lg border bg-card p-6 md:col-span-1 break-words">
           <h2 className="mb-4 text-xl font-semibold">Contact Information</h2>
           <div className="space-y-4">
             {isEditing ? (
@@ -747,7 +747,7 @@ export default function ProfilePage() {
         </div>
 
         {/* --- Personal Details Card --- */}
-        <div className="rounded-lg border bg-card p-6 md:col-span-2">
+        <div className="rounded-lg border bg-card p-6 md:col-span-2 break-words">
           <h2 className="mb-4 text-xl font-semibold">Personal Details</h2>
           <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
             {isEditing ? (
@@ -874,7 +874,13 @@ export default function ProfilePage() {
                   "Full Name",
                   displayFullNameString || "Name not set"
                 )}
-                {renderTextField("Username", profile.username)}
+                {/* Username with truncate to avoid overflow */}
+                <div>
+                  <div className="text-sm text-muted-foreground">Username</div>
+                  <div className="text-base font-medium break-words whitespace-normal leading-snug" title={profile.username || undefined}>
+                    {profile.username || "—"}
+                  </div>
+                </div>
                 {renderTextField("Birthday", displayBirthday)}
                 {renderTextField("Age", profile.age)}
                 {renderTextField("Gender", profile.gender)}

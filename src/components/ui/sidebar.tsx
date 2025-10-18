@@ -90,15 +90,30 @@ const SidebarLink = memo(
         href={link.href}
         onClick={onClick}
         className={cn(
-          "flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-          isActive ? "bg-primary text-primary-foreground" : "hover:bg-muted",
-          isDisabled && "cursor-not-allowed opacity-50 pointer-events-none",
-          showLabel ? "space-x-3 justify-start" : "justify-center"
+          "flex w-full items-center rounded-lg text-sm font-medium transition-colors",
+          // Keep overall row height stable
+          "py-1.5",
+          // Expanded: full row highlight
+          showLabel ? (isActive ? "bg-primary text-primary-foreground" : "hover:bg-muted") : "",
+          // Balanced padding in expanded; in collapsed center the tile with no horizontal padding
+          showLabel ? "pl-3 pr-4" : "px-0",
+          isDisabled && "cursor-not-allowed opacity-50 pointer-events-none"
         )}
         aria-disabled={isDisabled}
       >
-        <Icon className={cn(showLabel ? "h-5 w-5" : "h-4 w-4")} />
-        {showLabel && <span>{link.title}</span>}
+          <div
+          className={cn(
+            "flex items-center justify-center flex-shrink-0 h-10 w-10 rounded-md",
+            // Tile background only in collapsed; in expanded, row background handles active state
+            !showLabel && (isActive ? "bg-primary text-primary-foreground" : ""),
+            // Position tweaks: keep a small left offset so it never touches the inner border line
+            // Expanded: small left margin; Collapsed: perfectly centered tile
+            showLabel ? "ml-1 mr-3" : "mx-auto"
+          )}
+      >
+        <Icon className="h-5 w-5" />
+        </div>
+        {showLabel && <span className="truncate">{link.title}</span>}
       </Link>
     );
   }
@@ -183,7 +198,14 @@ const SidebarContent = lazy(() =>
 
       return (
         <div className="flex h-full flex-col">
-          <nav className="flex-1 space-y-2 p-4">{sidebarLinks}</nav>
+          <nav
+            className={cn(
+              "flex-1 p-3 md:p-4",
+              isOpen ? "space-y-2" : "space-y-4 flex flex-col items-center"
+            )}
+          >
+            {sidebarLinks}
+          </nav>
           {logoutButton}
         </div>
       );
@@ -194,6 +216,7 @@ const SidebarContent = lazy(() =>
 // Main sidebar component with lazy loading
 export const Sidebar = memo(() => {
   const [open, setOpen] = useState(false);
+  const [isTouch, setIsTouch] = useState(false);
 
   // Collapse by default on small screens
   useEffect(() => {
@@ -206,20 +229,45 @@ export const Sidebar = memo(() => {
     if (mq.matches) setOpen(false); // always collapsed on small screens
   }, []);
 
+  // Detect touch / non-hover devices to switch to click-to-toggle behavior
+  useEffect(() => {
+    const hoverNone = window.matchMedia('(hover: none)');
+    const update = () => setIsTouch(hoverNone.matches);
+    update();
+    hoverNone.addEventListener('change', update);
+    return () => hoverNone.removeEventListener('change', update);
+  }, []);
+
   return (
     <>
+      {/* Backdrop for mobile overlay */}
+      {isTouch && open && (
+        <div
+          className="fixed inset-0 z-30 bg-black/30"
+          onClick={() => setOpen(false)}
+        />
+      )}
+
       <div
         className={cn(
-          "sticky top-16 h-[calc(100vh-4rem)] border-r bg-background transition-all",
-          open ? "w-64" : "w-16"
+          // Touch devices: keep a thin rail (w-16) that overlays and is clickable; expanded overlays at w-64
+          isTouch
+            ? (open
+                ? "fixed top-16 left-0 z-40 h-[calc(100vh-4rem)] w-64"
+                : "fixed top-16 left-0 z-30 h-[calc(100vh-4rem)] w-16 pointer-events-auto")
+            : (open
+                ? "sticky top-16 h-[calc(100vh-4rem)] w-64"
+                : "sticky top-16 h-[calc(100vh-4rem)] w-16"),
+          "border-r bg-background transition-all"
         )}
-        onMouseEnter={() => setOpen(true)}
-        onMouseLeave={() => setOpen(false)}
+        onMouseEnter={isTouch ? undefined : () => setOpen(true)}
+        onMouseLeave={isTouch ? undefined : () => setOpen(false)}
+        onClick={isTouch ? () => setOpen((v) => !v) : undefined}
       >
-        <Suspense fallback={<SidebarSkeleton />}>
+      <Suspense fallback={<SidebarSkeleton />}>
           <SidebarContent isOpen={open} />
-        </Suspense>
-      </div>
+      </Suspense>
+    </div>
     </>
   );
 });

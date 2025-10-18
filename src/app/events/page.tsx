@@ -1,6 +1,6 @@
 "use client"; // Make it a Client Component
 
-import { useState, useMemo, useEffect, useRef } from "react"; // Import hooks
+import { useState, useMemo, useEffect, useRef, Suspense } from "react"; // Import hooks
 import { Metadata } from "next"; // Keep Metadata type import if needed elsewhere, but can't export from client component
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,7 +47,7 @@ type Event = Database["public"]["Tables"]["events"]["Row"];
 //   description: "Find and join upcoming events on EventSphere",
 // };
 
-export default function EventsPage() {
+function EventsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   // State for search and filters
@@ -578,17 +578,17 @@ export default function EventsPage() {
 
   const getDefaultImage = (type: string) => {
     const typeImages: { [key: string]: string } = {
-      Technology: "/images/tech-conf.png",
-      Music: "/images/music-fest.jpg",
-      "Food & Drink": "/images/food-expo.png",
+      Technology: "/images/tech-conf.webp",
+      Music: "/images/music-fest.webp",
+      "Food & Drink": "/images/food-expo.webp",
       // Use existing images for other types
-      "Arts & Culture": "/images/event.jpg",
-      Business: "/images/tech-conf.png",
-      Gaming: "/images/event.jpg",
-      Health: "/images/event.jpg",
-      Film: "/images/event.jpg",
+      "Arts & Culture": "/images/event.webp",
+      Business: "/images/tech-conf.webp",
+      Gaming: "/images/event.webp",
+      Health: "/images/event.webp",
+      Film: "/images/event.webp",
     };
-    return typeImages[type] || "/images/event.jpg";
+    return typeImages[type] || "/images/event.webp";
   };
 
   // Get status badge styling
@@ -964,5 +964,22 @@ export default function EventsPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function EventsPage() {
+  return (
+    <Suspense fallback={
+      <div className="container mx-auto py-8">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
+            <p className="text-slate-400">Loading events...</p>
+          </div>
+        </div>
+      </div>
+    }>
+      <EventsPageContent />
+    </Suspense>
   );
 }

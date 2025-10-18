@@ -17,21 +17,21 @@ const teamMembers = [
   {
     name: "Justine Cedrick Ambal",
     title: "CEO & Co-Founder",
-    imageSrc: "/images/man1.jpg",
-    portfolioUrl: "https://portfolio.justine.com",
+    imageSrc: "/images/man1.webp",
+    portfolioUrl: "https://www.linkedin.com/in/ambal-ced3604/",
   },
   {
     name: "Brylle Andrei Atienza",
     title: "CTO & Co-Founder",
-    imageSrc: "/images/man2.jpg",
+    imageSrc: "/images/man2.webp",
     portfolioUrl: "https://portfolio.brylle.com",
   },
   {
     name: "Jude Maverick Manalo",
     title: "Head of Product",
-    imageSrc: "/images/man3.jpg",
+    imageSrc: "/images/man3.webp",
     portfolioUrl:
-      "https://mavs171271.github.io/Sample_Portofolio_Website_demo/index.html",
+      "https://www.linkedin.com/in/jude-maverick-manalo-20880432a/",
   },
 ];
 

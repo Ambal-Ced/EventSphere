@@ -121,6 +121,7 @@ export default function SettingsPage() {
       const { error } = await supabase.auth.verifyOtp({
         token: verificationCode,
         type: 'email',
+        email: user?.email || '',
       });
 
       if (error) throw error;

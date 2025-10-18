@@ -188,7 +188,7 @@ export function Header() {
         <Link href="/" className="flex items-center gap-2 font-semibold">
           <div className="relative h-8 w-8">
             <Image
-              src="/images/template/eventsphere.jpg"
+              src="/images/template/eventsphere.webp"
               alt="EventSphere logo"
               fill
               className="object-contain rounded-full"

@@ -252,17 +252,17 @@ export default function HomeClient() {
 
   const getDefaultImage = (type: string) => {
     const typeImages: { [key: string]: string } = {
-      Technology: "/images/tech-conf.png",
-      Music: "/images/music-fest.jpg",
-      "Food & Drink": "/images/food-expo.png",
+      Technology: "/images/tech-conf.webp",
+      Music: "/images/music-fest.webp",
+      "Food & Drink": "/images/food-expo.webp",
       // Use existing images for other types
-      "Arts & Culture": "/images/event.jpg",
-      Business: "/images/tech-conf.png",
-      Gaming: "/images/event.jpg",
-      Health: "/images/event.jpg",
-      Film: "/images/event.jpg",
+      "Arts & Culture": "/images/event.webp",
+      Business: "/images/tech-conf.webp",
+      Gaming: "/images/event.webp",
+      Health: "/images/event.webp",
+      Film: "/images/event.webp",
     };
-    return typeImages[type] || "/images/event.jpg";
+    return typeImages[type] || "/images/event.webp";
   };
 
   return (
@@ -271,7 +271,7 @@ export default function HomeClient() {
       <section className="relative h-[500px] w-full overflow-hidden rounded-3xl">
         {/* Background Image */}
         <Image
-          src="/images/event.jpg"
+          src="/images/event.webp"
           alt="Events background"
           fill
           className="object-cover"
