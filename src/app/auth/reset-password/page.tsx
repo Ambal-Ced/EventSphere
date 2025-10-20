@@ -49,27 +49,8 @@ function ResetPasswordContent() {
         const refreshFromQuery = searchParams.get("refresh");
         
         if (tokenFromQuery && refreshFromQuery) {
-          console.log('Setting session with tokens from homepage...');
-          const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-            access_token: tokenFromQuery,
-            refresh_token: refreshFromQuery,
-          });
-
-          if (sessionError) {
-            console.error('Session error:', sessionError);
-            setStatus('error');
-            setMessage('Failed to authenticate. Please try again.');
-            return;
-          }
-
-          if (!sessionData.user) {
-            console.error('No user in session data:', sessionData);
-            setStatus('error');
-            setMessage('No user found in session. Please try again.');
-            return;
-          }
-
-          console.log('Session set successfully! User:', sessionData.user.email);
+          console.log('Tokens received from homepage - skipping session setup');
+          console.log('Going directly to password form...');
           setStatus('form');
           setMessage('Please enter your new password.');
           return;
@@ -129,6 +110,30 @@ function ResetPasswordContent() {
 
     setIsUpdating(true);
     try {
+      // If we have tokens from homepage, set the session first
+      const tokenFromQuery = searchParams.get("token");
+      const refreshFromQuery = searchParams.get("refresh");
+      
+      if (tokenFromQuery && refreshFromQuery) {
+        console.log('Setting session before password update...');
+        const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+          access_token: tokenFromQuery,
+          refresh_token: refreshFromQuery,
+        });
+
+        if (sessionError) {
+          console.error('Session error:', sessionError);
+          throw new Error('Failed to authenticate. Please try again.');
+        }
+
+        if (!sessionData.user) {
+          console.error('No user in session data:', sessionData);
+          throw new Error('No user found in session. Please try again.');
+        }
+
+        console.log('Session set successfully! User:', sessionData.user.email);
+      }
+
       const { error } = await supabase.auth.updateUser({
         password: passwords.newPassword
       });
