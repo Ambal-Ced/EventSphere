@@ -7,6 +7,7 @@ import { User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
 function SettingsContent() {
@@ -24,6 +25,8 @@ function SettingsContent() {
     confirmPassword: "",
   });
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
   // State for email verification flow
   const [verificationStep, setVerificationStep] = useState<'form' | 'verify' | 'success'>('form');
@@ -295,28 +298,58 @@ function SettingsContent() {
               )}
               <div>
                 <Label htmlFor="newPassword">New Password</Label>
-                <Input
-                  id="newPassword"
-                  name="newPassword"
-                  type="password"
-                  value={passwords.newPassword}
-                  onChange={handlePasswordInputChange}
-                  placeholder="Enter your new password"
-                />
+                <div className="relative">
+                  <Input
+                    id="newPassword"
+                    name="newPassword"
+                    type={showNewPassword ? "text" : "password"}
+                    value={passwords.newPassword}
+                    onChange={handlePasswordInputChange}
+                    placeholder="Enter your new password"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                  >
+                    {showNewPassword ? (
+                      <Eye className="h-4 w-4" />
+                    ) : (
+                      <EyeOff className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Password must be at least 6 characters long.
                 </p>
               </div>
               <div>
                 <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                <Input
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  type="password"
-                  value={passwords.confirmPassword}
-                  onChange={handlePasswordInputChange}
-                  placeholder="Confirm your new password"
-                />
+                <div className="relative">
+                  <Input
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={passwords.confirmPassword}
+                    onChange={handlePasswordInputChange}
+                    placeholder="Confirm your new password"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  >
+                    {showConfirmPassword ? (
+                      <Eye className="h-4 w-4" />
+                    ) : (
+                      <EyeOff className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
               </div>
               <div className="flex justify-end">
                 <Button type="submit" disabled={isChangingPassword}>

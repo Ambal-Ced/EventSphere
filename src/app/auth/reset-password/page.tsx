@@ -115,48 +115,40 @@ function ResetPasswordContent() {
       const refreshFromQuery = searchParams.get("refresh");
       
       if (tokenFromQuery && refreshFromQuery) {
-        console.log('Using verifyOtp approach for password update...');
+        console.log('Setting session with timeout for password update...');
         
-        // Use verifyOtp to verify the recovery token and set session
+        // Set session with timeout to prevent hanging
+        const sessionPromise = supabase.auth.setSession({
+          access_token: tokenFromQuery,
+          refresh_token: refreshFromQuery,
+        });
+
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Session timeout after 5 seconds')), 5000)
+        );
+
         try {
-          const { data, error } = await supabase.auth.verifyOtp({
-            token_hash: tokenFromQuery,
-            type: 'recovery'
-          });
-
-          if (error) {
-            console.error('verifyOtp error:', error);
-            throw error;
-          }
-
-          if (!data.user) {
-            throw new Error('No user found after verification');
-          }
-
-          console.log('Token verified successfully! User:', data.user.email);
+          const result = await Promise.race([
+            sessionPromise,
+            timeoutPromise
+          ]) as { data: any; error: any };
           
-          // Now update the password
-          const { error: updateError } = await supabase.auth.updateUser({
-            password: passwords.newPassword
-          });
+          const { data: sessionData, error: sessionError } = result;
 
-          if (updateError) {
-            console.error('Password update error:', updateError);
-            throw updateError;
+          if (sessionError) {
+            console.error('Session error:', sessionError);
+            throw new Error('Failed to authenticate. Please try again.');
           }
 
-          console.log('Password updated successfully!');
-          setStatus('success');
-          setMessage('Your password has been successfully updated!');
-          
-          // Redirect to login after 3 seconds
-          setTimeout(() => {
-            router.push('/login?password_reset=true');
-          }, 3000);
-          return;
-        } catch (verifyError) {
-          console.log('verifyOtp failed, trying session approach...', verifyError);
-          // Fall through to session approach
+          if (!sessionData.user) {
+            console.error('No user in session data:', sessionData);
+            throw new Error('No user found in session. Please try again.');
+          }
+
+          console.log('Session set successfully! User:', sessionData.user.email);
+        } catch (sessionError) {
+          console.error('Session setup failed:', sessionError);
+          throw new Error('Authentication failed. Please try requesting a new password reset link.');
         }
       }
 
@@ -225,9 +217,9 @@ function ResetPasswordContent() {
                     onClick={() => setShowPassword(!showPassword)}
                   >
                     {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
                       <Eye className="h-4 w-4" />
+                    ) : (
+                      <EyeOff className="h-4 w-4" />
                     )}
                   </Button>
                 </div>
@@ -256,9 +248,9 @@ function ResetPasswordContent() {
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   >
                     {showConfirmPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
                       <Eye className="h-4 w-4" />
+                    ) : (
+                      <EyeOff className="h-4 w-4" />
                     )}
                   </Button>
                 </div>
