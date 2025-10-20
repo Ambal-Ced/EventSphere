@@ -41,6 +41,7 @@ export async function POST(request: NextRequest) {
     console.log('Token verified for user:', userData.user.email);
 
     // Update the user's password using admin API
+    // This bypasses RLS by using the service role key
     const { data: updateData, error: updateError } = await supabase.auth.admin.updateUserById(
       userData.user.id,
       { password: password }
