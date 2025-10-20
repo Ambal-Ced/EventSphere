@@ -46,6 +46,21 @@ export default function HomeClient() {
   // Guard against React StrictMode double-invoking effects in dev
   const hasInitialized = useRef(false);
 
+  // Handle password reset redirects from Supabase
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash.includes('access_token') && hash.includes('type=recovery')) {
+      // This is a password reset token, redirect to confirmation page
+      window.location.href = `/auth/password-reset-confirmation${hash}`;
+      return;
+    }
+    if (hash.includes('access_token') && hash.includes('type=email_change')) {
+      // This is an email change token, redirect to confirmation page
+      window.location.href = `/auth/email-change-confirmation${hash}`;
+      return;
+    }
+  }, []);
+
   useEffect(() => {
     if (hasInitialized.current) return;
     hasInitialized.current = true;
