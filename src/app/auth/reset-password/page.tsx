@@ -44,6 +44,37 @@ function ResetPasswordContent() {
           return;
         }
 
+        // Check for tokens passed from homepage via query parameters
+        const tokenFromQuery = searchParams.get("token");
+        const refreshFromQuery = searchParams.get("refresh");
+        
+        if (tokenFromQuery && refreshFromQuery) {
+          console.log('Setting session with tokens from homepage...');
+          const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+            access_token: tokenFromQuery,
+            refresh_token: refreshFromQuery,
+          });
+
+          if (sessionError) {
+            console.error('Session error:', sessionError);
+            setStatus('error');
+            setMessage('Failed to authenticate. Please try again.');
+            return;
+          }
+
+          if (!sessionData.user) {
+            console.error('No user in session data:', sessionData);
+            setStatus('error');
+            setMessage('No user found in session. Please try again.');
+            return;
+          }
+
+          console.log('Session set successfully! User:', sessionData.user.email);
+          setStatus('form');
+          setMessage('Please enter your new password.');
+          return;
+        }
+
         // Fallback: check for token in query parameters
         if (token && type === "recovery") {
           const { error } = await supabase.auth.verifyOtp({

@@ -69,41 +69,11 @@ export default function HomeClient() {
       }
 
       console.log('Setting session with Supabase...');
-      // Set the session with the tokens with timeout
-      const sessionPromise = supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken,
-      });
-
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Session timeout after 10 seconds')), 10000)
-      );
-
-      console.log('Waiting for session response...');
-      const result = await Promise.race([
-        sessionPromise,
-        timeoutPromise
-      ]) as { data: any; error: any };
-      const { data: sessionData, error: sessionError } = result;
-      console.log('Session response received!');
-
-      console.log('Session result:', { sessionData: !!sessionData, sessionError });
-
-      if (sessionError) {
-        console.error('Session error:', sessionError);
-        throw new Error('Failed to authenticate');
-      }
-
-      if (!sessionData.user) {
-        console.error('No user in session data:', sessionData);
-        throw new Error('No user found in session');
-      }
-
-      console.log('Password reset confirmed! Redirecting to password form...');
-      
-      // Clear the hash and redirect to password reset form
+      // Try a simpler approach - just redirect to password reset form
+      // The tokens will be handled by the password reset page itself
+      console.log('Redirecting directly to password reset form...');
       window.history.replaceState(null, '', '/');
-      router.push('/auth/reset-password');
+      router.push(`/auth/reset-password?token=${accessToken}&refresh=${refreshToken}`);
       
     } catch (error: any) {
       console.error('Password reset confirmation error:', error);
