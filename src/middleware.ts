@@ -2,23 +2,6 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
-  // Handle redirects for authentication tokens on homepage
-  if (request.nextUrl.pathname === '/' && request.nextUrl.hash) {
-    const hash = request.nextUrl.hash;
-    if (hash.includes('access_token') && hash.includes('type=recovery')) {
-      // Rewrite to password reset confirmation page while preserving hash
-      const url = request.nextUrl.clone();
-      url.pathname = '/auth/password-reset-confirmation';
-      return NextResponse.rewrite(url);
-    }
-    if (hash.includes('access_token') && hash.includes('type=email_change')) {
-      // Rewrite to email change confirmation page while preserving hash
-      const url = request.nextUrl.clone();
-      url.pathname = '/auth/email-change-confirmation';
-      return NextResponse.rewrite(url);
-    }
-  }
-
   let supabaseResponse = NextResponse.next({
     request,
   })

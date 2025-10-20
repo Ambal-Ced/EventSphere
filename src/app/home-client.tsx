@@ -1,6 +1,7 @@
 "use client"; // Client component
 
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Calendar,
@@ -33,6 +34,7 @@ import { format as formatFns } from "date-fns";
 type Event = Database["public"]["Tables"]["events"]["Row"];
 
 export default function HomeClient() {
+  const router = useRouter();
   const [featuredEvents, setFeaturedEvents] = useState<Event[]>([]);
   const [categories, setCategories] = useState<
     { name: string; count: number; color: string }[]
@@ -46,7 +48,112 @@ export default function HomeClient() {
   // Guard against React StrictMode double-invoking effects in dev
   const hasInitialized = useRef(false);
 
-  // Note: Redirects for auth tokens are now handled in middleware.ts
+  // Handle password reset confirmation directly on homepage when tokens are present
+  useEffect(() => {
+    const hash = window.location.hash;
+    console.log('Homepage hash:', hash);
+    
+    if (hash.includes('access_token') && hash.includes('type=recovery')) {
+      console.log('Password reset tokens detected on homepage - handling confirmation');
+      handlePasswordResetConfirmation(hash);
+      return;
+    }
+    if (hash.includes('access_token') && hash.includes('type=email_change')) {
+      console.log('Email change tokens detected on homepage - handling confirmation');
+      handleEmailChangeConfirmation(hash);
+      return;
+    }
+  }, []);
+
+  const handlePasswordResetConfirmation = async (hash: string) => {
+    try {
+      console.log('Processing password reset confirmation...');
+      
+      // Extract tokens from hash
+      const urlParams = new URLSearchParams(hash.substring(1));
+      const accessToken = urlParams.get('access_token');
+      const refreshToken = urlParams.get('refresh_token');
+      const type = urlParams.get('type');
+
+      console.log('Tokens extracted:', { 
+        accessToken: !!accessToken, 
+        refreshToken: !!refreshToken, 
+        type 
+      });
+
+      if (!accessToken || !refreshToken) {
+        throw new Error('Missing authentication tokens');
+      }
+
+      // Set the session with the tokens
+      const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      });
+
+      if (sessionError) {
+        console.error('Session error:', sessionError);
+        throw new Error('Failed to authenticate');
+      }
+
+      if (!sessionData.user) {
+        throw new Error('No user found in session');
+      }
+
+      console.log('Password reset confirmed! Redirecting to password form...');
+      
+      // Clear the hash and redirect to password reset form
+      window.history.replaceState(null, '', '/');
+      router.push('/auth/reset-password');
+      
+    } catch (error: any) {
+      console.error('Password reset confirmation error:', error);
+      // Clear the hash on error
+      window.history.replaceState(null, '', '/');
+    }
+  };
+
+  const handleEmailChangeConfirmation = async (hash: string) => {
+    try {
+      console.log('Processing email change confirmation...');
+      
+      // Extract tokens from hash
+      const urlParams = new URLSearchParams(hash.substring(1));
+      const accessToken = urlParams.get('access_token');
+      const refreshToken = urlParams.get('refresh_token');
+      const type = urlParams.get('type');
+
+      if (!accessToken || !refreshToken) {
+        throw new Error('Missing authentication tokens');
+      }
+
+      // Set the session with the tokens
+      const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      });
+
+      if (sessionError) {
+        console.error('Session error:', sessionError);
+        throw new Error('Failed to authenticate');
+      }
+
+      if (!sessionData.user) {
+        throw new Error('No user found in session');
+      }
+
+      console.log('Email change confirmed! Redirecting to settings...');
+      
+      // Clear the hash and redirect to settings
+      window.history.replaceState(null, '', '/');
+      router.push('/settings');
+      
+    } catch (error: any) {
+      console.error('Email change confirmation error:', error);
+      // Clear the hash on error
+      window.history.replaceState(null, '', '/');
+    }
+  };
 
   useEffect(() => {
     if (hasInitialized.current) return;
