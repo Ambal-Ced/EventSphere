@@ -98,10 +98,7 @@ function SettingsContent() {
 
       // Send password reset email instead of direct update
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(
-        user.email,
-        {
-          redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/password-reset-confirmation`,
-        }
+        user.email
       );
 
       if (resetError) throw resetError;
