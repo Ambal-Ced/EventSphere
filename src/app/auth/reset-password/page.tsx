@@ -115,40 +115,41 @@ function ResetPasswordContent() {
       const refreshFromQuery = searchParams.get("refresh");
       
       if (tokenFromQuery && refreshFromQuery) {
-        console.log('Setting session with timeout for password update...');
+        console.log('Using direct API approach for password update...');
         
-        // Set session with timeout to prevent hanging
-        const sessionPromise = supabase.auth.setSession({
-          access_token: tokenFromQuery,
-          refresh_token: refreshFromQuery,
-        });
-
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Session timeout after 5 seconds')), 5000)
-        );
-
+        // Try to update password using direct API call with tokens
         try {
-          const result = await Promise.race([
-            sessionPromise,
-            timeoutPromise
-          ]) as { data: any; error: any };
+          const response = await fetch('/api/auth/reset-password', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${tokenFromQuery}`,
+            },
+            body: JSON.stringify({
+              password: passwords.newPassword,
+              refresh_token: refreshFromQuery
+            })
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to update password');
+          }
+
+          const result = await response.json();
+          console.log('Password updated successfully via API!');
           
-          const { data: sessionData, error: sessionError } = result;
-
-          if (sessionError) {
-            console.error('Session error:', sessionError);
-            throw new Error('Failed to authenticate. Please try again.');
-          }
-
-          if (!sessionData.user) {
-            console.error('No user in session data:', sessionData);
-            throw new Error('No user found in session. Please try again.');
-          }
-
-          console.log('Session set successfully! User:', sessionData.user.email);
-        } catch (sessionError) {
-          console.error('Session setup failed:', sessionError);
-          throw new Error('Authentication failed. Please try requesting a new password reset link.');
+          setStatus('success');
+          setMessage('Your password has been successfully updated!');
+          
+          // Redirect to login after 3 seconds
+          setTimeout(() => {
+            router.push('/login?password_reset=true');
+          }, 3000);
+          return;
+        } catch (apiError) {
+          console.error('API password update failed:', apiError);
+          throw new Error('Failed to update password. Please try requesting a new password reset link.');
         }
       }
 
