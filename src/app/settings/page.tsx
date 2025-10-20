@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
@@ -9,8 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
-export default function SettingsPage() {
+function SettingsContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
@@ -30,6 +31,12 @@ export default function SettingsPage() {
   const [isSendingCode, setIsSendingCode] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
 
+  // State for email change
+  const [emailChangeStep, setEmailChangeStep] = useState<'form' | 'confirm' | 'success'>('form');
+  const [newEmail, setNewEmail] = useState("");
+  const [isChangingEmail, setIsChangingEmail] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+
   useEffect(() => {
     const fetchUser = async () => {
       setIsLoading(true);
@@ -47,6 +54,15 @@ export default function SettingsPage() {
     };
     fetchUser();
   }, [router]);
+
+  // Handle email change success
+  useEffect(() => {
+    if (searchParams.get('email_changed') === 'true') {
+      toast.success('Email address changed successfully!');
+      // Clean up URL
+      router.replace('/settings');
+    }
+  }, [searchParams, router]);
 
   // --- Handlers for Password Change ---
   const handlePasswordInputChange = (
@@ -76,16 +92,23 @@ export default function SettingsPage() {
 
     setIsChangingPassword(true);
     try {
-      // Step 1: Send verification email
-      const { error: emailError } = await supabase.auth.updateUser({
-        password: passwords.newPassword,
-      });
+      if (!user?.email) {
+        throw new Error("User email not found");
+      }
 
-      if (emailError) throw emailError;
+      // Send password reset email instead of direct update
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+        user.email,
+        {
+          redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/password-reset-confirmation`,
+        }
+      );
+
+      if (resetError) throw resetError;
 
       // If successful, move to verification step
       setVerificationStep('verify');
-      toast.success("Verification email sent! Please check your email and enter the code.");
+      toast.success("Password reset link sent! Please check your email and click the link.");
     } catch (err: any) {
       console.error("Error updating password:", err);
       const errMsg = err.message || "Failed to update password.";
@@ -160,6 +183,73 @@ export default function SettingsPage() {
     setPasswordError(null);
   };
 
+  // --- Handlers for Email Change ---
+  const handleEmailChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEmailError(null);
+
+    if (!newEmail || !user?.email) {
+      setEmailError("Please enter a new email address.");
+      return;
+    }
+
+    if (newEmail === user.email) {
+      setEmailError("New email must be different from current email.");
+      return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(newEmail)) {
+      setEmailError("Please enter a valid email address.");
+      return;
+    }
+
+    setIsChangingEmail(true);
+    try {
+      // Debug: show current session details before calling Supabase
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('[EmailChange][pre]', {
+        isLoggedIn: !!session?.user,
+        currentEmail: user.email,
+        newEmail,
+        userId: session?.user?.id,
+      });
+      toast.message('Starting email change…', { description: `From ${user.email} to ${newEmail}` });
+
+      // Trigger Supabase's email change confirmation flow via the client session
+      const { data: updateResult, error: updateError } = await supabase.auth.updateUser({
+        email: newEmail,
+      }, {
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/email-change-confirmation`
+      });
+
+      // Debug: log the raw result coming back from Supabase
+      console.log('[EmailChange][result]', { updateResult, updateError });
+      // Expose in window for quick inspection from DevTools
+      // @ts-expect-error debug handle
+      if (typeof window !== 'undefined') window.__EMAIL_CHANGE_DEBUG__ = { updateResult, updateError };
+
+      if (updateError) throw updateError;
+
+      // Inform the user what to expect based on Supabase settings
+      setEmailChangeStep('confirm');
+      toast.success('Email change started. Check your email for the confirmation link.');
+    } catch (err: any) {
+      console.error('Error changing email:', err);
+      setEmailError(err.message || 'Failed to change email. Please try again.');
+      toast.error(err.message || 'Failed to change email. Please try again.');
+    } finally {
+      setIsChangingEmail(false);
+    }
+  };
+
+  const resetEmailChange = () => {
+    setEmailChangeStep('form');
+    setNewEmail("");
+    setEmailError(null);
+  };
+
   // --- Render Logic ---
   if (isLoading) {
     return (
@@ -195,7 +285,7 @@ export default function SettingsPage() {
         <section>
           <h2 className="mb-1 text-xl font-semibold">Change Password</h2>
           <p className="mb-6 text-sm text-muted-foreground">
-            Update your account password. A verification code will be sent to your email.
+            Update your account password. A password reset link will be sent to your email.
           </p>
           
           {verificationStep === 'form' && (
@@ -240,49 +330,32 @@ export default function SettingsPage() {
           )}
 
           {verificationStep === 'verify' && (
-            <div className="space-y-6 rounded-lg border bg-card p-6">
+            <div className="space-y-6 rounded-lg border bg-blue-50 border-blue-200 p-6">
               <div className="text-center">
-                <h3 className="text-lg font-semibold mb-2">Verify Your Email</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  We've sent a verification code to <strong>{user?.email}</strong>
+                <div className="text-blue-600 text-4xl mb-4">📧</div>
+                <h3 className="text-lg font-semibold text-blue-800 mb-2">Check Your Email</h3>
+                <p className="text-sm text-blue-700 mb-4">
+                  We've sent a password reset link to <strong>{user?.email}</strong>
+                </p>
+                <p className="text-sm text-blue-600 mb-4">
+                  Click the link in the email to complete your password change.
                 </p>
               </div>
               
-              <form onSubmit={handleVerifyCode} className="space-y-4">
-                <div>
-                  <Label htmlFor="verificationCode">Verification Code</Label>
-                  <Input
-                    id="verificationCode"
-                    type="text"
-                    value={verificationCode}
-                    onChange={(e) => setVerificationCode(e.target.value)}
-                    placeholder="Enter 6-digit code"
-                    maxLength={6}
-                    className="text-center text-lg tracking-widest"
-                  />
-                </div>
-                
-                <div className="flex gap-2 justify-end">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    onClick={resetPasswordChange}
-                  >
-                    Cancel
-                  </Button>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    onClick={handleSendVerificationCode}
-                    disabled={isSendingCode}
-                  >
-                    {isSendingCode ? "Sending..." : "Resend Code"}
-                  </Button>
-                  <Button type="submit" disabled={isVerifying || verificationCode.length !== 6}>
-                    {isVerifying ? "Verifying..." : "Verify & Update"}
-                  </Button>
-                </div>
-              </form>
+              <div className="flex gap-2 justify-center">
+                <Button 
+                  variant="outline" 
+                  onClick={resetPasswordChange}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => window.location.reload()}
+                >
+                  Refresh Page
+                </Button>
+              </div>
             </div>
           )}
 
@@ -299,24 +372,109 @@ export default function SettingsPage() {
           )}
         </section>
 
-        {/* Section 2: Account Email (kept) */}
+        {/* Section 2: Change Email */}
         <section>
-          <h2 className="mb-1 text-xl font-semibold">Account Email</h2>
+          <h2 className="mb-1 text-xl font-semibold">Change Email Address</h2>
           <p className="mb-6 text-sm text-muted-foreground">
-            Your email address associated with this account.
+            Update your email address. A confirmation email will be sent to your new address.
           </p>
-          <div className="rounded-lg border bg-card p-6">
-            <Label>Email</Label>
-            <p className="text-muted-foreground">{user.email}</p>
-            <Button variant="outline" size="sm" className="mt-4" disabled>
-              Change Email (Not Implemented)
-            </Button>
-          </div>
+          
+          {emailError && (
+            <div className="mb-4 rounded-md border border-destructive bg-destructive/10 p-4 text-destructive">
+              <p><strong>Error:</strong> {emailError}</p>
+            </div>
+          )}
+
+          {emailChangeStep === 'form' && (
+            <div className="space-y-6 rounded-lg border bg-card p-6">
+              <div>
+                <Label>Current Email</Label>
+                <p className="text-muted-foreground">{user.email}</p>
+              </div>
+              
+              <form onSubmit={handleEmailChange} className="space-y-4">
+                <div>
+                  <Label htmlFor="newEmail">New Email Address</Label>
+                  <Input
+                    id="newEmail"
+                    type="email"
+                    value={newEmail}
+                    onChange={(e) => setNewEmail(e.target.value)}
+                    placeholder="Enter new email address"
+                    required
+                  />
+                </div>
+                
+                <div className="flex gap-2 justify-end">
+                  <Button type="submit" disabled={isChangingEmail || !newEmail}>
+                    {isChangingEmail ? "Changing..." : "Change Email"}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {emailChangeStep === 'confirm' && (
+            <div className="space-y-6 rounded-lg border bg-blue-50 border-blue-200 p-6">
+              <div className="text-center">
+                <div className="text-blue-600 text-4xl mb-4">📧</div>
+                <h3 className="text-lg font-semibold text-blue-800 mb-2">Check Your New Email</h3>
+                <p className="text-sm text-blue-700 mb-4">
+                  We've sent a confirmation email to <strong>{newEmail}</strong>
+                </p>
+                <p className="text-sm text-blue-600">
+                  Please click the confirmation link in the email to complete the email change.
+                </p>
+              </div>
+              
+              <div className="flex gap-2 justify-center">
+                <Button 
+                  variant="outline" 
+                  onClick={resetEmailChange}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => window.location.reload()}
+                >
+                  Refresh Page
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {emailChangeStep === 'success' && (
+            <div className="space-y-6 rounded-lg border bg-green-50 border-green-200 p-6">
+              <div className="text-center">
+                <div className="text-green-600 text-4xl mb-4">✓</div>
+                <h3 className="text-lg font-semibold text-green-800 mb-2">Email Changed Successfully!</h3>
+                <p className="text-sm text-green-700">
+                  Your email address has been updated to <strong>{newEmail}</strong>
+                </p>
+              </div>
+            </div>
+          )}
         </section>
 
         {/* Removed Profile Information Section */}
         {/* Add sections for Notifications, Privacy etc. here later */}
       </div>
     </div>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Loading Settings...</h1>
+          <p className="text-muted-foreground">Please wait...</p>
+        </div>
+      </div>
+    }>
+      <SettingsContent />
+    </Suspense>
   );
 }

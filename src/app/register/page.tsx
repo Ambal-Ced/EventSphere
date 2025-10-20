@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Metadata } from "next";
@@ -20,6 +20,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { cn } from "@/lib/utils";
 import { format, differenceInYears } from "date-fns";
 import { supabase } from "@/lib/supabase";
+import HCaptcha from "@hcaptcha/react-hcaptcha";
 
 // Use shared singleton client from lib
 
@@ -63,6 +64,8 @@ export default function RegisterPage() {
   const [termsOpen, setTermsOpen] = useState(false);
   const [termsChecked, setTermsChecked] = useState(false);
   const [postSignupOpen, setPostSignupOpen] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const captchaRef = useRef<HCaptcha>(null);
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
@@ -74,6 +77,7 @@ export default function RegisterPage() {
       newErrors.password = "Password must be at least 6 characters";
     if (formData.password !== formData.confirmPassword)
       newErrors.confirmPassword = "Passwords do not match";
+    if (!captchaToken) newErrors.captcha = "Please complete the captcha verification";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -101,6 +105,22 @@ export default function RegisterPage() {
     }
   };
 
+  // Captcha handlers
+  const onCaptchaChange = (token: string | null) => {
+    setCaptchaToken(token);
+    if (errors.captcha) {
+      setErrors((prev) => ({ ...prev, captcha: "" }));
+    }
+  };
+
+  const onCaptchaExpired = () => {
+    setCaptchaToken(null);
+  };
+
+  const onCaptchaError = () => {
+    setCaptchaToken(null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
@@ -113,11 +133,12 @@ export default function RegisterPage() {
 
     setIsLoading(true);
     try {
+      // First, create the user account
       const { data, error } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {
-          emailRedirectTo: `${window.location.origin}/verified`,
+          emailRedirectTo: `${window.location.origin}/auth/verify-email`,
         },
       });
 
@@ -125,6 +146,40 @@ export default function RegisterPage() {
         console.error("Sign up error:", error);
         setPostSignupOpen(true);
       } else if (data.user) {
+        // Create a basic profile entry for the user
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .insert({
+            id: data.user.id,
+            email: data.user.email,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          });
+
+        if (profileError) {
+          console.error("Profile creation error:", profileError);
+        }
+
+        // Send custom verification email using our email service
+        try {
+          const response = await fetch('/api/email', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              action: 'send_verification',
+              email: formData.email,
+            }),
+          });
+
+          if (!response.ok) {
+            console.error('Failed to send custom verification email');
+          }
+        } catch (emailError) {
+          console.error('Error sending custom verification email:', emailError);
+        }
+
         setPostSignupOpen(true);
       }
     } catch (error: any) {
@@ -216,6 +271,21 @@ export default function RegisterPage() {
               </p>
             )}
           </div>
+
+          {/* Captcha */}
+          <div>
+            <HCaptcha
+              ref={captchaRef}
+              sitekey={process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY || ""}
+              onVerify={onCaptchaChange}
+              onExpire={onCaptchaExpired}
+              onError={onCaptchaError}
+            />
+            {errors.captcha && (
+              <p className="text-xs text-destructive mt-1">{errors.captcha}</p>
+            )}
+          </div>
+
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? "Creating Account..." : "Create Account"}
           </Button>

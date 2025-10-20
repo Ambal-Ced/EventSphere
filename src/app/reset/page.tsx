@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import HCaptcha from "@hcaptcha/react-hcaptcha";
 
 // Use shared singleton client from lib
 
@@ -16,6 +17,8 @@ export default function ResetPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const captchaRef = useRef<HCaptcha>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -23,10 +26,35 @@ export default function ResetPage() {
     if (error) setError(null);
   };
 
+  // Captcha handlers
+  const onCaptchaChange = (token: string | null) => {
+    setCaptchaToken(token);
+    if (error === "Please complete the captcha verification") {
+      setError(null);
+    }
+  };
+
+  const onCaptchaExpired = () => {
+    setCaptchaToken(null);
+  };
+
+  const onCaptchaError = () => {
+    setCaptchaToken(null);
+    setError("Captcha error. Please try again.");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
+    
+    // Check captcha
+    if (!captchaToken) {
+      setError("Please complete the captcha verification");
+      setIsLoading(false);
+      return;
+    }
+    
     try {
       // Verify profile details match
       const { data: profile, error: profileError } = await supabase
@@ -46,7 +74,7 @@ export default function ResetPage() {
       // Send password reset email
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(
         form.email,
-        { redirectTo: `${window.location.origin}/login` }
+        { redirectTo: `${window.location.origin}/auth/password-reset-confirmation` }
       );
       if (resetError) throw resetError;
       setSuccess(true);
@@ -67,10 +95,16 @@ export default function ResetPage() {
 
         {success ? (
           <>
-            <p className="mb-6 text-sm text-muted-foreground">
-              If the information matched, a reset link has been sent to your
-              email. Please check your inbox.
-            </p>
+            <div className="text-center mb-6">
+              <div className="text-green-600 text-4xl mb-4">📧</div>
+              <h2 className="text-xl font-semibold text-green-800 mb-2">Reset Link Sent!</h2>
+              <p className="text-sm text-green-700 mb-4">
+                If the information matched, a password reset link has been sent to your email.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Please check your inbox and click the link to reset your password.
+              </p>
+            </div>
             <Button className="w-full" onClick={() => router.push("/login")}>Go to Login</Button>
           </>
         ) : (
@@ -111,6 +145,18 @@ export default function ResetPage() {
                 required
               />
             </div>
+
+            {/* Captcha */}
+            <div>
+              <HCaptcha
+                ref={captchaRef}
+                sitekey={process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY || ""}
+                onVerify={onCaptchaChange}
+                onExpire={onCaptchaExpired}
+                onError={onCaptchaError}
+              />
+            </div>
+
             <div className="flex gap-2">
               <Button type="button" variant="outline" className="w-1/3" onClick={() => router.push("/login")}>Cancel</Button>
               <Button type="submit" className="w-2/3" disabled={isLoading}>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { Eye, EyeOff } from "lucide-react";
+import HCaptcha from "@hcaptcha/react-hcaptcha";
 
 // Use shared singleton client from lib
 
@@ -22,6 +23,8 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const captchaRef = useRef<HCaptcha>(null);
 
   useEffect(() => {
     // Always sign out the user on this page to prevent auto-login
@@ -39,9 +42,29 @@ export default function LoginPage() {
     if (error) setError(null); // Clear error on input change
   };
 
+  // Captcha handlers
+  const onCaptchaChange = (token: string | null) => {
+    setCaptchaToken(token);
+  };
+
+  const onCaptchaExpired = () => {
+    setCaptchaToken(null);
+  };
+
+  const onCaptchaError = () => {
+    setCaptchaToken(null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    
+    // Check captcha
+    if (!captchaToken) {
+      setError("Please complete the captcha verification");
+      return;
+    }
+    
     setIsLoading(true);
 
     try {
@@ -130,6 +153,18 @@ export default function LoginPage() {
               </button>
             </div>
           </div>
+
+          {/* Captcha */}
+          <div>
+            <HCaptcha
+              ref={captchaRef}
+              sitekey={process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY || ""}
+              onVerify={onCaptchaChange}
+              onExpire={onCaptchaExpired}
+              onError={onCaptchaError}
+            />
+          </div>
+
           <div className="text-right text-sm">
             <Link href="/reset" className="text-primary hover:underline">
               Forgot password?

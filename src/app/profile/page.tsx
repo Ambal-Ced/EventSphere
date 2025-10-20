@@ -95,6 +95,7 @@ export default function ProfilePage() {
   const [isChangingEmail, setIsChangingEmail] = useState(false);
   const [newEmail, setNewEmail] = useState("");
   const [emailError, setEmailError] = useState<string | null>(null);
+  const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [isAvatarDialogOpen, setIsAvatarDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -447,6 +448,7 @@ export default function ProfilePage() {
       );
       setNewEmail("");
       setIsChangingEmail(false);
+      setIsEmailDialogOpen(false);
     } catch (err: any) {
       console.error("Error updating email:", err);
       setEmailError(err.message);
@@ -662,7 +664,7 @@ export default function ProfilePage() {
                       disabled
                       className="mt-1 bg-muted/50"
                     />
-                    <Dialog>
+                    <Dialog open={isEmailDialogOpen} onOpenChange={setIsEmailDialogOpen}>
                       <DialogTrigger asChild>
                         <Button variant="outline" size="icon">
                           <Mail className="h-4 w-4" />
@@ -698,6 +700,7 @@ export default function ProfilePage() {
                               onClick={() => {
                                 setNewEmail("");
                                 setEmailError(null);
+                                setIsEmailDialogOpen(false);
                               }}
                             >
                               Cancel
