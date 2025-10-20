@@ -142,9 +142,9 @@ function ResetPasswordContent() {
           setStatus('success');
           setMessage('Your password has been successfully updated!');
           
-          // Redirect to login after 3 seconds
+          // Redirect to homepage after 3 seconds
           setTimeout(() => {
-            router.push('/login?password_reset=true');
+            router.push('/');
           }, 3000);
           return;
         } catch (apiError) {
@@ -162,9 +162,9 @@ function ResetPasswordContent() {
       setStatus('success');
       setMessage('Your password has been successfully updated!');
       
-      // Redirect to login after 3 seconds
+      // Redirect to homepage after 3 seconds
       setTimeout(() => {
-        router.push('/login?password_reset=true');
+        router.push('/');
       }, 3000);
     } catch (error: any) {
       console.error("Error updating password:", error);
@@ -280,8 +280,8 @@ function ResetPasswordContent() {
             <p className="text-muted-foreground mb-6">
               {message}
             </p>
-            <Button onClick={() => router.push("/login")}>
-              Go to Login
+            <Button onClick={() => router.push("/")}>
+              Go to Homepage
             </Button>
           </div>
         );

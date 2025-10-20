@@ -11,11 +11,116 @@ function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
   const type = searchParams.get("type");
-  const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
+  const [status, setStatus] = useState<'verifying' | 'awaiting' | 'success' | 'error'>('verifying');
   const [message, setMessage] = useState('');
+  const [newEmailConfirmed, setNewEmailConfirmed] = useState(false);
+  const [currentEmailConfirmed, setCurrentEmailConfirmed] = useState(false);
+  const [finalized, setFinalized] = useState(false);
 
   useEffect(() => {
     const verifyEmail = async () => {
+      // First, check if Supabase redirected with URL hash parameters
+      const hash = typeof window !== 'undefined' ? window.location.hash : '';
+      if (hash) {
+        const urlParams = new URLSearchParams(hash.substring(1));
+        const accessToken = urlParams.get('access_token');
+        const refreshToken = urlParams.get('refresh_token');
+        const hashType = urlParams.get('type');
+        const hashMessage = urlParams.get('message');
+
+        // Merge any prior confirmation state from localStorage
+        try {
+          const storedNew = typeof window !== 'undefined' ? window.localStorage.getItem('emailChange:newConfirmed') : null;
+          const storedCurrent = typeof window !== 'undefined' ? window.localStorage.getItem('emailChange:currentConfirmed') : null;
+          if (storedNew === '1') setNewEmailConfirmed(true);
+          if (storedCurrent === '1') setCurrentEmailConfirmed(true);
+        } catch {}
+
+        // If it's the first step of email change (new email): only a message is present
+        if (hashMessage && !accessToken && !refreshToken) {
+          setNewEmailConfirmed(true);
+          try { if (typeof window !== 'undefined') window.localStorage.setItem('emailChange:newConfirmed', '1'); } catch {}
+          setStatus('awaiting');
+          setMessage(hashMessage);
+          return;
+        }
+
+        // If tokens are present (e.g., second step or direct verify via hash), set session and proceed
+        if (accessToken && refreshToken) {
+          try {
+            const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+
+            if (sessionError) {
+              throw sessionError;
+            }
+
+            if (hashType === 'email_change') {
+              // Handle email change verification once session is established
+              if (sessionData?.user) {
+                const { error: profileError } = await supabase
+                  .from("profiles")
+                  .update({ email: sessionData.user.email })
+                  .eq("id", sessionData.user.id);
+
+                if (profileError) {
+                  console.error("Error updating profile email:", profileError);
+                  setStatus('error');
+                  setMessage('Email changed but failed to update profile. Please contact support.');
+                  return;
+                }
+
+                setCurrentEmailConfirmed(true);
+                try { if (typeof window !== 'undefined') window.localStorage.setItem('emailChange:currentConfirmed', '1'); } catch {}
+                setStatus('awaiting');
+                setMessage('Current email confirmed. Waiting for confirmation from the other email if not yet done.');
+                return;
+              }
+            }
+
+            // Fallback: if not email_change, route to home or complete-profile depending on profile
+            if (sessionData?.user) {
+              const { data: profile, error: profileError } = await supabase
+                .from("profiles")
+                .select("*")
+                .eq("id", sessionData.user.id)
+                .single();
+
+              const requiredFields = [
+                "username",
+                "fname",
+                "lname",
+                "address",
+                "contact_no",
+                "birthday",
+                "gender",
+              ];
+
+              const isProfileIncomplete = !profile || requiredFields.some((field) => {
+                const value = (profile as any)[field];
+                return !value || value === null || value === undefined || value === "";
+              });
+
+              // For non-email-change flows, keep original behavior
+              if (profileError || isProfileIncomplete) {
+                router.push("/complete-profile");
+              } else {
+                router.push("/");
+              }
+              return;
+            }
+          } catch (error) {
+            console.error('Error handling hash-based verification:', error);
+            setStatus('error');
+            setMessage('Verification failed. The link may have expired or is invalid.');
+            return;
+          }
+        }
+      }
+
+      // Legacy/query-based flow
       if (token && (type === "email" || type === "email_change" || type === "recovery")) {
         try {
           const { error } = await supabase.auth.verifyOtp({
@@ -48,9 +153,8 @@ function VerifyEmailContent() {
               return;
             }
 
-            // Handle email change verification
+            // Handle email change verification (query-based): mirror unified flow
             if (type === "email_change") {
-              // Update profile email if needed
               const { error: profileError } = await supabase
                 .from("profiles")
                 .update({ email: session.user.email })
@@ -63,13 +167,10 @@ function VerifyEmailContent() {
                 return;
               }
 
-              setStatus('success');
-              setMessage('Your email address has been successfully changed!');
-              
-              // Redirect to settings after 3 seconds
-              setTimeout(() => {
-                router.push("/settings?email_changed=true");
-              }, 3000);
+              setCurrentEmailConfirmed(true);
+              try { if (typeof window !== 'undefined') window.localStorage.setItem('emailChange:currentConfirmed', '1'); } catch {}
+              setStatus('awaiting');
+              setMessage('Current email confirmed. Waiting for confirmation from the other email if not yet done.');
               return;
             }
 
@@ -134,17 +235,56 @@ function VerifyEmailContent() {
             </p>
           </div>
         );
+      case 'awaiting':
+        return (
+          <div className="space-y-6 text-center">
+            <h1 className="text-2xl font-bold">Confirm Email Change</h1>
+            {message && (
+              <p className="text-muted-foreground">{message}</p>
+            )}
+            <div className="grid grid-cols-1 gap-4">
+              <div className={`rounded-lg border p-4 ${newEmailConfirmed ? 'border-green-300 bg-green-50' : 'border-muted'}`}>
+                <p className="font-medium">New Email Confirmation</p>
+                <p className="text-sm text-muted-foreground">
+                  {newEmailConfirmed ? 'New email has been confirmed.' : 'Waiting for confirmation from the new email link.'}
+                </p>
+              </div>
+              <div className={`rounded-lg border p-4 ${currentEmailConfirmed ? 'border-green-300 bg-green-50' : 'border-muted'}`}>
+                <p className="font-medium">Current Email Confirmation</p>
+                <p className="text-sm text-muted-foreground">
+                  {currentEmailConfirmed ? 'Current email has been confirmed.' : 'Waiting for confirmation from the current email link.'}
+                </p>
+              </div>
+            </div>
+            <Button
+              disabled={!(newEmailConfirmed && currentEmailConfirmed)}
+              onClick={() => {
+                setFinalized(true);
+                setStatus('success');
+                setMessage('Your email change has been confirmed.');
+                try {
+                  if (typeof window !== 'undefined') {
+                    window.localStorage.removeItem('emailChange:newConfirmed');
+                    window.localStorage.removeItem('emailChange:currentConfirmed');
+                  }
+                } catch {}
+              }}
+            >
+              Finalize Email Change
+            </Button>
+          </div>
+        );
       
       case 'success':
         return (
           <div className="text-center">
             <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-600" />
-            <h1 className="text-2xl font-bold mb-4 text-green-800">Email Verified!</h1>
+            <h1 className="text-2xl font-bold mb-4 text-green-800">Email Change Confirmed</h1>
             <p className="text-muted-foreground mb-6">
               {message}
             </p>
-            <Button onClick={() => router.push("/settings")}>
-              Go to Settings
+            <Button onClick={() => router.push("/")}>
+              Go to Homepage
             </Button>
           </div>
         );
