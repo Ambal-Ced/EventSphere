@@ -108,7 +108,7 @@ function EmailChangeConfirmationContent() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
@@ -145,7 +145,7 @@ function EmailChangeConfirmationContent() {
                 <h3 className="font-medium text-gray-900 text-sm">Email Change Status</h3>
                 
                 {/* Current Email Status */}
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
+                <div className="flex items-center justify-between p-3 bg-gray-900 rounded-lg border">
                   <div className="flex items-center space-x-3">
                     {getStatusIcon(currentEmailConfirmed, true)}
                     <div>
@@ -158,7 +158,7 @@ function EmailChangeConfirmationContent() {
 
                 {/* New Email Status */}
                 {newEmail && (
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
+                  <div className="flex items-center justify-between p-3 bg-gray-900 rounded-lg border">
                     <div className="flex items-center space-x-3">
                       {getStatusIcon(newEmailConfirmed, false)}
                       <div>
@@ -232,7 +232,7 @@ function EmailChangeConfirmationContent() {
 export default function EmailChangeConfirmationPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen flex items-center justify-center bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">

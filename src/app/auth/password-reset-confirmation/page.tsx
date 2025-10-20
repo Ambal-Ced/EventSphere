@@ -19,6 +19,8 @@ function PasswordResetConfirmationContent() {
       try {
         // Get tokens from URL fragment (Supabase default) or query params
         const hash = window.location.hash;
+        console.log('Password reset confirmation page - Full hash:', hash);
+        
         const urlParams = new URLSearchParams(hash.substring(1));
         const accessToken = urlParams.get('access_token') || searchParams.get('access_token');
         const refreshToken = urlParams.get('refresh_token') || searchParams.get('refresh_token');
@@ -78,7 +80,7 @@ function PasswordResetConfirmationContent() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
@@ -156,7 +158,7 @@ function PasswordResetConfirmationContent() {
 export default function PasswordResetConfirmationPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen flex items-center justify-center bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
