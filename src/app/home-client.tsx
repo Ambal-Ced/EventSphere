@@ -85,11 +85,14 @@ export default function HomeClient() {
         throw new Error('Missing authentication tokens');
       }
 
+      console.log('Setting session with Supabase...');
       // Set the session with the tokens
       const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
         access_token: accessToken,
         refresh_token: refreshToken,
       });
+
+      console.log('Session result:', { sessionData: !!sessionData, sessionError });
 
       if (sessionError) {
         console.error('Session error:', sessionError);
@@ -97,6 +100,7 @@ export default function HomeClient() {
       }
 
       if (!sessionData.user) {
+        console.error('No user in session data:', sessionData);
         throw new Error('No user found in session');
       }
 
