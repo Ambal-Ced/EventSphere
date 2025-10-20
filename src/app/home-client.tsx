@@ -1,6 +1,6 @@
 "use client"; // Client component
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -48,24 +48,7 @@ export default function HomeClient() {
   // Guard against React StrictMode double-invoking effects in dev
   const hasInitialized = useRef(false);
 
-  // Handle password reset confirmation directly on homepage when tokens are present
-  useEffect(() => {
-    const hash = window.location.hash;
-    console.log('Homepage hash:', hash);
-    
-    if (hash.includes('access_token') && hash.includes('type=recovery')) {
-      console.log('Password reset tokens detected on homepage - handling confirmation');
-      handlePasswordResetConfirmation(hash);
-      return;
-    }
-    if (hash.includes('access_token') && hash.includes('type=email_change')) {
-      console.log('Email change tokens detected on homepage - handling confirmation');
-      handleEmailChangeConfirmation(hash);
-      return;
-    }
-  }, []);
-
-  const handlePasswordResetConfirmation = async (hash: string) => {
+  const handlePasswordResetConfirmation = useCallback(async (hash: string) => {
     try {
       console.log('Processing password reset confirmation...');
       
@@ -86,11 +69,23 @@ export default function HomeClient() {
       }
 
       console.log('Setting session with Supabase...');
-      // Set the session with the tokens
-      const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+      // Set the session with the tokens with timeout
+      const sessionPromise = supabase.auth.setSession({
         access_token: accessToken,
         refresh_token: refreshToken,
       });
+
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Session timeout after 10 seconds')), 10000)
+      );
+
+      console.log('Waiting for session response...');
+      const result = await Promise.race([
+        sessionPromise,
+        timeoutPromise
+      ]) as { data: any; error: any };
+      const { data: sessionData, error: sessionError } = result;
+      console.log('Session response received!');
 
       console.log('Session result:', { sessionData: !!sessionData, sessionError });
 
@@ -115,9 +110,9 @@ export default function HomeClient() {
       // Clear the hash on error
       window.history.replaceState(null, '', '/');
     }
-  };
+  }, [router]);
 
-  const handleEmailChangeConfirmation = async (hash: string) => {
+  const handleEmailChangeConfirmation = useCallback(async (hash: string) => {
     try {
       console.log('Processing email change confirmation...');
       
@@ -157,7 +152,24 @@ export default function HomeClient() {
       // Clear the hash on error
       window.history.replaceState(null, '', '/');
     }
-  };
+  }, [router]);
+
+  // Handle password reset confirmation directly on homepage when tokens are present
+  useEffect(() => {
+    const hash = window.location.hash;
+    console.log('Homepage hash:', hash);
+    
+    if (hash.includes('access_token') && hash.includes('type=recovery')) {
+      console.log('Password reset tokens detected on homepage - handling confirmation');
+      handlePasswordResetConfirmation(hash);
+      return;
+    }
+    if (hash.includes('access_token') && hash.includes('type=email_change')) {
+      console.log('Email change tokens detected on homepage - handling confirmation');
+      handleEmailChangeConfirmation(hash);
+      return;
+    }
+  }, [handlePasswordResetConfirmation, handleEmailChangeConfirmation]);
 
   useEffect(() => {
     if (hasInitialized.current) return;
