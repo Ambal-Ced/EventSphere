@@ -6,16 +6,16 @@ export async function middleware(request: NextRequest) {
   if (request.nextUrl.pathname === '/' && request.nextUrl.hash) {
     const hash = request.nextUrl.hash;
     if (hash.includes('access_token') && hash.includes('type=recovery')) {
-      // Redirect password reset tokens to confirmation page
+      // Rewrite to password reset confirmation page while preserving hash
       const url = request.nextUrl.clone();
       url.pathname = '/auth/password-reset-confirmation';
-      return NextResponse.redirect(url);
+      return NextResponse.rewrite(url);
     }
     if (hash.includes('access_token') && hash.includes('type=email_change')) {
-      // Redirect email change tokens to confirmation page
+      // Rewrite to email change confirmation page while preserving hash
       const url = request.nextUrl.clone();
       url.pathname = '/auth/email-change-confirmation';
-      return NextResponse.redirect(url);
+      return NextResponse.rewrite(url);
     }
   }
 
