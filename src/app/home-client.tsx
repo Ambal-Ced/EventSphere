@@ -95,13 +95,15 @@ export default function HomeClient() {
 
   const handleEmailChangeConfirmation = useCallback(async (hash: string) => {
     try {
-      console.log('Processing email change confirmation...');
+      console.log('Processing email change confirmation...', hash);
       
       // Extract tokens from hash
       const urlParams = new URLSearchParams(hash.substring(1));
       const accessToken = urlParams.get('access_token');
       const refreshToken = urlParams.get('refresh_token');
       const type = urlParams.get('type');
+
+      console.log('Extracted tokens:', { accessToken: !!accessToken, refreshToken: !!refreshToken, type });
 
       if (!accessToken || !refreshToken) {
         throw new Error('Missing authentication tokens');
@@ -122,7 +124,11 @@ export default function HomeClient() {
         throw new Error('No user found in session');
       }
 
-      console.log('Email change confirmed! Showing popup...');
+      console.log('Email change confirmed! Showing popup...', { 
+        userEmail: sessionData.user.email,
+        type,
+        isCurrentEmailConfirmation: type === 'email_change'
+      });
       
       // Clear the hash
       window.history.replaceState(null, '', '/');
@@ -132,6 +138,7 @@ export default function HomeClient() {
       
       if (isCurrentEmailConfirmation) {
         // Current email confirmed - show popup asking to confirm new email
+        console.log('Setting popup to current_confirmed');
         setEmailChangePopup({
           show: true,
           type: 'current_confirmed',
@@ -143,6 +150,7 @@ export default function HomeClient() {
         localStorage.setItem('emailChange:currentConfirmed', '1');
       } else {
         // This shouldn't happen with token-based links, but handle gracefully
+        console.log('Setting popup to new_confirmed');
         setEmailChangePopup({
           show: true,
           type: 'new_confirmed',
@@ -211,6 +219,10 @@ export default function HomeClient() {
   useEffect(() => {
     const hash = window.location.hash;
     console.log('Homepage hash:', hash);
+    console.log('Hash includes access_token:', hash.includes('access_token'));
+    console.log('Hash includes type=email_change:', hash.includes('type=email_change'));
+    console.log('Hash includes type=recovery:', hash.includes('type=recovery'));
+    console.log('Hash includes message=', hash.includes('message='));
     
     if (hash.includes('access_token') && hash.includes('type=recovery')) {
       console.log('Password reset tokens detected on homepage - handling confirmation');
