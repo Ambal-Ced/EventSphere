@@ -741,7 +741,7 @@ export default function ProfilePage() {
               </>
             ) : (
               <>
-                {renderTextField("Email", profile.email)}
+                {renderTextField("Email", user?.email || profile.email)}
                 {renderTextField("Contact Number", profile.contact_no)}
                 {renderTextField("Address", profile.address)}
               </>

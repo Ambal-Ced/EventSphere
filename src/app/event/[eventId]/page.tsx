@@ -88,6 +88,12 @@ interface Event {
   ai_insights?: string;
   insights_generated_at?: string;
   insights_generated_by?: string;
+  profiles?: {
+    username: string;
+    fname: string;
+    lname: string;
+    avatar_url?: string;
+  };
 }
 
 interface EventMember {
@@ -322,10 +328,13 @@ export default function SingleEventPage() {
 
   const fetchEvent = async () => {
     try {
-      // Fetch event
+      // Fetch event with owner's profile
       const { data: eventData, error: eventError } = await supabase
         .from("events")
-        .select("*")
+        .select(`
+          *,
+          profiles:user_id(username, fname, lname, avatar_url)
+        `)
         .eq("id", eventId)
         .single();
 
@@ -1783,8 +1792,8 @@ export default function SingleEventPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data, error } = await supabase.rpc('get_or_create_insights_weekly_usage', {
-        p_user_id: user.id,
+      // Get total insights generated for this event this week (shared across all participants)
+      const { data, error } = await supabase.rpc('get_event_insights_weekly_usage', {
         p_event_id: eventId
       });
 
@@ -1793,9 +1802,20 @@ export default function SingleEventPage() {
       if (data && data.length > 0) {
         const usage = data[0];
         setInsightsUsageInfo({
-          insightsGenerated: usage.insights_generated,
-          canGenerateMore: usage.can_generate_more,
+          insightsGenerated: usage.total_insights_generated || 0,
+          canGenerateMore: (usage.total_insights_generated || 0) < 5,
           weekStart: usage.week_start_date_return
+        });
+      } else {
+        // If no data, set default values
+        const weekStart = new Date();
+        weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Start of week
+        weekStart.setHours(0, 0, 0, 0);
+        
+        setInsightsUsageInfo({
+          insightsGenerated: 0,
+          canGenerateMore: true,
+          weekStart: weekStart.toISOString().split('T')[0]
         });
       }
     } catch (error) {
@@ -1808,15 +1828,11 @@ export default function SingleEventPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { error } = await supabase
-        .from('ai_insights_usage')
-        .update({
-          insights_generated: (insightsUsageInfo?.insightsGenerated || 0) + 1,
-          last_generation_at: new Date().toISOString()
-        })
-        .eq('user_id', user.id)
-        .eq('event_id', eventId)
-        .eq('week_start_date', insightsUsageInfo?.weekStart);
+      // Increment the shared event insights count
+      const { error } = await supabase.rpc('increment_event_insights_usage', {
+        p_event_id: eventId,
+        p_week_start_date: insightsUsageInfo?.weekStart
+      });
 
       if (error) throw error;
 
@@ -1824,7 +1840,7 @@ export default function SingleEventPage() {
       setInsightsUsageInfo(prev => prev ? {
         ...prev,
         insightsGenerated: prev.insightsGenerated + 1,
-        canGenerateMore: prev.insightsGenerated + 1 < 3
+        canGenerateMore: prev.insightsGenerated + 1 < 5
       } : null);
     } catch (error) {
       console.error('Error incrementing insights usage:', error);
@@ -3003,69 +3019,97 @@ RECOMMENDATIONS:
                 </h3>
                 <div className="flex-1 flex flex-col min-h-0">
                   <div className="space-y-4 flex-1 overflow-y-auto">
-                  {collaborators.length > 0 ? (
-                    collaborators.map((collaborator) => (
-                      <div
-                        key={collaborator.id}
-                        className="flex items-center gap-3 p-3 bg-purple-500/10 rounded-lg border border-purple-500/20"
-                      >
-                        <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
-                          {collaborator.profiles?.avatar_url ? (
-                            <Image
-                              src={collaborator.profiles.avatar_url}
-                              alt="Avatar"
-                              width={40}
-                              height={40}
-                              className="rounded-full object-cover"
-                            />
-                          ) : (
-                            <Users className="w-5 h-5 text-purple-400" />
+                  {(() => {
+                    // Create a combined list with owner first, then collaborators sorted by joined_at
+                    const allMembers = [];
+                    
+                    // Add event owner first
+                    if (event?.user_id) {
+                      allMembers.push({
+                        id: 'owner',
+                        user_id: event.user_id,
+                        role: 'owner',
+                        joined_at: event.created_at,
+                        profiles: event.profiles || null
+                      });
+                    }
+                    
+                    // Add collaborators sorted by joined_at (oldest first for moderators)
+                    const sortedCollaborators = [...collaborators].sort((a, b) => {
+                      // Sort by role first (moderators before members), then by joined_at
+                      if (a.role !== b.role) {
+                        if (a.role === 'moderator') return -1;
+                        if (b.role === 'moderator') return 1;
+                      }
+                      return new Date(a.joined_at).getTime() - new Date(b.joined_at).getTime();
+                    });
+                    
+                    allMembers.push(...sortedCollaborators);
+                    
+                    return allMembers.length > 0 ? (
+                      allMembers.map((member) => (
+                        <div
+                          key={member.id}
+                          className="flex items-center gap-3 p-3 bg-purple-500/10 rounded-lg border border-purple-500/20"
+                        >
+                          <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
+                            {member.profiles?.avatar_url ? (
+                              <Image
+                                src={member.profiles.avatar_url}
+                                alt="Avatar"
+                                width={40}
+                                height={40}
+                                className="rounded-full object-cover"
+                              />
+                            ) : (
+                              <Users className="w-5 h-5 text-purple-400" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-white font-medium truncate">
+                              {member.profiles?.fname &&
+                              member.profiles?.lname
+                                ? `${member.profiles.fname} ${member.profiles.lname}`
+                                : member.profiles?.username ||
+                                  "Unknown User"}
+                            </div>
+                            <div className="text-purple-300 text-sm capitalize">
+                              {member.role}
+                            </div>
+                          </div>
+                          {isOwner && member.role !== "owner" && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                handleRemoveCollaborator(
+                                  member.id,
+                                  member.profiles?.fname &&
+                                    member.profiles?.lname
+                                    ? `${member.profiles.fname} ${member.profiles.lname}`
+                                    : member.profiles?.username ||
+                                        "Unknown User"
+                                )
+                              }
+                              disabled={
+                                isRemovingCollaborator === member.id
+                              }
+                              className="text-red-400 hover:text-red-300 hover:bg-red-500/20 p-1"
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
                           )}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-white font-medium truncate">
-                            {collaborator.profiles?.fname &&
-                            collaborator.profiles?.lname
-                              ? `${collaborator.profiles.fname} ${collaborator.profiles.lname}`
-                              : collaborator.profiles?.username ||
-                                "Unknown User"}
-                          </div>
-                          <div className="text-purple-300 text-sm capitalize">
-                            {collaborator.role}
-                          </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-4">
+                        <Users className="w-8 h-8 text-purple-400 mx-auto mb-2" />
+                        <div className="text-purple-300 text-sm">
+                          No members yet
                         </div>
-                        {isOwner && collaborator.role !== "owner" && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() =>
-                              handleRemoveCollaborator(
-                                collaborator.id,
-                                collaborator.profiles?.fname &&
-                                  collaborator.profiles?.lname
-                                  ? `${collaborator.profiles.fname} ${collaborator.profiles.lname}`
-                                  : collaborator.profiles?.username ||
-                                      "Unknown User"
-                              )
-                            }
-                            disabled={
-                              isRemovingCollaborator === collaborator.id
-                            }
-                            className="text-red-400 hover:text-red-300 hover:bg-red-500/20 p-1"
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                        )}
                       </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-4">
-                      <Users className="w-8 h-8 text-purple-400 mx-auto mb-2" />
-                      <div className="text-purple-300 text-sm">
-                        No members yet
-                      </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                   </div>
                   
                   <div className="mt-4 flex-shrink-0">
