@@ -94,6 +94,7 @@ export default function HomeClient() {
   }, [router]);
 
   const handleEmailChangeConfirmation = useCallback(async (hash: string) => {
+    // Always show the popup immediately so UX doesn't depend on session success
     try {
       console.log('Processing email change confirmation...', hash);
       
@@ -109,63 +110,52 @@ export default function HomeClient() {
         throw new Error('Missing authentication tokens');
       }
 
-      // Set the session with the tokens
+      // Determine which confirmation this is and show popup immediately
+      const isCurrentEmailConfirmation = type === 'email_change';
+      if (isCurrentEmailConfirmation) {
+        console.log('Setting popup to current_confirmed (pre-session)');
+        setEmailChangePopup(prev => ({ ...prev, show: true, type: 'current_confirmed' }));
+        try { localStorage.setItem('emailChange:currentConfirmed', '1'); } catch {}
+      } else {
+        console.log('Setting popup to new_confirmed (pre-session)');
+        setEmailChangePopup(prev => ({ ...prev, show: true, type: 'new_confirmed' }));
+        try { localStorage.setItem('emailChange:newConfirmed', '1'); } catch {}
+      }
+
+      // Clear the hash immediately to avoid re-processing on navigation
+      window.history.replaceState(null, '', '/');
+
+      // Best-effort: Set the session with the tokens in the background
       const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
         access_token: accessToken,
         refresh_token: refreshToken,
       });
 
       if (sessionError) {
-        console.error('Session error:', sessionError);
-        throw new Error('Failed to authenticate');
+        console.warn('Session error (non-blocking):', sessionError);
+        return;
       }
 
       if (!sessionData.user) {
-        throw new Error('No user found in session');
+        console.warn('No user found in session (non-blocking)');
+        return;
       }
 
-      console.log('Email change confirmed! Showing popup...', { 
-        userEmail: sessionData.user.email,
-        type,
-        isCurrentEmailConfirmation: type === 'email_change'
-      });
+      console.log('Session established post-popup', { userEmail: sessionData.user.email });
       
-      // Clear the hash
-      window.history.replaceState(null, '', '/');
-      
-      // Check if this is current email confirmation (has tokens) or new email confirmation (message only)
-      const isCurrentEmailConfirmation = type === 'email_change';
-      
-      if (isCurrentEmailConfirmation) {
-        // Current email confirmed - show popup asking to confirm new email
-        console.log('Setting popup to current_confirmed');
-        setEmailChangePopup({
-          show: true,
-          type: 'current_confirmed',
-          currentEmail: sessionData.user.email || undefined,
-          newEmail: sessionData.user.user_metadata?.new_email || undefined
-        });
-        
-        // Store current email confirmation
-        localStorage.setItem('emailChange:currentConfirmed', '1');
-      } else {
-        // This shouldn't happen with token-based links, but handle gracefully
-        console.log('Setting popup to new_confirmed');
-        setEmailChangePopup({
-          show: true,
-          type: 'new_confirmed',
-          currentEmail: sessionData.user.email || undefined,
-          newEmail: sessionData.user.user_metadata?.new_email || undefined
-        });
-        
-        // Store new email confirmation
-        localStorage.setItem('emailChange:newConfirmed', '1');
-      }
-      
+      // Optionally enrich popup with emails (non-blocking)
+      setEmailChangePopup(prev => ({
+        ...prev,
+        currentEmail: sessionData.user.email || prev.currentEmail,
+        newEmail: (sessionData.user as any)?.user_metadata?.new_email || prev.newEmail,
+      }));
+
     } catch (error: any) {
       console.error('Email change confirmation error:', error);
       // Clear the hash on error
       window.history.replaceState(null, '', '/');
+      // Still show a generic popup if something went wrong
+      setEmailChangePopup(prev => ({ ...prev, show: true, type: 'current_confirmed' }));
     }
   }, []);
 
