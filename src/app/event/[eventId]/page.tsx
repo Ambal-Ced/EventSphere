@@ -144,6 +144,10 @@ export default function SingleEventPage() {
   const [showMessageDeleteConfirm, setShowMessageDeleteConfirm] = useState(false);
   const [showMessageDeleteSuccess, setShowMessageDeleteSuccess] = useState(false);
   const [messageToDelete, setMessageToDelete] = useState<string | null>(null);
+  
+  // Script delete confirmation state
+  const [showScriptDeleteConfirm, setShowScriptDeleteConfirm] = useState(false);
+  const [scriptToDelete, setScriptToDelete] = useState<any>(null);
 
   // Invite and collaboration state
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -707,6 +711,46 @@ export default function SingleEventPage() {
   const cancelDeleteMessage = () => {
     setShowMessageDeleteConfirm(false);
     setMessageToDelete(null);
+  };
+
+  // Script deletion functions
+  const handleDeleteScript = (script: any) => {
+    setScriptToDelete(script);
+    setShowScriptDeleteConfirm(true);
+  };
+
+  const confirmDeleteScript = async () => {
+    if (!scriptToDelete) return;
+    
+    try {
+      // First delete DB record
+      const { error: delErr } = await supabase
+        .from("event_script")
+        .delete()
+        .eq("id", scriptToDelete.id);
+      if (delErr) throw delErr;
+
+      // Then delete file from storage bucket
+      const path = getStoragePathFromPublicUrl(scriptToDelete.file_url, "event-docs");
+      if (path) {
+        const { error: storageErr } = await supabase.storage
+          .from("event-docs")
+          .remove([path]);
+        if (storageErr) console.warn("Failed to remove from storage:", storageErr);
+      }
+
+      toast.success("Deleted script");
+      fetchEventScripts();
+      setShowScriptDeleteConfirm(false);
+      setScriptToDelete(null);
+    } catch (err: any) {
+      toast.error("Failed to delete");
+    }
+  };
+
+  const cancelDeleteScript = () => {
+    setShowScriptDeleteConfirm(false);
+    setScriptToDelete(null);
   };
 
   // Event Notes functions
@@ -2788,30 +2832,7 @@ RECOMMENDATIONS:
                               <Button
                                 variant="destructive"
                                 size="icon"
-                                onClick={async () => {
-                                  try {
-                                    // First delete DB record
-                                    const { error: delErr } = await supabase
-                                      .from("event_script")
-                                      .delete()
-                                      .eq("id", s.id);
-                                    if (delErr) throw delErr;
-
-                                    // Then delete file from storage bucket
-                                    const path = getStoragePathFromPublicUrl(s.file_url, "event-docs");
-                                    if (path) {
-                                      const { error: storageErr } = await supabase.storage
-                                        .from("event-docs")
-                                        .remove([path]);
-                                      if (storageErr) console.warn("Failed to remove from storage:", storageErr);
-                                    }
-
-                                    toast.success("Deleted script");
-                                    fetchEventScripts();
-                                  } catch (err: any) {
-                                    toast.error("Failed to delete");
-                                  }
-                                }}
+                                onClick={() => handleDeleteScript(s)}
                               >
                                 <Trash2 className="w-4 h-4" />
                                 <span className="sr-only">Delete</span>
@@ -3929,6 +3950,48 @@ RECOMMENDATIONS:
             <p className="text-muted-foreground">
               The message has been successfully deleted.
             </p>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Script Delete Confirmation Dialog */}
+      <Dialog open={showScriptDeleteConfirm} onOpenChange={setShowScriptDeleteConfirm}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-red-500" />
+              Confirm Script Deletion
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-muted-foreground">
+              Are you sure you want to delete this script? This action cannot be undone.
+            </p>
+            {scriptToDelete && (
+              <div className="mt-3 p-3 bg-slate-800 rounded-lg">
+                <p className="text-sm text-slate-300">
+                  <strong>File:</strong> {scriptToDelete.file_name || 'Unknown file'}
+                </p>
+                <p className="text-sm text-slate-400">
+                  <strong>Size:</strong> {scriptToDelete.file_size ? `${(scriptToDelete.file_size / 1024).toFixed(1)} KB` : 'Unknown'}
+                </p>
+              </div>
+            )}
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Button
+              variant="outline"
+              onClick={cancelDeleteScript}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDeleteScript}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete Script
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
