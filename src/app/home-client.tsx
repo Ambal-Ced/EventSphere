@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Calendar,
   MapPin,
@@ -23,6 +24,8 @@ import {
   Loader2,
   ChevronLeft,
   ChevronRight,
+  Mail,
+  RefreshCw,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -44,6 +47,14 @@ export default function HomeClient() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [eventCountByDate, setEventCountByDate] = useState<Record<string, number>>({});
   const [eventsByDate, setEventsByDate] = useState<Record<string, { id: string; title: string; date: string }[]>>({});
+  
+  // Email change confirmation popup state
+  const [emailChangePopup, setEmailChangePopup] = useState<{
+    show: boolean;
+    type: 'current_confirmed' | 'new_confirmed' | 'both_confirmed';
+    currentEmail?: string;
+    newEmail?: string;
+  }>({ show: false, type: 'current_confirmed' });
 
   // Guard against React StrictMode double-invoking effects in dev
   const hasInitialized = useRef(false);
@@ -111,18 +122,90 @@ export default function HomeClient() {
         throw new Error('No user found in session');
       }
 
-      console.log('Email change confirmed! Redirecting to settings...');
+      console.log('Email change confirmed! Showing popup...');
       
-      // Clear the hash and redirect to settings
+      // Clear the hash
       window.history.replaceState(null, '', '/');
-      router.push('/settings');
+      
+      // Check if this is current email confirmation (has tokens) or new email confirmation (message only)
+      const isCurrentEmailConfirmation = type === 'email_change';
+      
+      if (isCurrentEmailConfirmation) {
+        // Current email confirmed - show popup asking to confirm new email
+        setEmailChangePopup({
+          show: true,
+          type: 'current_confirmed',
+          currentEmail: sessionData.user.email || undefined,
+          newEmail: sessionData.user.user_metadata?.new_email || undefined
+        });
+        
+        // Store current email confirmation
+        localStorage.setItem('emailChange:currentConfirmed', '1');
+      } else {
+        // This shouldn't happen with token-based links, but handle gracefully
+        setEmailChangePopup({
+          show: true,
+          type: 'new_confirmed',
+          currentEmail: sessionData.user.email || undefined,
+          newEmail: sessionData.user.user_metadata?.new_email || undefined
+        });
+        
+        // Store new email confirmation
+        localStorage.setItem('emailChange:newConfirmed', '1');
+      }
       
     } catch (error: any) {
       console.error('Email change confirmation error:', error);
       // Clear the hash on error
       window.history.replaceState(null, '', '/');
     }
-  }, [router]);
+  }, []);
+
+  const handleEmailChangeMessage = useCallback(async (hash: string) => {
+    try {
+      console.log('Processing email change message...');
+      
+      // Extract message from hash
+      const urlParams = new URLSearchParams(hash.substring(1));
+      const message = urlParams.get('message');
+      
+      if (message && message.includes('Confirmation link accepted')) {
+        // This is the new email confirmation message
+        console.log('New email confirmation message received');
+        
+        // Clear the hash
+        window.history.replaceState(null, '', '/');
+        
+        // Check if current email was already confirmed
+        const currentEmailConfirmed = localStorage.getItem('emailChange:currentConfirmed') === '1';
+        
+        if (currentEmailConfirmed) {
+          // Both emails confirmed - show completion popup
+          setEmailChangePopup({
+            show: true,
+            type: 'both_confirmed'
+          });
+          
+          // Clear stored confirmation state
+          localStorage.removeItem('emailChange:currentConfirmed');
+        } else {
+          // Only new email confirmed - show popup asking to confirm current email
+          setEmailChangePopup({
+            show: true,
+            type: 'new_confirmed'
+          });
+          
+          // Store new email confirmation
+          localStorage.setItem('emailChange:newConfirmed', '1');
+        }
+      }
+      
+    } catch (error: any) {
+      console.error('Email change message error:', error);
+      // Clear the hash on error
+      window.history.replaceState(null, '', '/');
+    }
+  }, []);
 
   // Handle password reset confirmation directly on homepage when tokens are present
   useEffect(() => {
@@ -139,7 +222,12 @@ export default function HomeClient() {
       handleEmailChangeConfirmation(hash);
       return;
     }
-  }, [handlePasswordResetConfirmation, handleEmailChangeConfirmation]);
+    if (hash.includes('message=') && hash.includes('Confirmation+link+accepted')) {
+      console.log('Email change message detected on homepage - handling message');
+      handleEmailChangeMessage(hash);
+      return;
+    }
+  }, [handlePasswordResetConfirmation, handleEmailChangeConfirmation, handleEmailChangeMessage]);
 
   useEffect(() => {
     if (hasInitialized.current) return;
@@ -361,6 +449,7 @@ export default function HomeClient() {
   };
 
   return (
+    <>
     <div className="flex flex-col gap-12">
       {/* Hero Section */}
       <section className="relative h-[500px] w-full overflow-hidden rounded-3xl">
@@ -736,5 +825,77 @@ export default function HomeClient() {
         </div>
       </section>
     </div>
+
+    {/* Email Change Confirmation Popup */}
+    <Dialog open={emailChangePopup.show} onOpenChange={(open) => setEmailChangePopup(prev => ({ ...prev, show: open }))}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Mail className="h-5 w-5 text-blue-600" />
+            Email Change Confirmation
+          </DialogTitle>
+        </DialogHeader>
+        <DialogDescription className="space-y-4">
+          {emailChangePopup.type === 'current_confirmed' && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-green-700 bg-green-50 p-3 rounded-lg">
+                <CheckCircle className="h-4 w-4" />
+                <span className="text-sm font-medium">Current email confirmed!</span>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Current email confirmed! Please check your new email and click the confirmation link to complete the email change process.
+              </p>
+            </div>
+          )}
+          
+          {emailChangePopup.type === 'new_confirmed' && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-green-700 bg-green-50 p-3 rounded-lg">
+                <CheckCircle className="h-4 w-4" />
+                <span className="text-sm font-medium">New email confirmed!</span>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                New email confirmed! Please check your current email and click the confirmation link to complete the email change process.
+              </p>
+            </div>
+          )}
+          
+          {emailChangePopup.type === 'both_confirmed' && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-green-700 bg-green-50 p-3 rounded-lg">
+                <CheckCircle className="h-4 w-4" />
+                <span className="text-sm font-medium">Email change confirmed!</span>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Both emails have been confirmed. Your email change is now complete. Please refresh the page and wait for changes - it may take a while to propagate.
+              </p>
+              <div className="flex items-center gap-2 text-blue-600 bg-blue-50 p-3 rounded-lg">
+                <RefreshCw className="h-4 w-4" />
+                <span className="text-sm">Changes are being processed...</span>
+              </div>
+            </div>
+          )}
+          
+          <div className="flex gap-2 pt-2">
+            <Button 
+              onClick={() => setEmailChangePopup(prev => ({ ...prev, show: false }))}
+              className="flex-1"
+            >
+              Got it
+            </Button>
+            {emailChangePopup.type === 'both_confirmed' && (
+              <Button 
+                variant="outline"
+                onClick={() => window.location.reload()}
+                className="flex-1"
+              >
+                Refresh Page
+              </Button>
+            )}
+          </div>
+        </DialogDescription>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
