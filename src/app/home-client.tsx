@@ -146,8 +146,8 @@ export default function HomeClient() {
       // Optionally enrich popup with emails (non-blocking)
       setEmailChangePopup(prev => ({
         ...prev,
-        currentEmail: sessionData.user.email || prev.currentEmail,
-        newEmail: (sessionData.user as any)?.user_metadata?.new_email || prev.newEmail,
+        currentEmail: sessionData?.user?.email || prev.currentEmail,
+        newEmail: (sessionData?.user as any)?.user_metadata?.new_email || prev.newEmail,
       }));
 
     } catch (error: any) {
