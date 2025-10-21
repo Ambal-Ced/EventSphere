@@ -328,13 +328,10 @@ export default function SingleEventPage() {
 
   const fetchEvent = async () => {
     try {
-      // Fetch event with owner's profile
+      // Fetch event first
       const { data: eventData, error: eventError } = await supabase
         .from("events")
-        .select(`
-          *,
-          profiles:user_id(username, fname, lname, avatar_url)
-        `)
+        .select("*")
         .eq("id", eventId)
         .single();
 
@@ -342,6 +339,19 @@ export default function SingleEventPage() {
 
       console.log("fetchEvent: Event data received:", eventData);
       console.log("fetchEvent: Event creator_id:", eventData?.user_id);
+
+      // Fetch owner's profile separately
+      if (eventData?.user_id) {
+        const { data: profileData, error: profileError } = await supabase
+          .from("profiles")
+          .select("username, fname, lname, avatar_url")
+          .eq("id", eventData.user_id)
+          .single();
+
+        if (!profileError && profileData) {
+          eventData.profiles = profileData;
+        }
+      }
 
       setEvent(eventData);
       
