@@ -664,57 +664,12 @@ export default function ProfilePage() {
                       disabled
                       className="mt-1 bg-muted/50"
                     />
-                    <Dialog open={isEmailDialogOpen} onOpenChange={setIsEmailDialogOpen}>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" size="icon">
-                          <Mail className="h-4 w-4" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Change Email</DialogTitle>
-                        </DialogHeader>
-                        <form
-                          onSubmit={handleEmailChange}
-                          className="space-y-4"
-                        >
-                          <div>
-                            <Label htmlFor="newEmail">New Email</Label>
-                            <Input
-                              id="newEmail"
-                              type="email"
-                              value={newEmail}
-                              onChange={(e) => setNewEmail(e.target.value)}
-                              required
-                            />
-                          </div>
-                          {emailError && (
-                            <p className="text-sm text-destructive">
-                              {emailError}
-                            </p>
-                          )}
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              onClick={() => {
-                                setNewEmail("");
-                                setEmailError(null);
-                                setIsEmailDialogOpen(false);
-                              }}
-                            >
-                              Cancel
-                            </Button>
-                            <Button type="submit" disabled={isChangingEmail}>
-                              {isChangingEmail ? "Updating..." : "Update Email"}
-                            </Button>
-                          </div>
-                        </form>
-                      </DialogContent>
-                    </Dialog>
+                    <Button variant="outline" size="icon" onClick={() => router.push("/settings")}>
+                      <Mail className="h-4 w-4" />
+                    </Button>
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Click the email icon to change your email address.
+                    Click the email icon to manage your email in Settings.
                   </p>
                 </div>
                 <div>
@@ -867,6 +822,11 @@ export default function ProfilePage() {
                       <SelectItem value="none">No specific role</SelectItem>
                       <SelectItem value="attendee">Attendee</SelectItem>
                       <SelectItem value="organizer">Organizer</SelectItem>
+                      <SelectItem value="volunteer">Volunteer</SelectItem>
+                      <SelectItem value="sponsor">Sponsor</SelectItem>
+                      <SelectItem value="speaker">Speaker</SelectItem>
+                      <SelectItem value="event-organizer">Event Organizer</SelectItem>
+                      <SelectItem value="event-manager">Event Manager</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

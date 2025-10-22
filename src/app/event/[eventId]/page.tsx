@@ -142,6 +142,7 @@ export default function SingleEventPage() {
   const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [showMessageDeleteConfirm, setShowMessageDeleteConfirm] = useState(false);
+  const [showAllItems, setShowAllItems] = useState(false);
   const [showMessageDeleteSuccess, setShowMessageDeleteSuccess] = useState(false);
   const [messageToDelete, setMessageToDelete] = useState<string | null>(null);
   
@@ -246,6 +247,8 @@ export default function SingleEventPage() {
 
   // Delete confirmation state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showRemoveConfirmDialog, setShowRemoveConfirmDialog] = useState(false);
+  const [collaboratorToRemove, setCollaboratorToRemove] = useState<{id: string, name: string} | null>(null);
   const [deleteType, setDeleteType] = useState<"item" | "event">("item");
   const [itemToDelete, setItemToDelete] = useState<any>(null);
   // Event type combobox state
@@ -970,31 +973,37 @@ export default function SingleEventPage() {
     collaboratorId: string,
     collaboratorName: string
   ) => {
-    if (
-      !confirm(
-        `Are you sure you want to remove ${collaboratorName} from this event?`
-      )
-    ) {
-      return;
-    }
+    setCollaboratorToRemove({ id: collaboratorId, name: collaboratorName });
+    setShowRemoveConfirmDialog(true);
+  };
 
-    setIsRemovingCollaborator(collaboratorId);
+  const confirmRemoveCollaborator = async () => {
+    if (!collaboratorToRemove) return;
+
+    setIsRemovingCollaborator(collaboratorToRemove.id);
     try {
       const { error } = await supabase
         .from("event_collaborators")
         .delete()
-        .eq("id", collaboratorId);
+        .eq("id", collaboratorToRemove.id);
 
       if (error) throw error;
 
       // Remove from local state
-      setCollaborators((prev) => prev.filter((c) => c.id !== collaboratorId));
-      toast.success(`${collaboratorName} removed from event successfully!`);
+      setCollaborators((prev) => prev.filter((c) => c.id !== collaboratorToRemove.id));
+      toast.success(`${collaboratorToRemove.name} removed from event successfully!`);
     } catch (error: any) {
       toast.error("Failed to remove collaborator: " + error.message);
     } finally {
       setIsRemovingCollaborator(null);
+      setShowRemoveConfirmDialog(false);
+      setCollaboratorToRemove(null);
     }
+  };
+
+  const cancelRemoveCollaborator = () => {
+    setShowRemoveConfirmDialog(false);
+    setCollaboratorToRemove(null);
   };
 
   const handleLeaveEvent = () => {
@@ -2171,28 +2180,28 @@ RECOMMENDATIONS:
       {/* Header with Back Button */}
       <div className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700">
         <div className="w-full px-4 py-4">
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
             <Link href="/events">
-              <Button variant="ghost" className="text-white hover:bg-slate-700">
+              <Button variant="ghost" className="text-white hover:bg-slate-700 w-full sm:w-auto justify-start">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Events
               </Button>
             </Link>
-            <div className="h-6 w-px bg-slate-600" />
-            <h1 className="text-2xl font-semibold text-white">Event Details</h1>
+            <div className="hidden sm:block h-6 w-px bg-slate-600" />
+            <h1 className="text-xl sm:text-2xl font-semibold text-white text-center sm:text-left">Event Details</h1>
           </div>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="w-full px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+      {/* Main Content with gutter */}
+      <div className="w-full py-8 pr-3">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 relative">
           {/* Main Content Area - Takes 3 columns */}
           <div className="lg:col-span-3 space-y-6">
             {/* Event Title */}
             <div className="text-center">
               {isEditingEvent ? (
-                <div className="space-y-4">
+                <div className="space-y-4 px-2 sm:px-3 md:px-4">
                   <Input
                     value={editingEvent.title}
                     onChange={(e) =>
@@ -2201,12 +2210,12 @@ RECOMMENDATIONS:
                         title: e.target.value,
                       })
                     }
-                    className="text-4xl font-bold text-center bg-slate-800 border-amber-500/30 text-white"
+                    className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-center bg-slate-800 border-amber-500/30 text-white h-12 sm:h-14 md:h-16"
                     placeholder="Event Title"
                   />
-                  <div className="flex items-center justify-center gap-4 text-slate-300 text-sm mb-6">
-                    <div className="flex items-center gap-1">
-                      <Calendar className="w-4 h-4 ml-3" />
+                  <div className="flex flex-col max-[855px]:flex-col min-[856px]:flex-row min-[856px]:items-center min-[856px]:justify-center gap-3 min-[856px]:gap-4 text-slate-300 text-sm mb-6">
+                    <div className="flex items-center gap-1 w-full min-[856px]:w-auto">
+                      <Calendar className="w-4 h-4 flex-shrink-0" />
                       <Input
                         type="datetime-local"
                         value={
@@ -2229,11 +2238,11 @@ RECOMMENDATIONS:
                             date: e.target.value,
                           })
                         }
-                        className="bg-slate-800 border-amber-500/30 text-white text-sm w-auto"
+                        className="bg-slate-800 border-amber-500/30 text-white text-xs sm:text-sm w-full min-[856px]:w-auto h-9 sm:h-10"
                       />
                     </div>
-                    <div className="flex items-center gap-1">
-                      <MapPin className="w-4 h-4" />
+                    <div className="flex items-center gap-1 w-full min-[856px]:w-auto">
+                      <MapPin className="w-4 h-4 flex-shrink-0" />
                       <Input
                         value={editingEvent.location}
                         onChange={(e) =>
@@ -2243,10 +2252,10 @@ RECOMMENDATIONS:
                           })
                         }
                         placeholder="Location"
-                        className="bg-slate-800 border-amber-500/30 text-white text-sm w-auto"
+                        className="bg-slate-800 border-amber-500/30 text-white text-xs sm:text-sm w-full min-[856px]:w-auto h-9 sm:h-10"
                       />
                     </div>
-                    <div className="flex items-center gap-1 relative">
+                    <div className="flex items-center gap-1 relative w-full min-[856px]:w-auto">
                       <Input
                         value={editingEvent.type}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
@@ -2257,7 +2266,7 @@ RECOMMENDATIONS:
                         }
                         placeholder="Type"
                         onFocus={() => setIsTypeMenuOpen(true)}
-                        className="bg-slate-800 border-amber-500/30 text-white text-sm w-auto pr-8"
+                        className="bg-slate-800 border-amber-500/30 text-white text-xs sm:text-sm w-full min-[856px]:w-auto pr-8 h-9 sm:h-10"
                       />
                       {/* Dropdown trigger indicator */}
                       <button
@@ -2302,15 +2311,15 @@ RECOMMENDATIONS:
                 </div>
               ) : (
                 <div>
-                  <h1 className="text-4xl font-bold text-white mb-2">
+                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-2 break-words">
                     {event.title}
                   </h1>
                     {canEdit && (
-                    <div className="flex justify-end mb-3">
+                    <div className="flex justify-center sm:justify-end mb-3 px-4 sm:px-0">
                       <Button
                         variant="ghost"
                         onClick={handleEditEvent}
-                        className="border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300"
+                        className="border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300 w-full sm:w-auto max-w-xs sm:max-w-none"
                       >
                         <Edit className="w-4 h-4 mr-2" />
                         Edit Event
@@ -2338,7 +2347,7 @@ RECOMMENDATIONS:
             </div>
 
             {/* Event Image */}
-            <div className="relative w-full h-80 rounded-lg overflow-hidden bg-slate-700 px-8 md:px-6 lg:px-0">
+            <div className="relative w-full h-64 sm:h-72 md:h-80 rounded-lg overflow-hidden bg-slate-700 mx-2 sm:mx-3 md:mx-4">
               {isEditingEvent ? (
                 <div className="relative w-full h-full">
                   <Image
@@ -2377,7 +2386,7 @@ RECOMMENDATIONS:
             </div>
 
             {/* Event Description */}
-            <div className="rounded-lg p-6 px-8 md:px-6 lg:px-6">
+            <div className="rounded-lg p-4 sm:p-6">
               <h3 className="text-xl font-semibold text-amber-400 mb-2">
                 Event Description
               </h3>
@@ -2443,18 +2452,18 @@ RECOMMENDATIONS:
 
             {/* Save/Cancel Buttons - Only show when editing */}
             {isEditingEvent && (
-              <div className="flex gap-3 justify-center mt-6">
+              <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4 px-4 sm:px-0 mt-6">
                 <Button
                   variant="ghost"
                   onClick={handleSaveEvent}
-                  className="border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300"
+                  className="border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300 w-full sm:w-auto"
                 >
                   Save Changes
                 </Button>
                 <Button
                   variant="ghost"
                   onClick={handleCancelEditEvent}
-                  className="border border-red-500/30 text-red-400 hover:bg-red-500/20 hover:text-red-300"
+                  className="border border-red-500/30 text-red-400 hover:bg-red-500/20 hover:text-red-300 w-full sm:w-auto"
                 >
                   Cancel
                 </Button>
@@ -2462,7 +2471,7 @@ RECOMMENDATIONS:
             )}
 
             {/* Event Items Management */}
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               <div className="mb-6">
                 <h3 className="text-xl font-semibold text-white mb-4">
                   Event Items
@@ -2487,7 +2496,8 @@ RECOMMENDATIONS:
                           </Button>
                         )}
                       </div>
-                      <table className="w-full">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm min-w-[500px]">
                         <thead>
                           <tr className="bg-slate-700/30">
                             <th className="text-left p-3 text-slate-300 text-sm font-medium">Total Item Cost</th>
@@ -2583,6 +2593,7 @@ RECOMMENDATIONS:
                           </tr>
                         </tbody>
                       </table>
+                      </div>
                       {isEditingMarkup && (
                         <div className="p-3 bg-slate-700/30 border-t border-slate-600 flex justify-end gap-2">
                           <Button
@@ -2616,7 +2627,7 @@ RECOMMENDATIONS:
                   );
                 })()}
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                 {/* Add New Item Box (only editors) */}
                 {canEdit && (
                   <div
@@ -2634,10 +2645,18 @@ RECOMMENDATIONS:
                 )}
 
                 {/* Existing Items (view for all; actions only for editors) */}
-                {eventItems.map((item) => (
+                {(() => {
+                  // Show 7 items initially, then hide the rest
+                  const maxItemsInitial = 7;
+                  const itemsToShow = showAllItems ? eventItems : eventItems.slice(0, maxItemsInitial);
+                  const hasMoreItems = eventItems.length > maxItemsInitial;
+                  
+                  return (
+                    <>
+                      {itemsToShow.map((item, index) => (
                   <div
                     key={item.id}
-                    className="bg-slate-700/50 border border-green-500/30 rounded-lg p-4 h-52 relative flex flex-col"
+                          className="bg-slate-700/50 border border-green-500/30 rounded-lg p-4 h-48 sm:h-52 relative flex flex-col"
                   >
                     {/* Action Buttons - Top Right (editors only) */}
                     {canEdit && (
@@ -2699,6 +2718,35 @@ RECOMMENDATIONS:
                     </div>
                   </div>
                 ))}
+                      
+                      {/* See More Button */}
+                      {hasMoreItems && !showAllItems && (
+                        <div className="col-span-full flex justify-center mt-4">
+                          <Button
+                            variant="outline"
+                            onClick={() => setShowAllItems(true)}
+                            className="border-green-500/30 text-green-400 hover:bg-green-500/20 hover:text-green-300"
+                          >
+                            See More ({eventItems.length - maxItemsInitial} more items)
+                          </Button>
+                        </div>
+                      )}
+                      
+                      {/* Show Less Button */}
+                      {hasMoreItems && showAllItems && (
+                        <div className="col-span-full flex justify-center mt-4">
+                          <Button
+                            variant="outline"
+                            onClick={() => setShowAllItems(false)}
+                            className="border-slate-500/30 text-slate-400 hover:bg-slate-500/20 hover:text-slate-300"
+                          >
+                            Show Less
+                          </Button>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             </div>
 
@@ -2774,15 +2822,15 @@ RECOMMENDATIONS:
                       <div className="text-slate-400 text-sm">No scripts uploaded.</div>
                     ) : (
                       scripts.map((s) => (
-                        <div key={s.id} className="flex items-center justify-between bg-slate-800/60 border border-slate-600 rounded-md p-3">
-                          <div className="min-w-0">
+                        <div key={s.id} className="flex bg-slate-800/60 border border-slate-600 rounded-md p-3 items-center justify-between max-[450px]:flex-col max-[450px]:items-start max-[450px]:gap-2">
+                          <div className="min-w-0 w-full">
                             <div className="text-white font-medium truncate">{s.file_name}</div>
                             <div className="text-slate-400 text-xs">{s.mime_type} • {(s.file_size || 0) / 1024 | 0} KB</div>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 max-[450px]:w-full max-[450px]:justify-end max-[450px]:flex-wrap">
                             <Button
                               variant="outline"
-                              className="border-amber-500/30 text-amber-400 hover:bg-amber-500/20"
+                              className="border-amber-500/30 text-amber-400 hover:bg-amber-500/20 flex items-center gap-1"
                               onClick={async () => {
                                 try {
                                   let url = s.file_url;
@@ -2801,12 +2849,13 @@ RECOMMENDATIONS:
                                 }
                               }}
                             >
-                              Preview
+                              <span className="sm:hidden"><FileText className="w-4 h-4" /></span>
+                              <span className="hidden sm:inline">Preview</span>
                             </Button>
                             {/* Download button */}
                             <Button
                               variant="outline"
-                              className="border-slate-500/40 text-slate-200 hover:bg-slate-500/20"
+                              className="border-slate-500/40 text-slate-200 hover:bg-slate-500/20 flex items-center gap-1"
                               onClick={async () => {
                                 try {
                                   // Force download by fetching as Blob and creating an object URL
@@ -2826,7 +2875,8 @@ RECOMMENDATIONS:
                                 }
                               }}
                             >
-                              <Download className="w-4 h-4 mr-2" /> Download
+                              <Download className="w-4 h-4" />
+                              <span className="hidden sm:inline">Download</span>
                             </Button>
                             {canEdit && (
                               <Button
@@ -2889,7 +2939,7 @@ RECOMMENDATIONS:
                   <div className="mb-4">
                     <Button
                       onClick={handleShowAnalytics}
-                      className="bg-green-600 hover:bg-green-700 text-white"
+                      className="bg-green-600 hover:bg-green-700 text-white w-full max-[400px]:w-full sm:w-auto"
                     >
                       <TrendingUp className="w-4 h-4 mr-2" />
                       View Analytics
@@ -2900,7 +2950,7 @@ RECOMMENDATIONS:
                   {eventItems && eventItems.length > 0 && (() => {
                     const analytics = generateAnalyticsData();
                     return (
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                      <div className="grid grid-cols-1 max-[400px]:grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                         <div className="bg-slate-800/60 rounded-lg p-3 text-center border border-green-500/20">
                           <DollarSign className="w-6 h-6 text-green-400 mx-auto mb-1" />
                           <div className="text-white font-semibold">
@@ -2943,7 +2993,7 @@ RECOMMENDATIONS:
           {/* Right Sidebar - Green Rectangle Concept (hidden when chat open) */}
           <div className="lg:col-span-1">
             {!showChat && (
-            <div className="sticky top-8 space-y-6">
+            <div className="sticky top-8 h-fit space-y-6 z-10 self-start" style={{ position: 'sticky', top: '2rem', alignSelf: 'flex-start' }}>
               {/* Event Actions */}
               <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-6 flex flex-col">
                 <h3 className="text-xl font-semibold text-green-400 mb-6">
@@ -3105,7 +3155,7 @@ RECOMMENDATIONS:
                                   "Unknown User"}
                             </div>
                             <div className="text-purple-300 text-sm capitalize">
-                              {member.role}
+                              {member.role === "owner" ? "Event Organizer" : member.role}
                             </div>
                           </div>
                           {isOwner && member.role !== "owner" && (
@@ -3392,13 +3442,13 @@ RECOMMENDATIONS:
                                   "Unknown User"}
                             </div>
                             <div className="text-slate-400 text-sm capitalize">
-                              {collaborator.role}
+                              {collaborator.role === "owner" ? "Event Organizer" : collaborator.role}
                             </div>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium px-2 py-1 rounded-full bg-slate-600 text-white">
-                            {collaborator.role}
+                            {collaborator.role === "owner" ? "Event Organizer" : collaborator.role}
                           </span>
                           {isOwner && collaborator.role !== "owner" && (
                             <div className="flex items-center gap-1">
@@ -4522,6 +4572,46 @@ RECOMMENDATIONS:
                     Leave Event
                   </>
                 )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Remove Collaborator Confirmation Dialog */}
+      {showRemoveConfirmDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-slate-800 border border-red-500/30 rounded-lg p-6 w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold text-white">
+                Remove Collaborator
+              </h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={cancelRemoveCollaborator}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+            <p className="text-slate-300 mb-6">
+              Are you sure you want to remove <span className="font-semibold text-white">{collaboratorToRemove?.name}</span> from this event? This action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <Button
+                variant="outline"
+                onClick={cancelRemoveCollaborator}
+                disabled={isRemovingCollaborator === collaboratorToRemove?.id}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={confirmRemoveCollaborator}
+                disabled={isRemovingCollaborator === collaboratorToRemove?.id}
+              >
+                {isRemovingCollaborator === collaboratorToRemove?.id ? "Removing..." : "Remove"}
               </Button>
             </div>
           </div>

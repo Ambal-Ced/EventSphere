@@ -40,7 +40,7 @@ const interestsList = [
   "Environment & Sustainability",
   "Volunteering & Charity",
 ];
-const rolesList = ["Attendee", "Organizer", "Volunteer", "Sponsor", "Speaker"];
+const rolesList = ["Attendee", "Organizer", "Volunteer", "Sponsor", "Speaker", "Event Organizer", "Event Manager"];
 
 export default function CompleteProfilePage() {
   const router = useRouter();
@@ -227,14 +227,14 @@ export default function CompleteProfilePage() {
   // Show login form if not authenticated
   if (!user) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-muted/40 py-12 px-4">
-        <div className="w-full max-w-md rounded-lg bg-background p-8 shadow-lg">
-          <h1 className="text-2xl font-bold mb-4">
+      <div className="flex min-h-screen items-center justify-center bg-muted/40 py-6 sm:py-12 px-3 sm:px-4">
+        <div className="w-full max-w-md rounded-lg bg-background p-4 sm:p-6 md:p-8 shadow-lg">
+          <h1 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">
             Sign In to Complete Profile
           </h1>
-          <form onSubmit={handleLoginSubmit} className="space-y-4">
+          <form onSubmit={handleLoginSubmit} className="space-y-3 sm:space-y-4">
             <div>
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="text-sm sm:text-base">Email</Label>
               <Input
                 id="email"
                 name="email"
@@ -243,10 +243,11 @@ export default function CompleteProfilePage() {
                 onChange={handleLoginInputChange}
                 required
                 autoComplete="email"
+                className="text-sm sm:text-base"
               />
             </div>
             <div>
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" className="text-sm sm:text-base">Password</Label>
               <Input
                 id="password"
                 name="password"
@@ -255,12 +256,13 @@ export default function CompleteProfilePage() {
                 onChange={handleLoginInputChange}
                 required
                 autoComplete="current-password"
+                className="text-sm sm:text-base"
               />
             </div>
             {loginError && (
-              <div className="text-red-500 text-sm">{loginError}</div>
+              <div className="text-red-500 text-xs sm:text-sm">{loginError}</div>
             )}
-            <Button type="submit" className="w-full" disabled={isLoggingIn}>
+            <Button type="submit" className="w-full text-sm sm:text-base py-2 sm:py-3" disabled={isLoggingIn}>
               {isLoggingIn ? "Signing In..." : "Sign In"}
             </Button>
           </form>
@@ -271,13 +273,13 @@ export default function CompleteProfilePage() {
 
   if (showSuccess) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-muted/40 py-12 px-4">
-        <div className="w-full max-w-md rounded-lg bg-background p-8 shadow-lg text-center">
-          <h1 className="text-2xl font-bold mb-4">Profile Completed!</h1>
-          <p className="mb-6 text-muted-foreground">
+      <div className="flex min-h-screen items-center justify-center bg-muted/40 py-6 sm:py-12 px-3 sm:px-4">
+        <div className="w-full max-w-md rounded-lg bg-background p-4 sm:p-6 md:p-8 shadow-lg text-center">
+          <h1 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Profile Completed!</h1>
+          <p className="mb-4 sm:mb-6 text-xs sm:text-sm text-muted-foreground">
             Your profile has been saved successfully.
           </p>
-          <Button className="w-full" onClick={() => router.push("/")}>
+          <Button className="w-full text-sm sm:text-base py-2 sm:py-3" onClick={() => router.push("/")}>
             Go to Home
           </Button>
         </div>
@@ -286,42 +288,43 @@ export default function CompleteProfilePage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/40 py-12 px-4">
-      <div className="w-full max-w-3xl rounded-lg bg-background p-8 shadow-lg">
-        <h1 className="mb-4 text-center text-2xl font-bold">
+    <div className="flex min-h-screen items-center justify-center bg-muted/40 py-6 sm:py-12 px-3 sm:px-4">
+      <div className="w-full max-w-3xl rounded-lg bg-background p-4 sm:p-6 md:p-8 shadow-lg">
+        <h1 className="mb-3 sm:mb-4 text-center text-xl sm:text-2xl font-bold">
           Complete Your Profile
         </h1>
-        <p className="mb-8 text-center text-muted-foreground">
+        <p className="mb-6 sm:mb-8 text-center text-sm sm:text-base text-muted-foreground">
           Please provide the following details to finish setting up your
           account.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Avatar uploader */}
-          <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
             <div className="relative">
-              <Avatar className="h-20 w-20 border">
+              <Avatar className="h-16 w-16 sm:h-20 sm:w-20 border">
                 <AvatarImage src={previewAvatarUrl || avatarUrl || "/images/template/default_profile.svg"} />
                 <AvatarFallback>?</AvatarFallback>
               </Avatar>
               <button
                 type="button"
-                className="absolute -bottom-2 -right-2 rounded-full bg-primary p-2 text-primary-foreground"
+                className="absolute -bottom-1 -right-1 sm:-bottom-2 sm:-right-2 rounded-full bg-primary p-1.5 sm:p-2 text-primary-foreground"
                 onClick={() => fileInputRef.current?.click()}
                 aria-label="Upload profile picture"
               >
-                <Camera className="h-4 w-4" />
+                <Camera className="h-3 w-3 sm:h-4 sm:w-4" />
               </button>
             </div>
-            <div className="w-full md:flex-1">
-              <p className="text-sm text-muted-foreground mb-2">
+            <div className="w-full sm:flex-1">
+              <p className="text-xs sm:text-sm text-muted-foreground mb-2">
                 Upload a profile photo or keep the default.
               </p>
               <div className="w-full">
-                <Label className="mb-1 block">Upload Profile</Label>
+                <Label className="mb-1 block text-sm sm:text-base">Upload Profile</Label>
                 <Input
                   type="file"
                   accept="image/*"
+                  className="text-xs sm:text-sm"
                   onChange={async (e) => {
                     const file = e.target.files?.[0];
                     if (!file || !user) return;
@@ -395,17 +398,17 @@ export default function CompleteProfilePage() {
           </div>
 
           {/* Reuse form fields from the original multi-step form */}
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:gap-6 sm:grid-cols-2">
             {/* Username */}
             <div>
-              <Label htmlFor="username">Username *</Label>
+              <Label htmlFor="username" className="text-sm sm:text-base">Username *</Label>
               <Input
                 id="username"
                 name="username"
                 value={formData.username}
                 onChange={handleInputChange}
                 required
-                className={cn(errors.username && "border-destructive")}
+                className={cn(errors.username && "border-destructive", "text-sm sm:text-base")}
               />
               {errors.username && (
                 <p className="text-xs text-destructive mt-1">
@@ -415,14 +418,14 @@ export default function CompleteProfilePage() {
             </div>
             {/* First Name */}
             <div>
-              <Label htmlFor="fname">First Name *</Label>
+              <Label htmlFor="fname" className="text-sm sm:text-base">First Name *</Label>
               <Input
                 id="fname"
                 name="fname"
                 value={formData.fname}
                 onChange={handleInputChange}
                 required
-                className={cn(errors.fname && "border-destructive")}
+                className={cn(errors.fname && "border-destructive", "text-sm sm:text-base")}
               />
               {errors.fname && (
                 <p className="text-xs text-destructive mt-1">{errors.fname}</p>
@@ -430,14 +433,14 @@ export default function CompleteProfilePage() {
             </div>
             {/* Last Name */}
             <div>
-              <Label htmlFor="lname">Last Name *</Label>
+              <Label htmlFor="lname" className="text-sm sm:text-base">Last Name *</Label>
               <Input
                 id="lname"
                 name="lname"
                 value={formData.lname}
                 onChange={handleInputChange}
                 required
-                className={cn(errors.lname && "border-destructive")}
+                className={cn(errors.lname && "border-destructive", "text-sm sm:text-base")}
               />
               {errors.lname && (
                 <p className="text-xs text-destructive mt-1">{errors.lname}</p>
@@ -445,34 +448,36 @@ export default function CompleteProfilePage() {
             </div>
             {/* Middle Name */}
             <div>
-              <Label htmlFor="mname">Middle Name</Label>
+              <Label htmlFor="mname" className="text-sm sm:text-base">Middle Name</Label>
               <Input
                 id="mname"
                 name="mname"
                 value={formData.mname}
                 onChange={handleInputChange}
+                className="text-sm sm:text-base"
               />
             </div>
             {/* Suffix */}
             <div>
-              <Label htmlFor="suffix">Suffix</Label>
+              <Label htmlFor="suffix" className="text-sm sm:text-base">Suffix</Label>
               <Input
                 id="suffix"
                 name="suffix"
                 value={formData.suffix}
                 onChange={handleInputChange}
+                className="text-sm sm:text-base"
               />
             </div>
             {/* Address */}
-            <div className="md:col-span-2">
-              <Label htmlFor="address">Address *</Label>
+            <div className="sm:col-span-2">
+              <Label htmlFor="address" className="text-sm sm:text-base">Address *</Label>
               <Input
                 id="address"
                 name="address"
                 value={formData.address}
                 onChange={handleInputChange}
                 required
-                className={cn(errors.address && "border-destructive")}
+                className={cn(errors.address && "border-destructive", "text-sm sm:text-base")}
               />
               {errors.address && (
                 <p className="text-xs text-destructive mt-1">
@@ -482,7 +487,7 @@ export default function CompleteProfilePage() {
             </div>
             {/* Contact Number */}
             <div>
-              <Label htmlFor="contact_no">Contact Number *</Label>
+              <Label htmlFor="contact_no" className="text-sm sm:text-base">Contact Number *</Label>
               <Input
                 id="contact_no"
                 name="contact_no"
@@ -490,7 +495,7 @@ export default function CompleteProfilePage() {
                 value={formData.contact_no}
                 onChange={handleInputChange}
                 required
-                className={cn(errors.contact_no && "border-destructive")}
+                className={cn(errors.contact_no && "border-destructive", "text-sm sm:text-base")}
               />
               {errors.contact_no && (
                 <p className="text-xs text-destructive mt-1">
@@ -500,7 +505,7 @@ export default function CompleteProfilePage() {
             </div>
             {/* Birthday */}
             <div>
-              <Label htmlFor="birthday">Birthday *</Label>
+              <Label htmlFor="birthday" className="text-sm sm:text-base">Birthday *</Label>
               <DatePicker
                 date={formData.birthday}
                 setDate={handleDateChange}
@@ -516,19 +521,19 @@ export default function CompleteProfilePage() {
             </div>
             {/* Age (Read Only) */}
             <div>
-              <Label htmlFor="age">Age</Label>
+              <Label htmlFor="age" className="text-sm sm:text-base">Age</Label>
               <Input
                 id="age"
                 name="age"
                 type="number"
                 value={formData.age}
                 readOnly
-                className="bg-muted/50"
+                className="bg-muted/50 text-sm sm:text-base"
               />
             </div>
             {/* Gender */}
             <div>
-              <Label htmlFor="gender">Gender *</Label>
+              <Label htmlFor="gender" className="text-sm sm:text-base">Gender *</Label>
               <Select
                 name="gender"
                 value={formData.gender}
@@ -536,7 +541,7 @@ export default function CompleteProfilePage() {
                 required
               >
                 <SelectTrigger
-                  className={cn(errors.gender && "border-destructive")}
+                  className={cn(errors.gender && "border-destructive", "text-sm sm:text-base")}
                 >
                   <SelectValue placeholder="Select Gender" />
                 </SelectTrigger>
@@ -557,11 +562,11 @@ export default function CompleteProfilePage() {
 
           {/* Interests */}
           <div className="space-y-3">
-            <Label>Select Your Interests</Label>
-            <p className="text-sm text-muted-foreground">
+            <Label className="text-sm sm:text-base">Select Your Interests</Label>
+            <p className="text-xs sm:text-sm text-muted-foreground">
               Choose the topics that interest you (you can select multiple)
             </p>
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
               {interestsList.map((interest) => (
                 <Button
                   key={interest}
@@ -572,7 +577,7 @@ export default function CompleteProfilePage() {
                       : "outline"
                   }
                   onClick={() => handleInterestToggle(interest)}
-                  className="justify-start text-left h-auto py-3 whitespace-normal break-words text-pretty"
+                  className="justify-start text-left h-auto py-2 sm:py-3 px-2 sm:px-3 whitespace-normal break-words text-pretty text-xs sm:text-sm"
                 >
                   {interest}
                 </Button>
@@ -582,13 +587,13 @@ export default function CompleteProfilePage() {
 
           {/* Role */}
           <div>
-            <Label htmlFor="role">Select Role (Optional)</Label>
+            <Label htmlFor="role" className="text-sm sm:text-base">Select Role (Optional)</Label>
             <Select
               name="role"
               value={formData.role}
               onValueChange={(value) => handleSelectChange("role", value)}
             >
-              <SelectTrigger>
+              <SelectTrigger className="text-sm sm:text-base">
                 <SelectValue placeholder="Select a Role" />
               </SelectTrigger>
               <SelectContent>
@@ -602,7 +607,7 @@ export default function CompleteProfilePage() {
             </Select>
           </div>
 
-          <Button type="submit" className="w-full" disabled={isSubmitting}>
+          <Button type="submit" className="w-full text-sm sm:text-base py-2 sm:py-3" disabled={isSubmitting}>
             {isSubmitting ? "Saving Profile..." : "Save Profile"}
           </Button>
         </form>
