@@ -156,15 +156,13 @@ export default function LoginPage() {
 
           {/* Captcha */}
           <div className="overflow-x-auto">
-            <div className="min-w-0 w-full">
+            <div className="min-w-0 w-full scale-90 sm:scale-100 origin-left">
               <HCaptcha
                 ref={captchaRef}
                 sitekey={process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY || ""}
                 onVerify={onCaptchaChange}
                 onExpire={onCaptchaExpired}
                 onError={onCaptchaError}
-                className="w-full max-w-full"
-                style={{ transform: 'scale(0.8)', transformOrigin: 'left top' }}
               />
             </div>
           </div>
