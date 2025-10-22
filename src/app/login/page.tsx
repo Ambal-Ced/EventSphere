@@ -106,21 +106,21 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/40 py-12 px-4">
-      <div className="w-full max-w-md rounded-lg bg-background p-8 shadow-lg">
-        <h1 className="mb-2 text-center text-3xl font-bold">Sign In</h1>
-        <p className="mb-8 text-center text-muted-foreground">
+    <div className="flex min-h-screen items-center justify-center bg-muted/40 py-6 sm:py-12 px-3 sm:px-4 overflow-x-hidden">
+      <div className="w-full max-w-md rounded-lg bg-background p-4 sm:p-6 md:p-8 shadow-lg">
+        <h1 className="mb-2 text-center text-2xl sm:text-3xl font-bold">Sign In</h1>
+        <p className="mb-6 sm:mb-8 text-center text-sm sm:text-base text-muted-foreground">
           Access your EventSphere account
         </p>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
           {error && (
             <div className="rounded-md border border-destructive bg-destructive/10 p-3 text-center text-sm text-destructive">
               {error}
             </div>
           )}
           <div>
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email" className="text-sm sm:text-base">Email</Label>
             <Input
               id="email"
               name="email"
@@ -128,11 +128,11 @@ export default function LoginPage() {
               value={formData.email}
               onChange={handleInputChange}
               required
-              className={cn(error && "border-destructive")}
+              className={cn(error && "border-destructive", "text-sm sm:text-base")}
             />
           </div>
           <div>
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password" className="text-sm sm:text-base">Password</Label>
             <div className="relative">
               <Input
                 id="password"
@@ -155,14 +155,18 @@ export default function LoginPage() {
           </div>
 
           {/* Captcha */}
-          <div>
-            <HCaptcha
-              ref={captchaRef}
-              sitekey={process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY || ""}
-              onVerify={onCaptchaChange}
-              onExpire={onCaptchaExpired}
-              onError={onCaptchaError}
-            />
+          <div className="overflow-x-auto">
+            <div className="min-w-0 w-full">
+              <HCaptcha
+                ref={captchaRef}
+                sitekey={process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY || ""}
+                onVerify={onCaptchaChange}
+                onExpire={onCaptchaExpired}
+                onError={onCaptchaError}
+                className="w-full max-w-full"
+                style={{ transform: 'scale(0.8)', transformOrigin: 'left top' }}
+              />
+            </div>
           </div>
 
           <div className="text-right text-sm">
@@ -170,7 +174,7 @@ export default function LoginPage() {
               Forgot password?
             </Link>
           </div>
-          <Button type="submit" className="w-full" disabled={isLoading}>
+          <Button type="submit" className="w-full text-sm sm:text-base py-2 sm:py-3" disabled={isLoading}>
             {isLoading ? "Signing In..." : "Sign In"}
           </Button>
           <div className="text-center text-sm">

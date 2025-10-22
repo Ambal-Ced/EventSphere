@@ -191,21 +191,21 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/40 py-12 px-4">
-      <div className="w-full max-w-3xl rounded-lg bg-background p-8 shadow-lg">
-        <h1 className="mb-2 text-center text-3xl font-bold">
+    <div className="flex min-h-screen items-center justify-center bg-muted/40 py-6 sm:py-12 px-3 sm:px-4 overflow-x-hidden">
+      <div className="w-full max-w-3xl rounded-lg bg-background p-4 sm:p-6 md:p-8 shadow-lg">
+        <h1 className="mb-2 text-center text-2xl sm:text-3xl font-bold">
           Create an account
         </h1>
-        <p className="mb-8 text-center text-muted-foreground">
+        <p className="mb-6 sm:mb-8 text-center text-sm sm:text-base text-muted-foreground">
           Or{" "}
           <Link href="/login" className="text-primary hover:underline">
             sign in to your existing account
           </Link>
         </p>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
           <div>
-            <Label htmlFor="email">Email *</Label>
+            <Label htmlFor="email" className="text-sm sm:text-base">Email *</Label>
             <Input
               id="email"
               name="email"
@@ -213,14 +213,14 @@ export default function RegisterPage() {
               value={formData.email}
               onChange={handleInputChange}
               required
-              className={cn(errors.email && "border-destructive")}
+              className={cn(errors.email && "border-destructive", "text-sm sm:text-base")}
             />
             {errors.email && (
               <p className="text-xs text-destructive mt-1">{errors.email}</p>
             )}
           </div>
           <div>
-            <Label htmlFor="password">Password *</Label>
+            <Label htmlFor="password" className="text-sm sm:text-base">Password *</Label>
             <div className="relative">
               <Input
                 id="password"
@@ -245,7 +245,7 @@ export default function RegisterPage() {
             )}
           </div>
           <div>
-            <Label htmlFor="confirmPassword">Confirm Password *</Label>
+            <Label htmlFor="confirmPassword" className="text-sm sm:text-base">Confirm Password *</Label>
             <div className="relative">
               <Input
                 id="confirmPassword"
@@ -273,20 +273,24 @@ export default function RegisterPage() {
           </div>
 
           {/* Captcha */}
-          <div>
-            <HCaptcha
-              ref={captchaRef}
-              sitekey={process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY || ""}
-              onVerify={onCaptchaChange}
-              onExpire={onCaptchaExpired}
-              onError={onCaptchaError}
-            />
+          <div className="overflow-x-auto">
+            <div className="min-w-0 w-full">
+              <HCaptcha
+                ref={captchaRef}
+                sitekey={process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY || ""}
+                onVerify={onCaptchaChange}
+                onExpire={onCaptchaExpired}
+                onError={onCaptchaError}
+                className="w-full max-w-full"
+                style={{ transform: 'scale(0.8)', transformOrigin: 'left top' }}
+              />
+            </div>
             {errors.captcha && (
               <p className="text-xs text-destructive mt-1">{errors.captcha}</p>
             )}
           </div>
 
-          <Button type="submit" className="w-full" disabled={isLoading}>
+          <Button type="submit" className="w-full text-sm sm:text-base py-2 sm:py-3" disabled={isLoading}>
             {isLoading ? "Creating Account..." : "Create Account"}
           </Button>
         </form>
