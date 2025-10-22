@@ -57,7 +57,7 @@ export default function AboutPage() {
       </h1>
 
       {/* Mission Section */}
-      <section className="mb-16">
+      <section className="mb-16 text-center">
         <h2 className="text-3xl font-semibold mb-4">Our Mission</h2>
         <p className="text-lg text-muted-foreground mb-4">
           At EventSphere, we're committed to transforming how people create,
@@ -74,23 +74,27 @@ export default function AboutPage() {
       </section>
 
       {/* Story Section */}
-      <section className="mb-16">
+      <section className="mb-16 text-center">
         <h2 className="text-3xl font-semibold mb-4">Our Story</h2>
         <p className="text-lg text-muted-foreground mb-4">
-          EventSphere was founded in 2024 by a group of passionate event
-          planners and technology enthusiasts who saw a gap in the market for a
-          truly comprehensive event management solution.
+          EventSphere was founded in 2024 by a group of passionate students who
+          recognized the challenges people face when organizing events. We saw an
+          opportunity to create a comprehensive platform that makes event
+          management accessible to everyone, regardless of their technical
+          expertise.
         </p>
         <p className="text-lg text-muted-foreground mb-4">
-          After years of managing events using multiple disconnected tools, our
-          founders came together to create a single platform that handles
-          everything from event creation and promotion to ticketing and
-          analytics.
+          As students ourselves, we understand the importance of staying current
+          with technology trends. That's why we've integrated AI capabilities
+          and advanced analytics into our platform, helping event organizers
+          gain valuable insights into their events, track income, and make
+          data-driven decisions.
         </p>
         <p className="text-lg text-muted-foreground">
-          Today, EventSphere is used by thousands of event organizers worldwide,
-          helping them create memorable experiences for their attendees while
-          simplifying the behind-the-scenes work.
+          Today, EventSphere empowers event organizers worldwide with
+          intelligent tools that adapt to modern trends, providing them with the
+          analytics and insights they need to create successful events while
+          simplifying the entire process.
         </p>
       </section>
 
@@ -253,7 +257,7 @@ export default function AboutPage() {
             <span className="font-semibold">Email:</span>{" "}
             <a
               href="mailto:trybyteanalytics@gmail.com"
-              className="text-green-500 hover:underline"
+              className="text-green-500 hover:underline break-all text-sm sm:text-base"
             >
               trybyteanalytics@gmail.com
             </a>

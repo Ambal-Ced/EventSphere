@@ -472,7 +472,7 @@ export default function AnalyticsPage() {
   };
 
   return (
-    <div className="container mx-auto py-8">
+    <div className="w-full max-w-6xl mx-auto py-8 pr-3">
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-white mb-4">Analytics</h1>
@@ -495,7 +495,6 @@ export default function AnalyticsPage() {
             {/* Scope Filter */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-300">Scope</label>
-              <div className="flex items-center justify-center gap-2">
                 <Select value={scope} onValueChange={(v: any) => setScope(v)}>
                   <SelectTrigger className="w-full max-w-[180px]">
                     <SelectValue placeholder="Scope" />
@@ -506,21 +505,11 @@ export default function AnalyticsPage() {
                     <SelectItem value="both">Both</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button 
-                  onClick={() => resetSpecificFilter('scope')}
-                  variant="ghost"
-                  size="sm"
-                  className="text-slate-400 hover:text-white p-1"
-                >
-                  ×
-                </Button>
-              </div>
             </div>
 
             {/* Type Filter */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-300">Event Type</label>
-              <div className="flex items-center justify-center gap-2">
                 <Select value={typeFilter} onValueChange={(v:any)=>setTypeFilter(v)}>
                   <SelectTrigger className="w-full max-w-[180px]">
                     <SelectValue placeholder="Event Type"/>
@@ -539,22 +528,12 @@ export default function AnalyticsPage() {
                     <SelectItem value="Other">Other</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button 
-                  onClick={() => resetSpecificFilter('type')}
-                  variant="ghost"
-                  size="sm"
-                  className="text-slate-400 hover:text-white p-1"
-                >
-                  ×
-                </Button>
-              </div>
             </div>
 
             {/* Date Range */}
             <div className="space-y-2 md:col-span-2">
               <label className="text-sm font-medium text-slate-300">Date Range</label>
-              <div className="flex items-center justify-center gap-2">
-                <div className="flex gap-2 flex-1 max-w-[380px] mx-auto">
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:max-w-[380px]">
                   <input 
                     type="date" 
                     value={dateFrom} 
@@ -569,22 +548,12 @@ export default function AnalyticsPage() {
                     className="h-10 rounded-md border border-slate-600 bg-slate-700 text-white px-3 text-sm flex-1 min-w-0"
                     placeholder="To"
                   />
-                </div>
-                <Button 
-                  onClick={() => resetSpecificFilter('date')}
-                  variant="ghost"
-                  size="sm"
-                  className="text-slate-400 hover:text-white p-1 flex-shrink-0"
-                >
-                  ×
-                </Button>
               </div>
             </div>
 
             {/* Expected Attendees */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-300">Expected Attendees</label>
-              <div className="flex items-center justify-center gap-2">
                 <div className="flex gap-1 max-w-[200px] mx-auto">
                   <input 
                     type="number" 
@@ -600,22 +569,12 @@ export default function AnalyticsPage() {
                     onChange={e=>setExpMax(e.target.value)} 
                     className="h-10 w-20 rounded-md border border-slate-600 bg-slate-700 text-white px-2 text-sm"
                   />
-                </div>
-                <Button 
-                  onClick={() => resetSpecificFilter('expected')}
-                  variant="ghost"
-                  size="sm"
-                  className="text-slate-400 hover:text-white p-1"
-                >
-                  ×
-                </Button>
               </div>
             </div>
 
             {/* Actual Attendees */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-300">Actual Attendees</label>
-              <div className="flex items-center justify-center gap-2">
                 <div className="flex gap-1 max-w-[200px] mx-auto">
                   <input 
                     type="number" 
@@ -631,15 +590,6 @@ export default function AnalyticsPage() {
                     onChange={e=>setActMax(e.target.value)} 
                     className="h-10 w-20 rounded-md border border-slate-600 bg-slate-700 text-white px-2 text-sm"
                   />
-                </div>
-                <Button 
-                  onClick={() => resetSpecificFilter('actual')}
-                  variant="ghost"
-                  size="sm"
-                  className="text-slate-400 hover:text-white p-1"
-                >
-                  ×
-                </Button>
               </div>
             </div>
           </div>
@@ -655,19 +605,19 @@ export default function AnalyticsPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-slate-800/60 rounded-lg p-4 text-center border border-green-500/20">
               <div className="text-slate-400 text-sm">Total Events</div>
-              <div className="text-2xl font-bold text-white">{aggregates.totalEvents}</div>
+              <div className="text-lg sm:text-xl md:text-2xl font-bold text-white break-words">{aggregates.totalEvents}</div>
             </div>
             <div className="bg-slate-800/60 rounded-lg p-4 text-center border border-amber-500/20">
               <div className="text-slate-400 text-sm">Total Items</div>
-              <div className="text-2xl font-bold text-white">{aggregates.totalItems}</div>
+              <div className="text-lg sm:text-xl md:text-2xl font-bold text-white break-words">{aggregates.totalItems}</div>
             </div>
             <div className="bg-slate-800/60 rounded-lg p-4 text-center border border-blue-500/20">
               <div className="text-slate-400 text-sm">Total Item Cost</div>
-              <div className="text-2xl font-bold text-white">PHP {aggregates.totalItemCost.toFixed(2)}</div>
+              <div className="text-sm sm:text-lg md:text-xl lg:text-2xl font-bold text-white break-words">PHP {aggregates.totalItemCost.toFixed(2)}</div>
             </div>
             <div className="bg-slate-800/60 rounded-lg p-4 text-center border border-purple-500/20">
               <div className="text-slate-400 text-sm">Estimated Revenue</div>
-              <div className="text-2xl font-bold text-white">PHP {aggregates.estRevenue.toFixed(2)}</div>
+              <div className="text-sm sm:text-lg md:text-xl lg:text-2xl font-bold text-white break-words">PHP {aggregates.estRevenue.toFixed(2)}</div>
             </div>
           </div>
 

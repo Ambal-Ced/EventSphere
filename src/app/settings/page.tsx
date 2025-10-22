@@ -268,7 +268,7 @@ function SettingsContent() {
   }
 
   return (
-    <div className="container mx-auto max-w-4xl py-8">
+    <div className="w-full max-w-4xl mx-auto py-8 pr-3">
       <h1 className="mb-8 text-3xl font-bold">Settings</h1>
 
       {error && (
@@ -291,7 +291,7 @@ function SettingsContent() {
           {verificationStep === 'form' && (
             <form
               onSubmit={handlePasswordChange}
-              className="space-y-6 rounded-lg border bg-card p-6"
+              className="space-y-6 rounded-lg border bg-card p-4 sm:p-6"
             >
               {passwordError && (
                 <p className="text-sm text-destructive">{passwordError}</p>
@@ -306,6 +306,7 @@ function SettingsContent() {
                     value={passwords.newPassword}
                     onChange={handlePasswordInputChange}
                     placeholder="Enter your new password"
+                    className="text-sm sm:text-base break-words"
                   />
                   <Button
                     type="button"
@@ -335,6 +336,7 @@ function SettingsContent() {
                     value={passwords.confirmPassword}
                     onChange={handlePasswordInputChange}
                     placeholder="Confirm your new password"
+                    className="text-sm sm:text-base break-words"
                   />
                   <Button
                     type="button"
@@ -352,7 +354,7 @@ function SettingsContent() {
                 </div>
               </div>
               <div className="flex justify-end">
-                <Button type="submit" disabled={isChangingPassword}>
+                <Button type="submit" disabled={isChangingPassword} className="w-full sm:w-auto">
                   {isChangingPassword ? "Sending..." : "Change Password"}
                 </Button>
               </div>
@@ -416,10 +418,10 @@ function SettingsContent() {
           )}
 
           {emailChangeStep === 'form' && (
-            <div className="space-y-6 rounded-lg border bg-card p-6">
+            <div className="space-y-6 rounded-lg border bg-card p-4 sm:p-6">
               <div>
                 <Label>Current Email</Label>
-                <p className="text-muted-foreground">{user.email}</p>
+                <p className="text-muted-foreground text-sm sm:text-base break-all">{user.email}</p>
               </div>
               
               <form onSubmit={handleEmailChange} className="space-y-4">
@@ -431,12 +433,13 @@ function SettingsContent() {
                     value={newEmail}
                     onChange={(e) => setNewEmail(e.target.value)}
                     placeholder="Enter new email address"
+                    className="text-sm sm:text-base break-words"
                     required
                   />
                 </div>
                 
                 <div className="flex gap-2 justify-end">
-                  <Button type="submit" disabled={isChangingEmail || !newEmail}>
+                  <Button type="submit" disabled={isChangingEmail || !newEmail} className="w-full sm:w-auto">
                     {isChangingEmail ? "Changing..." : "Change Email"}
                   </Button>
                 </div>

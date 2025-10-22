@@ -471,7 +471,7 @@ export default function ProfilePage() {
   ) => (
     <div>
       <Label className="text-sm text-muted-foreground">{label}</Label>
-      <p>
+      <p className="break-all whitespace-normal leading-snug">
         {value ?? (
           <span className="italic text-muted-foreground/70">Not set</span>
         )}
@@ -528,7 +528,7 @@ export default function ProfilePage() {
     : profile.username || "username not set";
 
   return (
-    <div className="container mx-auto py-8">
+    <div className="w-full max-w-5xl mx-auto py-8 pr-3 overflow-x-hidden">
       {/* --- Header Section --- */}
       <div className="mb-8 flex flex-col items-center gap-4 md:flex-row md:items-end">
         <div className="relative">
@@ -646,9 +646,9 @@ export default function ProfilePage() {
       </div>
 
       {/* --- Main Content Grid --- */}
-      <div className="grid gap-6 md:gap-8 md:grid-cols-3 w-full px-0 md:px-0">
+      <div className="grid gap-6 md:gap-8 md:grid-cols-3 w-full">
         {/* --- Contact Info Card --- */}
-        <div className="rounded-lg border bg-card p-6 md:col-span-1 break-words">
+        <div className="rounded-lg border bg-card p-4 sm:p-6 md:col-span-1 break-words">
           <h2 className="mb-4 text-xl font-semibold">Contact Information</h2>
           <div className="space-y-4">
             {isEditing ? (
@@ -750,7 +750,7 @@ export default function ProfilePage() {
         </div>
 
         {/* --- Personal Details Card --- */}
-        <div className="rounded-lg border bg-card p-6 md:col-span-2 break-words">
+        <div className="rounded-lg border bg-card p-4 sm:p-6 md:col-span-2 break-words">
           <h2 className="mb-4 text-xl font-semibold">Personal Details</h2>
           <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
             {isEditing ? (

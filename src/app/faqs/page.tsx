@@ -91,18 +91,18 @@ export default function FAQsPage() {
         ))}
       </Accordion>
 
-      <div className="bg-muted/30 rounded-lg p-8 text-center">
+      <div className="bg-muted/30 rounded-lg p-6 sm:p-8 text-center">
         <h2 className="text-2xl font-semibold mb-4">Still have questions?</h2>
         <p className="text-muted-foreground mb-6">
           If you couldn't find the answer to your question, please don't
           hesitate to reach out to our support team. We're here to help!
         </p>
-        <div className="flex justify-center gap-4">
-          <a href="mailto:trybyteanalytics@gmail.com">
-            <Button variant="default">Email Support</Button>
+        <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4">
+          <a href="mailto:trybyteanalytics@gmail.com" className="w-full sm:w-auto">
+            <Button variant="default" className="w-full sm:w-auto">Email Support</Button>
           </a>
-          <a href="/about#contact">
-            <Button variant="outline">Contact Us</Button>
+          <a href="/about#contact" className="w-full sm:w-auto">
+            <Button variant="outline" className="w-full sm:w-auto">Contact Us</Button>
           </a>
         </div>
       </div>

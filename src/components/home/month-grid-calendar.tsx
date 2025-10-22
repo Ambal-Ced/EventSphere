@@ -69,16 +69,16 @@ export default function MonthGridCalendar({ selected, onSelect, className, weekS
   return (
     <div className={cn("w-full", className)}>
       {/* Weekday header perfectly aligned to 7 equal columns */}
-      <div className="grid grid-cols-7 gap-3">
+      <div className="grid grid-cols-7 gap-0.5 max-[335px]:gap-0 max-[375px]:gap-1 sm:gap-2 md:gap-3">
         {weekdayLabels.map((d) => (
-          <div key={d} className="text-center py-2 text-xs font-semibold uppercase text-muted-foreground tracking-wide">
+          <div key={d} className="text-center py-0.5 max-[335px]:py-0 sm:py-2 text-xs font-semibold uppercase text-muted-foreground tracking-wide">
             {d}
           </div>
         ))}
       </div>
 
       {/* 6-week grid ensures stable vertical height and alignment */}
-      <div className="grid grid-cols-7 gap-3">
+      <div className="grid grid-cols-7 gap-0.5 max-[335px]:gap-0 max-[375px]:gap-1 sm:gap-2 md:gap-3">
         {cells.map((cell, idx) => {
           const isSelected = isSameDay(cell.date, selected || undefined);
           const count = getEventsCountForDate ? Math.max(0, getEventsCountForDate(cell.date)) : 0;
@@ -88,18 +88,18 @@ export default function MonthGridCalendar({ selected, onSelect, className, weekS
               type="button"
               onClick={() => onSelect(cell.date)}
               className={cn(
-                // Consistent boxes with space for label
-                "mx-auto w-12 md:w-14 lg:w-16 h-14 md:h-16 lg:h-20 rounded-md",
-                "flex flex-col items-center justify-center gap-1 text-sm md:text-base",
-                "transition-colors border",
+                // Responsive boxes with space for label
+                "mx-auto w-6 h-6 max-[335px]:w-7 max-[335px]:h-7 max-[375px]:w-8 max-[375px]:h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 lg:w-14 lg:h-14 xl:w-16 xl:h-16 rounded-sm sm:rounded-md",
+                "flex flex-col items-center justify-center gap-0 max-[335px]:gap-0 sm:gap-1 text-xs sm:text-sm md:text-base",
+                "transition-colors border max-[335px]:border-0",
                 cell.isCurrentMonth ? "text-foreground" : "text-muted-foreground/40",
-                isSelected ? "bg-primary/20 text-primary font-semibold" : "hover:bg-muted/40",
-                count > 0 ? "border-yellow-400/70" : "border-transparent"
+                isSelected ? "bg-primary/20 text-primary font-semibold max-[335px]:border-primary/30 max-[335px]:border" : "hover:bg-muted/40",
+                count > 0 ? "border-yellow-400/70 max-[425px]:bg-yellow-400/20 max-[425px]:border-transparent max-[375px]:bg-yellow-400/10" : "border-transparent"
               )}
             >
               <span className="leading-none">{cell.date.getDate()}</span>
               {count > 0 && (
-                <span className="text-[10px] leading-none text-muted-foreground">
+                <span className="text-[8px] sm:text-[10px] leading-none text-muted-foreground hidden sm:block">
                   {count} {count === 1 ? "event" : "events"}
                 </span>
               )}

@@ -149,7 +149,7 @@ export default function HomeClient() {
         currentEmail: sessionData?.user?.email || prev.currentEmail,
         newEmail: (sessionData?.user as any)?.user_metadata?.new_email || prev.newEmail,
       }));
-
+      
     } catch (error: any) {
       console.error('Email change confirmation error:', error);
       // Clear the hash on error
@@ -454,7 +454,7 @@ export default function HomeClient() {
     <>
     <div className="flex flex-col gap-12">
       {/* Hero Section */}
-      <section className="relative h-[500px] w-full overflow-hidden rounded-3xl">
+      <section className="relative min-h-[360px] h-[420px] sm:h-[480px] md:h-[500px] w-full overflow-hidden rounded-3xl">
         {/* Background Image */}
         <Image
           src="/images/event.webp"
@@ -466,8 +466,10 @@ export default function HomeClient() {
         {/* Gradient Overlay */}
         <div className="absolute inset-0 bg-gradient-to-r from-purple-500/60 to-green-500/60 backdrop-blur-[2px]" />
         <div className="relative z-10 flex h-full flex-col items-center justify-center px-4 text-center text-white">
-          <h1 className="mb-6 text-5xl font-bold">Manage Events Effortlessly</h1>
-          <p className="mb-8 text-lg">
+          <h1 className="mb-4 text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-tight [text-wrap:balance] break-words">
+            Manage Events Effortlessly
+          </h1>
+          <p className="mb-6 text-sm sm:text-base md:text-lg max-w-[680px] [text-wrap:balance]">
             Create events, add items and scripts, assign tasks, and track progress
           </p>
         </div>
@@ -478,20 +480,20 @@ export default function HomeClient() {
         <h2 className="text-3xl font-bold mb-6 text-center">Event Calendar</h2>
         <div className="flex flex-col lg:flex-row items-stretch gap-6">
           {/* Big date display */}
-          <div className="flex-1 flex items-center justify-center rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-background border px-6 py-10 md:py-14">
+          <div className="flex-1 flex items-center justify-center rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-background border px-6 py-8 sm:py-10 md:py-14">
             <div className="text-center">
               <div className="uppercase tracking-widest text-sm text-muted-foreground mb-2">
                 {formatFns(selectedDate, "EEEE")} {/* Day of week */}
               </div>
-              <div className="flex items-end justify-center gap-4">
-                <div className="text-6xl md:text-7xl font-extrabold leading-none">
+              <div className="flex items-end justify-center gap-2 sm:gap-4">
+                <div className="text-5xl sm:text-6xl md:text-7xl font-extrabold leading-none">
                   {formatFns(selectedDate, "d")}
                 </div>
                 <div className="text-left pb-1">
-                  <div className="text-2xl md:text-3xl font-semibold">
+                  <div className="text-xl sm:text-2xl md:text-3xl font-semibold">
                     {formatFns(selectedDate, "MMMM")}
                   </div>
-                  <div className="text-lg md:text-xl text-muted-foreground">
+                  <div className="text-base sm:text-lg md:text-xl text-muted-foreground">
                     {formatFns(selectedDate, "yyyy")}
                   </div>
                 </div>
@@ -501,29 +503,32 @@ export default function HomeClient() {
 
           {/* Controls */}
           <div className="w-full lg:w-[420px] space-y-4">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
               <Button
                 variant="outline"
-                className="gap-2"
+                className="gap-2 w-full sm:w-auto text-sm sm:text-base"
                 onClick={() => setSelectedDate((d) => new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1))}
               >
                 <ChevronLeft className="h-4 w-4" />
-                Previous Day
+                <span className="hidden sm:inline">Previous Day</span>
+                <span className="sm:hidden">Prev</span>
               </Button>
               <Button
                 variant="outline"
-                className="gap-2"
+                className="gap-2 w-full sm:w-auto text-sm sm:text-base"
                 onClick={() => setSelectedDate((d) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1))}
               >
-                Next Day <ChevronRight className="h-4 w-4" />
+                <span className="hidden sm:inline">Next Day</span>
+                <span className="sm:hidden">Next</span>
+                <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
             {/* Month/Year pickers (sync both calendars) */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-2">
-                <label className="text-sm text-muted-foreground">Pick a month</label>
+                <label className="text-xs sm:text-sm text-muted-foreground">Pick a month</label>
                 <select
-                  className="w-full h-10 rounded-md border bg-background"
+                  className="w-full h-10 rounded-md border bg-background text-sm sm:text-base"
                   value={selectedDate.getMonth()}
                   onChange={(e) => {
                     const m = parseInt(e.target.value, 10);
@@ -538,9 +543,9 @@ export default function HomeClient() {
                 </select>
               </div>
               <div className="space-y-2">
-                <label className="text-sm text-muted-foreground">Pick a year</label>
+                <label className="text-xs sm:text-sm text-muted-foreground">Pick a year</label>
                 <select
-                  className="w-full h-10 rounded-md border bg-background"
+                  className="w-full h-10 rounded-md border bg-background text-sm sm:text-base"
                   value={selectedDate.getFullYear()}
                   onChange={(e) => {
                     const y = parseInt(e.target.value, 10);
@@ -584,7 +589,7 @@ export default function HomeClient() {
         </div>
 
         {/* Month grid calendar (standalone) */}
-        <div className="mt-6 rounded-2xl border bg-muted/40 p-4">
+        <div className="mt-6 rounded-2xl border bg-muted/40 px-4 py-4 max-[375px]:px-6">
           {/* Lazy import to avoid SSR issues */}
           {/* eslint-disable-next-line @typescript-eslint/no-var-requires */}
           {(() => {
@@ -757,7 +762,7 @@ export default function HomeClient() {
                 // Individual event card
                 <div
                   key={`${event.id}-${index}`}
-                  className="w-80 flex-shrink-0 px-3"
+                  className="w-72 sm:w-80 flex-shrink-0 px-2 sm:px-3"
                 >
                   <Link
                     href={`/event/${event.id}`}
@@ -775,11 +780,11 @@ export default function HomeClient() {
                         priority={index < 4}
                       />
                     </div>
-                    <div className="p-4">
-                      <h3 className="mb-2 text-xl font-semibold line-clamp-1">
+                    <div className="p-3 sm:p-4">
+                      <h3 className="mb-2 text-lg sm:text-xl font-semibold line-clamp-1">
                         {event.title}
                       </h3>
-                      <p className="text-sm text-gray-400 line-clamp-2 mb-3 h-10">
+                      <p className="text-xs sm:text-sm text-gray-400 line-clamp-2 mb-3 h-8 sm:h-10">
                         {event.description}
                       </p>
                       <div className="flex items-center gap-2 text-xs text-gray-400">

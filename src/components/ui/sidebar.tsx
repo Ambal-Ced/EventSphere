@@ -240,24 +240,12 @@ export const Sidebar = memo(() => {
 
   return (
     <>
-      {/* Backdrop for mobile overlay */}
-      {isTouch && open && (
-        <div
-          className="fixed inset-0 z-30 bg-black/30"
-          onClick={() => setOpen(false)}
-        />
-      )}
-
       <div
         className={cn(
-          // Touch devices: keep a thin rail (w-16) that overlays and is clickable; expanded overlays at w-64
-          isTouch
-            ? (open
-                ? "fixed top-16 left-0 z-40 h-[calc(100vh-4rem)] w-64"
-                : "fixed top-16 left-0 z-30 h-[calc(100vh-4rem)] w-16 pointer-events-auto")
-            : (open
-                ? "sticky top-16 h-[calc(100vh-4rem)] w-64"
-                : "sticky top-16 h-[calc(100vh-4rem)] w-16"),
+          // Reserve lane at all sizes (no overlay). Width changes only from 16 to 64.
+          open
+            ? "sticky top-16 h-[calc(100vh-4rem)] w-64"
+            : "sticky top-16 h-[calc(100vh-4rem)] w-16",
           "border-r bg-background transition-all"
         )}
         onMouseEnter={isTouch ? undefined : () => setOpen(true)}

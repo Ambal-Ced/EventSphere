@@ -649,25 +649,26 @@ function EventsPageContent() {
   return (
     <div className="flex flex-col gap-8">
       {/* Header Section */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h1 className="text-4xl font-bold">Browse Events</h1>
-        <div className="flex gap-2">
+      <div>
+        <h1 className="text-2xl max-[639px]:text-xl sm:text-4xl font-bold mb-3 mt-4">Browse Events</h1>
+        <div className="flex flex-col max-[374px]:flex-col sm:flex-row gap-2 w-full sm:w-auto sm:justify-end items-stretch sm:items-center">
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               type="search"
               placeholder="Search events..."
-              className="pl-8 sm:w-[300px] md:w-[200px] lg:w-[300px] bg-background"
+              className="pl-8 w-full sm:w-[200px] md:w-[250px] lg:w-[300px] bg-background text-xs max-[639px]:text-xs sm:text-base"
               value={searchTerm} // Bind value to state
               onChange={(e) => setSearchTerm(e.target.value)} // Update state on change
             />
           </div>
+          <div className="flex flex-row max-[374px]:flex-col gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-9 gap-1">
+                <Button variant="outline" size="sm" className="h-8 max-[639px]:h-7 sm:h-9 gap-1 flex-1 max-[374px]:w-full sm:w-auto text-xs max-[639px]:text-xs sm:text-base">
                 <ListFilter className="h-3.5 w-3.5" />
-                <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-                  Filter ({selectedCategories.length}) {/* Show count */}
+                  <span className="max-[374px]:inline sm:inline">
+                    Filter ({selectedCategories.length})
                 </span>
               </Button>
             </DropdownMenuTrigger>
@@ -688,42 +689,43 @@ function EventsPageContent() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <Button asChild size="sm" className="h-9 gap-1">
+            <Button asChild size="sm" className="h-8 max-[639px]:h-7 sm:h-9 gap-1 flex-1 max-[374px]:w-full sm:w-auto text-xs max-[639px]:text-xs sm:text-base">
             <Link href="/create-event">
               <Plus className="h-3.5 w-3.5" />
-              <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                <span className="max-[374px]:inline sm:inline">
                 Create Event
               </span>
             </Link>
           </Button>
         </div>
+        </div>
       </div>
 
       {/* Events Grid - Render filteredEvents */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="grid gap-3 max-[639px]:gap-3 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {/* Join Event Card */}
         {!showJoinForm ? (
           <div
-            className="group relative overflow-hidden rounded-xl border bg-card transition-all duration-300 hover:shadow-lg hover:-translate-y-1 cursor-pointer min-h-[200px] flex flex-col items-center justify-center p-6 border-dashed border-emerald-500/40 hover:border-emerald-500/60 bg-gradient-to-br from-emerald-500/5 to-emerald-500/10"
+            className="group relative overflow-hidden rounded-xl border bg-card transition-all duration-300 hover:shadow-lg hover:-translate-y-1 cursor-pointer min-h-[150px] max-[639px]:min-h-[140px] sm:min-h-[200px] flex flex-col items-center justify-center p-3 max-[639px]:p-3 sm:p-6 border-dashed border-emerald-500/40 hover:border-emerald-500/60 bg-gradient-to-br from-emerald-500/5 to-emerald-500/10"
             onClick={() => setShowJoinForm(true)}
           >
             <div className="text-center">
-              <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center mb-4 mx-auto group-hover:bg-emerald-500/30 transition-colors">
-                <Plus className="w-8 h-8 text-emerald-500" />
+              <div className="w-10 h-10 max-[639px]:w-10 max-[639px]:h-10 sm:w-16 sm:h-16 rounded-full bg-emerald-500/20 flex items-center justify-center mb-2 max-[639px]:mb-2 sm:mb-4 mx-auto group-hover:bg-emerald-500/30 transition-colors">
+                <Plus className="w-5 h-5 max-[639px]:w-5 max-[639px]:h-5 sm:w-8 sm:h-8 text-emerald-500" />
               </div>
-              <h3 className="text-lg font-semibold text-emerald-600 dark:text-emerald-400 mb-2">
+              <h3 className="text-sm max-[639px]:text-sm sm:text-lg font-semibold text-emerald-600 dark:text-emerald-400 mb-1 max-[639px]:mb-1 sm:mb-2">
                 Join Event
               </h3>
-              <p className="text-sm text-muted-foreground text-center">
+              <p className="text-xs max-[639px]:text-xs sm:text-sm text-muted-foreground text-center">
                 Click to join an existing event with an invite code
               </p>
             </div>
           </div>
         ) : (
-          <div className="group relative overflow-hidden rounded-xl border bg-card transition-all duration-300 hover:shadow-lg min-h-[200px] border-emerald-500/30 bg-gradient-to-br from-emerald-500/5 to-emerald-500/10">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">
+          <div className="group relative overflow-hidden rounded-xl border bg-card transition-all duration-300 hover:shadow-lg min-h-[150px] max-[639px]:min-h-[140px] sm:min-h-[200px] border-emerald-500/30 bg-gradient-to-br from-emerald-500/5 to-emerald-500/10">
+            <div className="p-3 max-[639px]:p-3 sm:p-6">
+              <div className="flex items-center justify-between mb-2 max-[639px]:mb-2 sm:mb-4">
+                <h3 className="text-sm max-[639px]:text-sm sm:text-lg font-semibold text-emerald-600 dark:text-emerald-400">
                   Join Event
                 </h3>
                 <Button
@@ -733,22 +735,22 @@ function EventsPageContent() {
                     setShowJoinForm(false);
                     setInviteCode("");
                   }}
-                  className="h-8 w-8 p-0 text-emerald-500 hover:text-emerald-600 hover:bg-emerald-500/20"
+                  className="h-5 w-5 max-[639px]:h-5 max-[639px]:w-5 sm:h-8 sm:w-8 p-0 text-emerald-500 hover:text-emerald-600 hover:bg-emerald-500/20"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-3 w-3 max-[639px]:h-3 max-[639px]:w-3 sm:h-4 sm:w-4" />
                 </Button>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-2 max-[639px]:space-y-2 sm:space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-muted-foreground mb-2">
+                  <label className="block text-xs max-[639px]:text-xs sm:text-sm font-medium text-muted-foreground mb-1 max-[639px]:mb-1 sm:mb-2">
                     Invite Code
                   </label>
                   <Input
                     value={inviteCode}
                     onChange={(e) => setInviteCode(e.target.value)}
                     placeholder="Enter 6-character code"
-                    className="bg-background border-emerald-500/30 focus:border-emerald-500 text-center font-mono text-lg tracking-widest h-12"
+                    className="bg-background border-emerald-500/30 focus:border-emerald-500 text-center font-mono text-xs max-[639px]:text-xs sm:text-lg tracking-widest h-8 max-[639px]:h-8 sm:h-12"
                     maxLength={6}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && inviteCode.trim().length >= 6 && !isJoining) {
@@ -762,11 +764,11 @@ function EventsPageContent() {
                   </p>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <Button
                     type="button"
                     onClick={handleJoinEvent}
-                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white h-10"
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white h-8 max-[639px]:h-8 sm:h-10 text-xs max-[639px]:text-xs sm:text-base"
                   >
                     {isJoining ? (
                       <>
@@ -783,7 +785,7 @@ function EventsPageContent() {
                       setShowJoinForm(false);
                       setInviteCode("");
                     }}
-                    className="border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/20 h-10 px-4"
+                    className="border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/20 h-8 max-[639px]:h-8 sm:h-10 px-3 sm:px-4 text-xs max-[639px]:text-xs sm:text-base"
                   >
                     Cancel
                   </Button>
@@ -822,22 +824,22 @@ function EventsPageContent() {
                   </div>
                 </div>
               </div>
-              <div className="p-4">
-                <h3 className="mb-1.5 text-lg font-semibold line-clamp-1">
+              <div className="p-2 max-[639px]:p-2 sm:p-4">
+                <h3 className="mb-1 max-[639px]:mb-1 sm:mb-1.5 text-sm max-[639px]:text-sm sm:text-lg font-semibold line-clamp-1">
                   {event.title}
                 </h3>
-                <p className="text-sm text-muted-foreground line-clamp-2 mb-3 h-10">
+                <p className="text-xs max-[639px]:text-xs sm:text-sm text-muted-foreground line-clamp-2 mb-2 max-[639px]:mb-2 sm:mb-3 h-6 max-[639px]:h-6 sm:h-10">
                   {event.description}
                 </p>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2 text-xs text-muted-foreground">
                   <div className="flex items-center gap-1">
                     <Calendar className="h-3 w-3" />
-                    {formatDate(event.date)}
+                    <span className="break-words">{formatDate(event.date)}</span>
                   </div>
-                  <span className="opacity-50">|</span>
+                  <span className="opacity-50 hidden sm:inline">|</span>
                   <div className="flex items-center gap-1">
                     <MapPin className="h-3 w-3" />
-                    {event.location}
+                    <span className="break-words">{event.location}</span>
                   </div>
                 </div>
               </div>

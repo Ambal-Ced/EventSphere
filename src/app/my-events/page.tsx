@@ -161,26 +161,27 @@ export default function MyEventsPage() {
 
 
   return (
-    <div className="container mx-auto py-8">
+    <div className="container mx-auto py-8 px-4">
       {/* Header Section */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-        <h1 className="text-3xl font-bold">My Events</h1>
-        <div className="flex gap-2">
+      <div className="mb-8">
+        <h1 className="text-2xl max-[639px]:text-xl sm:text-3xl font-bold mb-3">My Events</h1>
+        <div className="flex flex-col max-[374px]:flex-col sm:flex-row gap-2 w-full sm:w-auto sm:justify-end">
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               type="search"
               placeholder="Search events..."
-              className="pl-8 sm:w-[300px] md:w-[200px] lg:w-[300px] bg-background"
+              className="pl-8 w-full sm:w-[200px] md:w-[250px] lg:w-[300px] bg-background text-xs max-[639px]:text-xs sm:text-base"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+          <div className="flex flex-row max-[374px]:flex-col gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-9 gap-1">
+                <Button variant="outline" size="sm" className="h-8 max-[639px]:h-7 sm:h-9 gap-1 flex-1 max-[374px]:w-full sm:w-auto text-xs max-[639px]:text-xs sm:text-base">
                 <ListFilter className="h-3.5 w-3.5" />
-                <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                  <span className="max-[374px]:inline sm:inline">
                   Filter ({selectedCategories.length})
                 </span>
               </Button>
@@ -201,14 +202,15 @@ export default function MyEventsPage() {
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button asChild size="sm" className="h-9 gap-1">
+            <Button asChild size="sm" className="h-8 max-[639px]:h-7 sm:h-9 gap-1 flex-1 max-[374px]:w-full sm:w-auto text-xs max-[639px]:text-xs sm:text-base">
             <Link href="/create-event">
               <PlusCircle className="h-3.5 w-3.5" />
-              <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                <span className="max-[374px]:inline sm:inline">
                 Create Event
               </span>
             </Link>
           </Button>
+          </div>
         </div>
       </div>
 
@@ -248,11 +250,11 @@ export default function MyEventsPage() {
           )}
                   </div>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 max-[639px]:gap-3 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {currentPageEvents.map((event) => (
             <div
               key={event.id}
-              className="group relative overflow-hidden rounded-lg border bg-card p-5 shadow-sm transition-shadow hover:shadow-md"
+              className="group relative overflow-hidden rounded-lg border bg-card p-3 max-[639px]:p-3 sm:p-5 shadow-sm transition-shadow hover:shadow-md"
             >
               {event.image_url && (
                 <div className="absolute inset-0 z-0 opacity-10 transition-opacity group-hover:opacity-20">
@@ -264,34 +266,29 @@ export default function MyEventsPage() {
                 </div>
               )}
               <div className="relative z-10 flex h-full flex-col">
-                <h3 className="mb-2 text-xl font-semibold group-hover:text-primary">
+                <h3 className="mb-1 max-[639px]:mb-1 sm:mb-2 text-lg max-[639px]:text-lg sm:text-xl font-semibold group-hover:text-primary">
                   {event.title}
                 </h3>
-                <p className="mb-4 line-clamp-3 flex-grow text-sm text-muted-foreground">
+                <p className="mb-3 max-[639px]:mb-3 sm:mb-4 line-clamp-3 flex-grow text-xs max-[639px]:text-xs sm:text-sm text-muted-foreground">
                   {event.description || "No description provided."}
                 </p>
-                <div className="mt-auto space-y-2 border-t pt-4">
-                  <div className="flex items-center text-sm text-muted-foreground">
-                    <CalendarDays className="mr-2 h-4 w-4 flex-shrink-0" />
-                    {event.date
+                <div className="mt-auto space-y-1 max-[639px]:space-y-1 sm:space-y-2 border-t pt-3 max-[639px]:pt-3 sm:pt-4">
+                  <div className="flex items-center text-xs max-[639px]:text-xs sm:text-sm text-muted-foreground">
+                    <CalendarDays className="mr-1 max-[639px]:mr-1 sm:mr-2 h-3 max-[639px]:h-3 sm:h-4 w-3 max-[639px]:w-3 sm:w-4 flex-shrink-0" />
+                    <span className="break-words">{event.date
                       ? format(new Date(event.date), "PPP p")
-                      : "Date TBD"}
+                      : "Date TBD"}</span>
                   </div>
-                  <div className="flex items-center text-sm text-muted-foreground">
-                    <MapPin className="mr-2 h-4 w-4 flex-shrink-0" />
-                    {event.location || "Location TBD"}
+                  <div className="flex items-center text-xs max-[639px]:text-xs sm:text-sm text-muted-foreground">
+                    <MapPin className="mr-1 max-[639px]:mr-1 sm:mr-2 h-3 max-[639px]:h-3 sm:h-4 w-3 max-[639px]:w-3 sm:w-4 flex-shrink-0" />
+                    <span className="break-words">{event.location || "Location TBD"}</span>
                   </div>
-                  {/* Add attendees count if available */}
-                  {/* <div className="flex items-center text-sm text-muted-foreground">
-                    <Users className="mr-2 h-4 w-4 flex-shrink-0" />
-                    {event.attendees} attendees
-                  </div> */}
                 </div>
-                <div className="mt-4 flex space-x-2">
+                <div className="mt-3 max-[639px]:mt-3 sm:mt-4 flex space-x-2">
                   <Button
                     variant="outline"
                     size="sm"
-                    className="flex-1"
+                    className="flex-1 h-8 max-[639px]:h-8 sm:h-9 text-xs max-[639px]:text-xs sm:text-sm"
                     asChild
                   >
                     <Link href={`/event/${event.id}`}>Open</Link>
@@ -305,7 +302,7 @@ export default function MyEventsPage() {
       {/* Pagination Controls */}
       {filteredEvents.length > 0 && (
         <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="text-sm text-muted-foreground">
+          <div className="text-xs max-[639px]:text-xs sm:text-sm text-muted-foreground">
             {(() => {
               const start = (page - 1) * PAGE_SIZE + 1;
               const end = Math.min(page * PAGE_SIZE, filteredEvents.length);
@@ -318,10 +315,11 @@ export default function MyEventsPage() {
               size="sm"
               disabled={page === 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="h-8 max-[639px]:h-8 sm:h-9 text-xs max-[639px]:text-xs sm:text-sm"
             >
               Prev
             </Button>
-            <span className="text-sm text-muted-foreground">
+            <span className="text-xs max-[639px]:text-xs sm:text-sm text-muted-foreground">
               Page {page} of {totalPages}
             </span>
             <Button
@@ -329,6 +327,7 @@ export default function MyEventsPage() {
               size="sm"
               disabled={page >= totalPages}
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              className="h-8 max-[639px]:h-8 sm:h-9 text-xs max-[639px]:text-xs sm:text-sm"
             >
               Next
             </Button>

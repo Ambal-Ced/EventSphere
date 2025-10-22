@@ -380,13 +380,13 @@ export function Header() {
       </div>
       {/* Mobile sheet */}
       {mobileOpen && (
-        <div className="md:hidden absolute top-16 left-0 right-0 border-b bg-background px-4 py-3">
-          <div className="flex flex-col gap-3">
+        <div className="md:hidden absolute top-16 left-0 right-0 border-b bg-background px-4 py-3 z-50">
+          <div className="flex flex-col gap-3 items-center text-center">
             <Link href="/" className={cn("text-base", pathname === "/" ? "text-primary" : "text-muted-foreground")} onClick={()=>setMobileOpen(false)}>Home</Link>
             <Link href="/events" className={cn("text-base", pathname === "/events" ? "text-primary" : "text-muted-foreground")} onClick={()=>setMobileOpen(false)}>Events</Link>
             <Link href="/about" className={cn("text-base", pathname === "/about" ? "text-primary" : "text-muted-foreground")} onClick={()=>setMobileOpen(false)}>About</Link>
             <Link href="/faqs" className={cn("text-base", pathname === "/faqs" ? "text-primary" : "text-muted-foreground")} onClick={()=>setMobileOpen(false)}>FAQs</Link>
-            <Link href="/notifications" className="flex items-center justify-between text-base" onClick={()=>setMobileOpen(false)}>
+            <Link href="/notifications" className="flex items-center justify-center gap-2 text-base" onClick={()=>setMobileOpen(false)}>
               <span className={cn(pathname === "/notifications" ? "text-primary" : "text-muted-foreground")}>Notifications</span>
               {unreadCount > 0 && (
                 <span className="min-w-[18px] h-5 px-1 rounded-full bg-primary text-[11px] font-medium text-primary-foreground inline-flex items-center justify-center">

@@ -222,12 +222,12 @@ export default function NotificationsPage() {
     <div className="container mx-auto py-8">
       {/* Header */}
       <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4">
           <div className="flex items-center gap-3">
-            <Bell className="w-8 h-8 text-blue-500" />
+            <Bell className="w-6 h-6 sm:w-8 sm:h-8 text-blue-500" />
             <div>
-              <h1 className="text-3xl font-bold text-white">Notifications</h1>
-              <p className="text-slate-400">
+              <h1 className="text-2xl sm:text-3xl font-bold text-white">Notifications</h1>
+              <p className="text-slate-400 text-sm sm:text-base">
                 {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up!'}
               </p>
             </div>
@@ -235,17 +235,19 @@ export default function NotificationsPage() {
           <Button
             onClick={markAllAsRead}
             disabled={markingAllRead || unreadCount === 0}
-            className="bg-blue-600 hover:bg-blue-700"
+            className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto text-sm sm:text-base"
           >
             {markingAllRead ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Marking...
+                <span className="hidden sm:inline">Marking...</span>
+                <span className="sm:hidden">Marking...</span>
               </>
             ) : (
               <>
                 <CheckCheck className="w-4 h-4 mr-2" />
-                Mark All Read
+                <span className="hidden sm:inline">Mark All Read</span>
+                <span className="sm:hidden">Mark All</span>
               </>
             )}
           </Button>
@@ -263,18 +265,18 @@ export default function NotificationsPage() {
                   placeholder="Search notifications..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-slate-700 border border-slate-600 rounded-md text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full pl-10 pr-4 py-2 bg-slate-700 border border-slate-600 rounded-md text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
                 />
               </div>
             </div>
 
             {/* Filter buttons */}
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <Button
                 variant={filter === 'all' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setFilter('all')}
-                className={filter === 'all' ? 'bg-blue-600 hover:bg-blue-700' : ''}
+                className={`${filter === 'all' ? 'bg-blue-600 hover:bg-blue-700' : ''} w-full sm:w-auto text-xs sm:text-sm`}
               >
                 All ({notifications.length})
               </Button>
@@ -282,7 +284,7 @@ export default function NotificationsPage() {
                 variant={filter === 'unread' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setFilter('unread')}
-                className={filter === 'unread' ? 'bg-blue-600 hover:bg-blue-700' : ''}
+                className={`${filter === 'unread' ? 'bg-blue-600 hover:bg-blue-700' : ''} w-full sm:w-auto text-xs sm:text-sm`}
               >
                 Unread ({unreadCount})
               </Button>
@@ -290,7 +292,7 @@ export default function NotificationsPage() {
                 variant={filter === 'read' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setFilter('read')}
-                className={filter === 'read' ? 'bg-blue-600 hover:bg-blue-700' : ''}
+                className={`${filter === 'read' ? 'bg-blue-600 hover:bg-blue-700' : ''} w-full sm:w-auto text-xs sm:text-sm`}
               >
                 Read ({notifications.length - unreadCount})
               </Button>
@@ -300,7 +302,7 @@ export default function NotificationsPage() {
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
-              className="px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-auto text-sm sm:text-base"
             >
               <option value="all">All Types</option>
               <option value="info">Info</option>
@@ -340,65 +342,62 @@ export default function NotificationsPage() {
           filteredNotifications.map((notification) => (
             <div
               key={notification.id}
-              className={`bg-slate-800/60 border rounded-lg p-4 transition-all hover:bg-slate-800/80 ${
+              className={`bg-slate-800/60 border rounded-lg p-4 transition-all hover:bg-slate-800/80 relative ${
                 !notification.read_at 
                   ? 'border-blue-500/30 bg-blue-500/5' 
                   : 'border-slate-600'
               }`}
             >
-              <div className="flex items-start gap-4">
+              {/* Action buttons positioned absolutely in top right */}
+              <div className="absolute top-2 right-2 flex items-center gap-1">
+                {!notification.read_at && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => markAsRead(notification.id)}
+                    disabled={markingRead === notification.id}
+                    className="text-xs px-2 py-1 h-6 w-6 p-0"
+                  >
+                    {markingRead === notification.id ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Check className="w-3 h-3" />
+                    )}
+                  </Button>
+                )}
+                
+                {notification.link_url && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => router.push(notification.link_url!)}
+                    className="text-xs px-2 py-1 h-6 w-6 p-0"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                  </Button>
+                )}
+              </div>
+
+              <div className="flex items-start gap-4 pr-16">
                 <div className="flex-shrink-0 mt-1">
                   {getNotificationIcon(notification)}
                 </div>
                 
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <h3 className={`font-semibold mb-1 ${
-                        !notification.read_at ? 'text-white' : 'text-slate-300'
-                      }`}>
-                        {notification.title}
-                      </h3>
-                      <p className="text-slate-400 text-sm mb-2 line-clamp-2">
-                        {notification.message}
-                      </p>
-                      <div className="flex items-center gap-4 text-xs text-slate-500">
-                        <span>{formatTimeAgo(notification.created_at)}</span>
-                        <span className="capitalize">{notification.type || notification.level || 'info'}</span>
-                        {notification.event_id && (
-                          <span>Event related</span>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      {!notification.read_at && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => markAsRead(notification.id)}
-                          disabled={markingRead === notification.id}
-                          className="text-xs"
-                        >
-                          {markingRead === notification.id ? (
-                            <Loader2 className="w-3 h-3 animate-spin" />
-                          ) : (
-                            <Check className="w-3 h-3" />
-                          )}
-                        </Button>
-                      )}
-                      
-                      {notification.link_url && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => router.push(notification.link_url!)}
-                          className="text-xs"
-                        >
-                          <ExternalLink className="w-3 h-3" />
-                        </Button>
-                      )}
-                    </div>
+                  <h3 className={`font-semibold mb-1 ${
+                    !notification.read_at ? 'text-white' : 'text-slate-300'
+                  }`}>
+                    {notification.title}
+                  </h3>
+                  <p className="text-slate-400 text-sm mb-2 line-clamp-2">
+                    {notification.message}
+                  </p>
+                  <div className="flex items-center gap-2 text-xs text-slate-500 flex-wrap">
+                    <span className="break-words">{formatTimeAgo(notification.created_at)}</span>
+                    <span className="capitalize break-words">{notification.type || notification.level || 'info'}</span>
+                    {notification.event_id && (
+                      <span className="break-words">Event related</span>
+                    )}
                   </div>
                 </div>
               </div>
