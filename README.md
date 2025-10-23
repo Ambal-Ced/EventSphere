@@ -34,7 +34,7 @@ A comprehensive event management platform built with Next.js 14, Supabase, and T
 1. **Clone the repository**
    ```bash
    git clone <your-repo-url>
-   cd eventtria
+   cd eventsphere
    ```
 
 2. **Install dependencies**
@@ -88,7 +88,7 @@ A comprehensive event management platform built with Next.js 14, Supabase, and T
    ```bash
    # Clone your repository
    git clone <your-repo-url>
-   cd eventtria
+   cd eventsphere
    
    # Install dependencies
    npm install
@@ -97,7 +97,7 @@ A comprehensive event management platform built with Next.js 14, Supabase, and T
    npm run build
    
    # Start with PM2
-   pm2 start npm --name "eventtria" -- start
+   pm2 start npm --name "eventsphere" -- start
    pm2 save
    pm2 startup
    ```
@@ -205,7 +205,7 @@ This project is licensed under the MIT License.
 
 ## 📞 Support
 
-For support, email support@eventtria.com or create an issue in the repository.
+For support, email support@eventsphere.com or create an issue in the repository.
 
 ---
 

@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  eventtria:
+  eventsphere:
     build: .
     ports:
       - "3000:3000"
@@ -14,8 +14,8 @@ services:
     volumes:
       - ./uploads:/app/uploads
     networks:
-      - eventtria-network
+      - eventsphere-network
 
 networks:
-  eventtria-network:
+  eventsphere-network:
     driver: bridge
