@@ -47,6 +47,7 @@ export default function HomeClient() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [eventCountByDate, setEventCountByDate] = useState<Record<string, number>>({});
   const [eventsByDate, setEventsByDate] = useState<Record<string, { id: string; title: string; date: string }[]>>({});
+  const [user, setUser] = useState<any>(null);
   
   // Email change confirmation popup state
   const [emailChangePopup, setEmailChangePopup] = useState<{
@@ -58,6 +59,21 @@ export default function HomeClient() {
 
   // Guard against React StrictMode double-invoking effects in dev
   const hasInitialized = useRef(false);
+
+  // Check authentication status
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+    };
+    checkAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const handlePasswordResetConfirmation = useCallback(async (hash: string) => {
     try {
@@ -717,95 +733,97 @@ export default function HomeClient() {
         </div>
       </section>
 
-      {/* Featured Events Section - CSS Marquee */}
-      <section>
-        <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-3xl font-bold">Featured Events</h2>
-          <Button variant="ghost" className="gap-2" asChild>
-            <Link href="/events">
-              View All <ArrowRight className="h-4 w-4" />
-            </Link>
-          </Button>
-        </div>
+      {/* Featured Events Section - CSS Marquee - Only show when user is logged in */}
+      {user && (
+        <section>
+          <div className="mb-6 flex items-center justify-between">
+            <h2 className="text-3xl font-bold">Featured Events</h2>
+            <Button variant="ghost" className="gap-2" asChild>
+              <Link href="/events">
+                View All <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
 
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <span className="ml-2 text-muted-foreground">
-              Loading events...
-            </span>
-          </div>
-        ) : error ? (
-          <div className="text-center py-12 text-muted-foreground">
-            <p>{error}</p>
-            <Button
-              variant="outline"
-              className="mt-4"
-              onClick={fetchFeaturedEvents}
-            >
-              Try Again
-            </Button>
-          </div>
-        ) : featuredEvents.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">
-            <p>No events found. Be the first to create an event!</p>
-            <Button asChild className="mt-4">
-              <Link href="/create-event">Create Event</Link>
-            </Button>
-          </div>
-        ) : (
-          /* Outer container for overflow and hover pause */
-          <div className="group w-full overflow-hidden">
-            {/* Inner track with animation */}
-            <div className="flex w-max animate-marquee group-hover:[animation-play-state:paused]">
-              {featuredEvents.map((event, index) => (
-                // Individual event card
-                <div
-                  key={`${event.id}-${index}`}
-                  className="w-72 sm:w-80 flex-shrink-0 px-2 sm:px-3"
-                >
-                  <Link
-                    href={`/event/${event.id}`}
-                    className="block group/card relative overflow-hidden rounded-xl border bg-card transition-all duration-300 hover:shadow-lg hover:scale-105"
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <span className="ml-2 text-muted-foreground">
+                Loading events...
+              </span>
+            </div>
+          ) : error ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <p>{error}</p>
+              <Button
+                variant="outline"
+                className="mt-4"
+                onClick={fetchFeaturedEvents}
+              >
+                Try Again
+              </Button>
+            </div>
+          ) : featuredEvents.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <p>No events found. Be the first to create an event!</p>
+              <Button asChild className="mt-4">
+                <Link href="/create-event">Create Event</Link>
+              </Button>
+            </div>
+          ) : (
+            /* Outer container for overflow and hover pause */
+            <div className="group w-full overflow-hidden">
+              {/* Inner track with animation */}
+              <div className="flex w-max animate-marquee group-hover:[animation-play-state:paused]">
+                {featuredEvents.map((event, index) => (
+                  // Individual event card
+                  <div
+                    key={`${event.id}-${index}`}
+                    className="w-72 sm:w-80 flex-shrink-0 px-2 sm:px-3"
                   >
-                    <div className="aspect-video relative">
-                      <Image
-                        src={
-                          event.image_url ||
-                          getDefaultImage((event as any).category)
-                        }
-                        alt={event.title}
-                        fill
-                        className="object-cover brightness-75 transition-transform duration-300"
-                        priority={index < 4}
-                      />
-                    </div>
-                    <div className="p-3 sm:p-4">
-                      <h3 className="mb-2 text-lg sm:text-xl font-semibold line-clamp-1">
-                        {event.title}
-                      </h3>
-                      <p className="text-xs sm:text-sm text-gray-400 line-clamp-2 mb-3 h-8 sm:h-10">
-                        {event.description}
-                      </p>
-                      <div className="flex items-center gap-2 text-xs text-gray-400">
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {formatDate(event.date)}
-                        </div>
-                        <span className="opacity-50">|</span>
-                        <div className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          {event.location}
+                    <Link
+                      href={`/event/${event.id}`}
+                      className="block group/card relative overflow-hidden rounded-xl border bg-card transition-all duration-300 hover:shadow-lg hover:scale-105"
+                    >
+                      <div className="aspect-video relative">
+                        <Image
+                          src={
+                            event.image_url ||
+                            getDefaultImage((event as any).category)
+                          }
+                          alt={event.title}
+                          fill
+                          className="object-cover brightness-75 transition-transform duration-300"
+                          priority={index < 4}
+                        />
+                      </div>
+                      <div className="p-3 sm:p-4">
+                        <h3 className="mb-2 text-lg sm:text-xl font-semibold line-clamp-1">
+                          {event.title}
+                        </h3>
+                        <p className="text-xs sm:text-sm text-gray-400 line-clamp-2 mb-3 h-8 sm:h-10">
+                          {event.description}
+                        </p>
+                        <div className="flex items-center gap-2 text-xs text-gray-400">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {formatDate(event.date)}
+                          </div>
+                          <span className="opacity-50">|</span>
+                          <div className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3" />
+                            {event.location}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </Link>
-                </div>
-              ))}
+                    </Link>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
-      </section>
+          )}
+        </section>
+      )}
 
       {/* Call to Action Section */}
       <section className="rounded-3xl bg-gradient-to-r from-primary/10 via-primary/5 to-background p-8 text-center">
