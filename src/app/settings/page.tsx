@@ -62,10 +62,35 @@ function SettingsContent() {
   useEffect(() => {
     if (searchParams.get('email_changed') === 'true') {
       toast.success('Email address changed successfully!');
+      setEmailChangeStep('success');
+      setNewEmail("");
       // Clean up URL
       router.replace('/settings');
     }
   }, [searchParams, router]);
+
+  // Listen for auth state changes to detect email changes
+  useEffect(() => {
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === "TOKEN_REFRESHED" && session?.user && emailChangeStep === 'confirm') {
+          // Check if the email has actually changed by comparing with the new email we set
+          const currentEmail = session.user.email;
+          if (currentEmail && currentEmail !== user?.email) {
+            // Email change was successful
+            setEmailChangeStep('success');
+            toast.success('Email changed successfully!');
+            setNewEmail("");
+            setUser(session.user); // Update user state
+          }
+        }
+      }
+    );
+
+    return () => {
+      authListener?.subscription.unsubscribe();
+    };
+  }, [emailChangeStep, user?.email]);
 
   // --- Handlers for Password Change ---
   const handlePasswordInputChange = (
@@ -234,12 +259,12 @@ function SettingsContent() {
 
       // Inform the user what to expect based on Supabase settings
       setEmailChangeStep('confirm');
+      setIsChangingEmail(false); // Reset loading state since we're now waiting for confirmation
       toast.success('Email change started. Check your email for the confirmation link.');
     } catch (err: any) {
       console.error('Error changing email:', err);
       setEmailError(err.message || 'Failed to change email. Please try again.');
       toast.error(err.message || 'Failed to change email. Please try again.');
-    } finally {
       setIsChangingEmail(false);
     }
   };

@@ -43,8 +43,8 @@ type Event = Database["public"]["Tables"]["events"]["Row"];
 // Note: Cannot export metadata from a Client Component.
 // Move metadata to layout.tsx or a dedicated server component if needed.
 // export const metadata: Metadata = {
-//   title: "Browse Events - EventSphere",
-//   description: "Find and join upcoming events on EventSphere",
+//   title: "Browse Events - EventTria",
+//   description: "Find and join upcoming events on EventTria",
 // };
 
 function EventsPageContent() {

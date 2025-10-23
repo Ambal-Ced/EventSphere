@@ -1,4 +1,4 @@
-# EventSphere Setup Guide
+# EventTria Setup Guide
 
 ## Environment Variables
 

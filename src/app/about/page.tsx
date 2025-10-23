@@ -7,9 +7,9 @@ import Link from "next/link";
 
 // Cannot export metadata from Client Component
 // export const metadata: Metadata = {
-//   title: "About EventSphere",
+//   title: "About EventTria",
 //   description:
-//     "Learn more about EventSphere's mission, story, values, team, and how to contact us.",
+//     "Learn more about EventTria's mission, story, values, team, and how to contact us.",
 // };
 
 // Team Member Data
@@ -53,14 +53,14 @@ export default function AboutPage() {
   return (
     <div className="container mx-auto max-w-4xl py-12 px-4">
       <h1 className="text-center text-4xl font-bold mb-12">
-        About EventSphere
+        About EventTria
       </h1>
 
       {/* Mission Section */}
       <section className="mb-16 text-center">
         <h2 className="text-3xl font-semibold mb-4">Our Mission</h2>
         <p className="text-lg text-muted-foreground mb-4">
-          At EventSphere, we're committed to transforming how people create,
+          At EventTria, we're committed to transforming how people create,
           manage, and experience events. Our mission is to provide a seamless
           platform that connects event organizers with attendees, making the
           entire event lifecycle simple and enjoyable.
@@ -77,7 +77,7 @@ export default function AboutPage() {
       <section className="mb-16 text-center">
         <h2 className="text-3xl font-semibold mb-4">Our Story</h2>
         <p className="text-lg text-muted-foreground mb-4">
-          EventSphere was founded in 2024 by a group of passionate students who
+          EventTria was founded in 2024 by a group of passionate students who
           recognized the challenges people face when organizing events. We saw an
           opportunity to create a comprehensive platform that makes event
           management accessible to everyone, regardless of their technical
@@ -91,7 +91,7 @@ export default function AboutPage() {
           data-driven decisions.
         </p>
         <p className="text-lg text-muted-foreground">
-          Today, EventSphere empowers event organizers worldwide with
+          Today, EventTria empowers event organizers worldwide with
           intelligent tools that adapt to modern trends, providing them with the
           analytics and insights they need to create successful events while
           simplifying the entire process.

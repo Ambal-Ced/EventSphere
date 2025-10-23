@@ -188,15 +188,15 @@ export function Header() {
         <Link href="/" className="flex items-center gap-2 font-semibold">
           <div className="relative h-8 w-8">
             <Image
-              src="/images/template/eventsphere.webp"
-              alt="EventSphere logo"
+              src="/images/template/eventtria.webp"
+              alt="EventTria logo"
               fill
               className="object-contain rounded-full"
               sizes="(max-width: 768px) 32px, 32px"
               priority
             />
           </div>
-          <span className="text-lg">EventSphere</span>
+          <span className="text-lg">EventTria</span>
         </Link>
       </div>
 
@@ -369,12 +369,24 @@ export function Header() {
           </>
         ) : (
           <>
-            <Button asChild size="sm">
-              <Link href="/login">Log In</Link>
-            </Button>
-            <Button asChild variant="outline" size="sm">
-              <Link href="/register">Sign Up</Link>
-            </Button>
+            {/* Desktop buttons */}
+            <div className="hidden sm:flex items-center gap-2">
+              <Button asChild size="sm">
+                <Link href="/login">Log In</Link>
+              </Button>
+              <Button asChild variant="outline" size="sm">
+                <Link href="/register">Sign Up</Link>
+              </Button>
+            </div>
+            
+            {/* Mobile hamburger menu for non-authenticated users */}
+            <button
+              className="sm:hidden inline-flex h-10 w-10 items-center justify-center rounded-md hover:bg-muted/50"
+              aria-label="Open menu"
+              onClick={() => setMobileOpen((v) => !v)}
+            >
+              {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
           </>
         )}
       </div>
@@ -386,14 +398,31 @@ export function Header() {
             <Link href="/events" className={cn("text-base", pathname === "/events" ? "text-primary" : "text-muted-foreground")} onClick={()=>setMobileOpen(false)}>Events</Link>
             <Link href="/about" className={cn("text-base", pathname === "/about" ? "text-primary" : "text-muted-foreground")} onClick={()=>setMobileOpen(false)}>About</Link>
             <Link href="/faqs" className={cn("text-base", pathname === "/faqs" ? "text-primary" : "text-muted-foreground")} onClick={()=>setMobileOpen(false)}>FAQs</Link>
-            <Link href="/notifications" className="flex items-center justify-center gap-2 text-base" onClick={()=>setMobileOpen(false)}>
-              <span className={cn(pathname === "/notifications" ? "text-primary" : "text-muted-foreground")}>Notifications</span>
-              {unreadCount > 0 && (
-                <span className="min-w-[18px] h-5 px-1 rounded-full bg-primary text-[11px] font-medium text-primary-foreground inline-flex items-center justify-center">
-                  {Math.min(unreadCount, 99)}
-                </span>
-              )}
-            </Link>
+            
+            {/* Show notifications only for authenticated users */}
+            {user && (
+              <Link href="/notifications" className="flex items-center justify-center gap-2 text-base" onClick={()=>setMobileOpen(false)}>
+                <span className={cn(pathname === "/notifications" ? "text-primary" : "text-muted-foreground")}>Notifications</span>
+                {unreadCount > 0 && (
+                  <span className="min-w-[18px] h-5 px-1 rounded-full bg-primary text-[11px] font-medium text-primary-foreground inline-flex items-center justify-center">
+                    {Math.min(unreadCount, 99)}
+                  </span>
+                )}
+              </Link>
+            )}
+            
+            {/* Show login/signup buttons for non-authenticated users */}
+            {!user && (
+              <>
+                <div className="w-full border-t my-2"></div>
+                <Button asChild className="w-full" onClick={()=>setMobileOpen(false)}>
+                  <Link href="/login">Log In</Link>
+                </Button>
+                <Button asChild variant="outline" className="w-full" onClick={()=>setMobileOpen(false)}>
+                  <Link href="/register">Sign Up</Link>
+                </Button>
+              </>
+            )}
           </div>
         </div>
       )}

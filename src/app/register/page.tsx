@@ -26,8 +26,8 @@ import HCaptcha from "@hcaptcha/react-hcaptcha";
 
 // Cannot export metadata from Client Component
 // export const metadata: Metadata = {
-//   title: "Create Account - EventSphere",
-//   description: "Sign up for a new EventSphere account.",
+//   title: "Create Account - EventTria",
+//   description: "Sign up for a new EventTria account.",
 // };
 
 const interestsList = [

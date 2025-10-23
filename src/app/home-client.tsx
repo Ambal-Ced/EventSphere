@@ -612,10 +612,10 @@ export default function HomeClient() {
         </div>
       </section>
 
-      {/* How to Use EventSphere Section */}
+      {/* How to Use EventTria Section */}
       <section>
         <h2 className="text-center text-3xl font-bold mb-12">
-          How to Use EventSphere
+          How to Use EventTria
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* Step 1 */}
@@ -811,7 +811,7 @@ export default function HomeClient() {
       <section className="rounded-3xl bg-gradient-to-r from-primary/10 via-primary/5 to-background p-8 text-center">
         <h2 className="text-3xl font-bold mb-4">Ready to Get Started?</h2>
         <p className="text-lg text-muted-foreground mb-6">
-          Join thousands of event organizers and attendees on EventSphere
+          Join thousands of event organizers and attendees on EventTria
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Button

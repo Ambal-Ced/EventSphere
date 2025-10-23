@@ -169,8 +169,13 @@ function VerifyEmailContent() {
 
               setCurrentEmailConfirmed(true);
               try { if (typeof window !== 'undefined') window.localStorage.setItem('emailChange:currentConfirmed', '1'); } catch {}
-              setStatus('awaiting');
-              setMessage('Current email confirmed. Waiting for confirmation from the other email if not yet done.');
+              setStatus('success');
+              setMessage('Email changed successfully! Redirecting to settings...');
+              
+              // Redirect to settings with success parameter
+              setTimeout(() => {
+                router.push('/settings?email_changed=true');
+              }, 2000);
               return;
             }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useCallback, memo, Suspense, lazy, useState, useEffect } from "react";
+import React, { useMemo, useCallback, memo, useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -48,25 +48,6 @@ const sidebarLinksConfig = [
     authRequired: false,
   },
 ] as const;
-
-// Memoized loading skeleton component
-const SidebarSkeleton = memo(() => (
-  <div className="sticky top-16 h-[calc(100vh-4rem)] w-64 border-r bg-background p-4">
-    <div className="space-y-2">
-      {sidebarLinksConfig.map((_, index) => (
-        <div
-          key={index}
-          className="flex items-center space-x-3 rounded-lg px-3 py-2"
-        >
-          <div className="h-5 w-5 rounded bg-muted animate-pulse" />
-          <div className="h-4 flex-1 rounded bg-muted animate-pulse" />
-        </div>
-      ))}
-    </div>
-  </div>
-));
-
-SidebarSkeleton.displayName = "SidebarSkeleton";
 
 // Memoized sidebar link component
 const SidebarLink = memo(
@@ -121,113 +102,96 @@ const SidebarLink = memo(
 
 SidebarLink.displayName = "SidebarLink";
 
-// Lazy-loaded sidebar content component
-const SidebarContent = lazy(() =>
-  Promise.resolve({
-    default: memo(({ isOpen }: { isOpen: boolean }) => {
-      const pathname = usePathname();
-      const router = useRouter();
-      const { user, loading, signOut } = useAuth();
+// Static sidebar content component (no lazy loading)
+const SidebarContent = memo(({ isOpen }: { isOpen: boolean }) => {
+  const pathname = usePathname();
+  const router = useRouter();
+  const { user, signOut } = useAuth();
 
-      const isAuthenticated = useMemo(() => !!user, [user]);
-      const activePath = useMemo(() => pathname, [pathname]);
-      const isAllDisabled = useMemo(() => !isAuthenticated, [isAuthenticated]);
+  const isAuthenticated = useMemo(() => !!user, [user]);
+  const activePath = useMemo(() => pathname, [pathname]);
+  const isAllDisabled = useMemo(() => !isAuthenticated, [isAuthenticated]);
 
-      const handleLogout = useCallback(async () => {
-        try {
-          await signOut();
-          // Force refresh to homepage after logout
-          window.location.href = "/";
-        } catch (err) {
-          console.error("Logout failed:", err);
-          // Still redirect even if logout fails
-          window.location.href = "/";
-        }
-      }, [signOut]);
+  const handleLogout = useCallback(async () => {
+    try {
+      await signOut();
+      // Force refresh to homepage after logout
+      window.location.href = "/";
+    } catch (err) {
+      console.error("Logout failed:", err);
+      // Still redirect even if logout fails
+      window.location.href = "/";
+    }
+  }, [signOut]);
 
-      const handleLinkClick = useCallback(
-        (e: React.MouseEvent, isDisabled: boolean) => {
-          if (isDisabled) {
-            e.preventDefault();
-          }
-        },
-        []
-      );
+  const handleLinkClick = useCallback(
+    (e: React.MouseEvent, isDisabled: boolean) => {
+      if (isDisabled) {
+        e.preventDefault();
+      }
+    },
+    []
+  );
 
-      const sidebarLinks = useMemo(
-        () =>
-          sidebarLinksConfig.map((link) => {
-            const isActive = activePath === link.href;
-            const isDisabled =
-              isAllDisabled || (link.authRequired && !isAuthenticated);
-
-            return (
-              <SidebarLink
-                key={link.href}
-                link={link}
-                isActive={isActive}
-                isDisabled={isDisabled}
-                onClick={(e) => handleLinkClick(e, isDisabled)}
-                showLabel={isOpen}
-              />
-            );
-          }),
-        [activePath, isAllDisabled, isAuthenticated, handleLinkClick, isOpen]
-      );
-
-      const logoutButton = useMemo(() => {
-        if (!isAuthenticated) return null;
+  const sidebarLinks = useMemo(
+    () =>
+      sidebarLinksConfig.map((link) => {
+        const isActive = activePath === link.href;
+        const isDisabled =
+          isAllDisabled || (link.authRequired && !isAuthenticated);
 
         return (
-          <div className={cn("mt-auto border-t p-4", !isOpen && "hidden") }>
-            <Button
-              variant="ghost"
-              onClick={handleLogout}
-              className="w-full justify-start gap-2 px-3 text-sm font-medium text-red-600 hover:bg-red-50 hover:text-red-700"
-            >
-              <LogOut className="h-5 w-5" />
-              <span>Log Out</span>
-            </Button>
-          </div>
+          <SidebarLink
+            key={link.href}
+            link={link}
+            isActive={isActive}
+            isDisabled={isDisabled}
+            onClick={(e) => handleLinkClick(e, isDisabled)}
+            showLabel={isOpen}
+          />
         );
-      }, [isAuthenticated, handleLogout, isOpen]);
+      }),
+    [activePath, isAllDisabled, isAuthenticated, handleLinkClick, isOpen]
+  );
 
-      if (loading) {
-        return <SidebarSkeleton />;
-      }
+  const logoutButton = useMemo(() => {
+    if (!isAuthenticated) return null;
 
-      return (
-        <div className="flex h-full flex-col">
-          <nav
-            className={cn(
-              "flex-1 p-3 md:p-4",
-              isOpen ? "space-y-2" : "space-y-4 flex flex-col items-center"
-            )}
-          >
-            {sidebarLinks}
-          </nav>
-          {logoutButton}
-        </div>
-      );
-    }),
-  })
-);
+    return (
+      <div className={cn("mt-auto border-t p-4", !isOpen && "hidden") }>
+        <Button
+          variant="ghost"
+          onClick={handleLogout}
+          className="w-full justify-start gap-2 px-3 text-sm font-medium text-red-600 hover:bg-red-50 hover:text-red-700"
+        >
+          <LogOut className="h-5 w-5" />
+          <span>Log Out</span>
+        </Button>
+      </div>
+    );
+  }, [isAuthenticated, handleLogout, isOpen]);
 
-// Main sidebar component with lazy loading
+  return (
+    <div className="flex h-full flex-col">
+      <nav
+        className={cn(
+          "flex-1 p-3 md:p-4",
+          isOpen ? "space-y-2" : "space-y-4 flex flex-col items-center"
+        )}
+      >
+        {sidebarLinks}
+      </nav>
+      {logoutButton}
+    </div>
+  );
+});
+
+SidebarContent.displayName = "SidebarContent";
+
+// Main sidebar component (optimized for speed)
 export const Sidebar = memo(() => {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(false); // Closed by default
   const [isTouch, setIsTouch] = useState(false);
-
-  // Collapse by default on small screens
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 767px)');
-    setOpen(!mq.matches ? true : false);
-  }, []);
-
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 767px)');
-    if (mq.matches) setOpen(false); // always collapsed on small screens
-  }, []);
 
   // Detect touch / non-hover devices to switch to click-to-toggle behavior
   useEffect(() => {
@@ -252,10 +216,8 @@ export const Sidebar = memo(() => {
         onMouseLeave={isTouch ? undefined : () => setOpen(false)}
         onClick={isTouch ? () => setOpen((v) => !v) : undefined}
       >
-      <Suspense fallback={<SidebarSkeleton />}>
-          <SidebarContent isOpen={open} />
-      </Suspense>
-    </div>
+        <SidebarContent isOpen={open} />
+      </div>
     </>
   );
 });

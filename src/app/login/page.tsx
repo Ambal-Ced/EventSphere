@@ -110,7 +110,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md rounded-lg bg-background p-4 sm:p-6 md:p-8 shadow-lg">
         <h1 className="mb-2 text-center text-2xl sm:text-3xl font-bold">Sign In</h1>
         <p className="mb-6 sm:mb-8 text-center text-sm sm:text-base text-muted-foreground">
-          Access your EventSphere account
+          Access your EventTria account
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">

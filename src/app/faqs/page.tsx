@@ -11,25 +11,25 @@ import {
 
 // Cannot export metadata from Client Component
 // export const metadata: Metadata = {
-//   title: "FAQs - EventSphere",
-//   description: "Frequently asked questions about EventSphere's platform and services.",
+//   title: "FAQs - EventTria",
+//   description: "Frequently asked questions about EventTria's platform and services.",
 // };
 
 const faqs = [
   {
-    question: "What is EventSphere?",
+    question: "What is EventTria?",
     answer:
-      "EventSphere is a comprehensive event management platform that helps organizers create, manage, and promote events of all sizes. Our platform provides tools for ticketing, attendee management, analytics, and more.",
+      "EventTria is a comprehensive event management platform that helps organizers create, manage, and promote events of all sizes. Our platform provides tools for ticketing, attendee management, analytics, and more.",
   },
   {
     question: "How do I create an account?",
     answer:
-      "Creating an account is simple! Click the 'Register' button in the top right corner of the page, fill in your details (email, password, and username), and you're ready to start using EventSphere.",
+      "Creating an account is simple! Click the 'Register' button in the top right corner of the page, fill in your details (email, password, and username), and you're ready to start using EventTria.",
   },
   {
-    question: "Is EventSphere free to use?",
+    question: "Is EventTria free to use?",
     answer:
-      "EventSphere offers both free and premium features. You can create and manage basic events for free, while premium features like advanced analytics and custom branding are available with our paid plans.",
+      "EventTria offers both free and premium features. You can create and manage basic events for free, while premium features like advanced analytics and custom branding are available with our paid plans.",
   },
   {
     question: "How do I create my first event?",
@@ -37,14 +37,14 @@ const faqs = [
       "After logging in, click on 'My Events' in the sidebar, then click the 'Create Event' button. Fill in your event details including title, date, location, and description. You can also add tickets, set prices, and customize your event page.",
   },
   {
-    question: "Can I sell tickets through EventSphere?",
+    question: "Can I sell tickets through EventTria?",
     answer:
-      "Yes! EventSphere provides a secure ticketing system. You can create different ticket types, set prices, and manage sales. We handle the payment processing and ticket delivery automatically.",
+      "Yes! EventTria provides a secure ticketing system. You can create different ticket types, set prices, and manage sales. We handle the payment processing and ticket delivery automatically.",
   },
   {
     question: "How do attendees receive their tickets?",
     answer:
-      "After purchasing, attendees receive their tickets via email. Each ticket includes a unique QR code that can be scanned at the event for check-in. Tickets can also be accessed through their EventSphere account.",
+      "After purchasing, attendees receive their tickets via email. Each ticket includes a unique QR code that can be scanned at the event for check-in. Tickets can also be accessed through their EventTria account.",
   },
   {
     question: "What payment methods are accepted?",
@@ -62,9 +62,9 @@ const faqs = [
       "Yes, organizers can issue full or partial refunds through their event dashboard up until the event date. Refund policies can be customized for each event.",
   },
   {
-    question: "Does EventSphere work for virtual events?",
+    question: "Does EventTria work for virtual events?",
     answer:
-      "Absolutely! EventSphere supports virtual events with features like streaming integration, virtual networking rooms, and digital content delivery. You can manage virtual attendees just like in-person events.",
+      "Absolutely! EventTria supports virtual events with features like streaming integration, virtual networking rooms, and digital content delivery. You can manage virtual attendees just like in-person events.",
   },
 ];
 
@@ -75,7 +75,7 @@ export default function FAQsPage() {
         Frequently Asked Questions
       </h1>
       <p className="text-lg text-muted-foreground text-center mb-8">
-        Have questions about EventSphere? Find answers to commonly asked
+        Have questions about EventTria? Find answers to commonly asked
         questions below. If you can't find what you're looking for, please
         contact our support team.
       </p>

@@ -1,6 +1,6 @@
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Profile - EventSphere",
-  description: "Manage your EventSphere profile",
+  title: "Profile - EventTria",
+  description: "Manage your EventTria profile",
 };
