@@ -250,9 +250,18 @@ export default function HomeClient() {
   useEffect(() => {
     if (hasInitialized.current) return;
     hasInitialized.current = true;
-    fetchFeaturedEvents();
-    fetchCategories();
-  }, []);
+    
+    // Only fetch data if user is logged in
+    if (user) {
+      fetchFeaturedEvents();
+      fetchCategories();
+    } else {
+      // If no user, set loading to false and clear any existing data
+      setIsLoading(false);
+      setFeaturedEvents([]);
+      setCategories([]);
+    }
+  }, [user]);
 
   const fetchFeaturedEvents = async () => {
     try {
@@ -468,7 +477,7 @@ export default function HomeClient() {
 
   return (
     <>
-    <div className="flex flex-col gap-12">
+    <div className="flex flex-col gap-12 overflow-x-hidden">
       {/* Hero Section */}
       <section className="relative min-h-[360px] h-[420px] sm:h-[480px] md:h-[500px] w-full overflow-hidden rounded-3xl">
         {/* Background Image */}
@@ -774,7 +783,7 @@ export default function HomeClient() {
             /* Outer container for overflow and hover pause */
             <div className="group w-full overflow-hidden">
               {/* Inner track with animation */}
-              <div className="flex w-max animate-marquee group-hover:[animation-play-state:paused]">
+              <div className="flex w-max animate-marquee group-hover:[animation-play-state:paused] min-w-0">
                 {featuredEvents.map((event, index) => (
                   // Individual event card
                   <div

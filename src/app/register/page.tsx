@@ -64,6 +64,7 @@ export default function RegisterPage() {
   const [termsOpen, setTermsOpen] = useState(false);
   const [termsChecked, setTermsChecked] = useState(false);
   const [postSignupOpen, setPostSignupOpen] = useState(false);
+  const [isResendScenario, setIsResendScenario] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const captchaRef = useRef<HCaptcha>(null);
 
@@ -144,7 +145,30 @@ export default function RegisterPage() {
 
       if (error) {
         console.error("Sign up error:", error);
-        setPostSignupOpen(true);
+        
+        // Check if the error is due to existing unconfirmed email
+        if (error.message.includes('already registered') || error.message.includes('User already registered')) {
+          // Try to resend confirmation email for existing unconfirmed user
+          const { error: resendError } = await supabase.auth.resend({
+            type: 'signup',
+            email: formData.email,
+            options: {
+              emailRedirectTo: `${window.location.origin}/auth/verify-email`,
+            },
+          });
+          
+          if (resendError) {
+            console.error("Resend error:", resendError);
+            setErrors({ email: "Failed to resend confirmation email. Please try again." });
+          } else {
+            // Successfully resent confirmation email
+            setIsResendScenario(true);
+            setPostSignupOpen(true);
+          }
+        } else {
+          // Other signup errors
+          setErrors({ email: error.message });
+        }
       } else if (data.user) {
         // Create a basic profile entry for the user
         const { error: profileError } = await supabase
@@ -184,7 +208,7 @@ export default function RegisterPage() {
       }
     } catch (error: any) {
       console.error("Registration process error:", error);
-      setPostSignupOpen(true);
+      setErrors({ email: "An unexpected error occurred. Please try again." });
     } finally {
       setIsLoading(false);
     }
@@ -373,14 +397,23 @@ export default function RegisterPage() {
         </Dialog>
 
         {/* Post-signup Modal */}
-        <Dialog open={postSignupOpen} onOpenChange={setPostSignupOpen}>
+        <Dialog open={postSignupOpen} onOpenChange={(open) => {
+          setPostSignupOpen(open);
+          if (!open) {
+            setIsResendScenario(false);
+          }
+        }}>
           <DialogContent className="max-w-md text-center">
             <DialogHeader>
-              <DialogTitle>Verify Your Email</DialogTitle>
+              <DialogTitle>
+                {isResendScenario ? "Confirmation Email Resent" : "Verify Your Email"}
+              </DialogTitle>
             </DialogHeader>
             <p className="text-sm text-muted-foreground">
-              An email has been sent to your address. Please verify your
-              account, then sign in to continue.
+              {isResendScenario 
+                ? "A new confirmation email has been sent to your address. Please check your inbox and verify your account, then sign in to continue."
+                : "An email has been sent to your address. Please verify your account, then sign in to continue."
+              }
             </p>
             <DialogFooter className="mt-4">
               <Button onClick={() => router.push("/login")}>OK</Button>
