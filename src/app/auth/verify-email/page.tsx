@@ -19,74 +19,204 @@ function VerifyEmailContent() {
 
   useEffect(() => {
     const verifyEmail = async () => {
-      // First, check if Supabase redirected with URL hash parameters
-      const hash = typeof window !== 'undefined' ? window.location.hash : '';
-      if (hash) {
-        const urlParams = new URLSearchParams(hash.substring(1));
-        const accessToken = urlParams.get('access_token');
-        const refreshToken = urlParams.get('refresh_token');
-        const hashType = urlParams.get('type');
-        const hashMessage = urlParams.get('message');
+      // Add a timeout to prevent infinite loading
+      const timeoutId = setTimeout(() => {
+        if (status === 'verifying') {
+          setStatus('error');
+          setMessage('Verification timed out. Please try again or contact support.');
+        }
+      }, 10000); // 10 second timeout
 
-        // Merge any prior confirmation state from localStorage
-        try {
-          const storedNew = typeof window !== 'undefined' ? window.localStorage.getItem('emailChange:newConfirmed') : null;
-          const storedCurrent = typeof window !== 'undefined' ? window.localStorage.getItem('emailChange:currentConfirmed') : null;
-          if (storedNew === '1') setNewEmailConfirmed(true);
-          if (storedCurrent === '1') setCurrentEmailConfirmed(true);
-        } catch {}
+      try {
+        // First, check if Supabase redirected with URL hash parameters
+        const hash = typeof window !== 'undefined' ? window.location.hash : '';
+        if (hash) {
+          const urlParams = new URLSearchParams(hash.substring(1));
+          const accessToken = urlParams.get('access_token');
+          const refreshToken = urlParams.get('refresh_token');
+          const hashType = urlParams.get('type');
+          const hashMessage = urlParams.get('message');
 
-        // If it's the first step of email change (new email): only a message is present
-        if (hashMessage && !accessToken && !refreshToken) {
-          setNewEmailConfirmed(true);
-          try { if (typeof window !== 'undefined') window.localStorage.setItem('emailChange:newConfirmed', '1'); } catch {}
-          setStatus('awaiting');
-          setMessage(hashMessage);
-          return;
+          // Merge any prior confirmation state from localStorage
+          try {
+            const storedNew = typeof window !== 'undefined' ? window.localStorage.getItem('emailChange:newConfirmed') : null;
+            const storedCurrent = typeof window !== 'undefined' ? window.localStorage.getItem('emailChange:currentConfirmed') : null;
+            if (storedNew === '1') setNewEmailConfirmed(true);
+            if (storedCurrent === '1') setCurrentEmailConfirmed(true);
+          } catch {}
+
+          // If it's the first step of email change (new email): only a message is present
+          if (hashMessage && !accessToken && !refreshToken) {
+            setNewEmailConfirmed(true);
+            try { if (typeof window !== 'undefined') window.localStorage.setItem('emailChange:newConfirmed', '1'); } catch {}
+            setStatus('awaiting');
+            setMessage(hashMessage);
+            clearTimeout(timeoutId);
+            return;
+          }
+
+          // If tokens are present (e.g., second step or direct verify via hash), set session and proceed
+          if (accessToken && refreshToken) {
+            try {
+              const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+                access_token: accessToken,
+                refresh_token: refreshToken,
+              });
+
+              if (sessionError) {
+                throw sessionError;
+              }
+
+              if (hashType === 'email_change') {
+                // Handle email change verification once session is established
+                if (sessionData?.user) {
+                  const { error: profileError } = await supabase
+                    .from("profiles")
+                    .update({ email: sessionData.user.email })
+                    .eq("id", sessionData.user.id);
+
+                  if (profileError) {
+                    console.error("Error updating profile email:", profileError);
+                    setStatus('error');
+                    setMessage('Email changed but failed to update profile. Please contact support.');
+                    clearTimeout(timeoutId);
+                    return;
+                  }
+
+                  setCurrentEmailConfirmed(true);
+                  try { if (typeof window !== 'undefined') window.localStorage.setItem('emailChange:currentConfirmed', '1'); } catch {}
+                  setStatus('awaiting');
+                  setMessage('Current email confirmed. Waiting for confirmation from the other email if not yet done.');
+                  clearTimeout(timeoutId);
+                  return;
+                }
+              }
+
+              // Fallback: if not email_change, route to home or complete-profile depending on profile
+              if (sessionData?.user) {
+                const { data: profile, error: profileError } = await supabase
+                  .from("profiles")
+                  .select("*")
+                  .eq("id", sessionData.user.id)
+                  .single();
+
+                console.log("Hash-based profile check:", { profile, profileError, userId: sessionData.user.id });
+
+                const requiredFields = [
+                  "username",
+                  "fname",
+                  "lname",
+                  "address",
+                  "contact_no",
+                  "birthday",
+                  "gender",
+                ];
+
+                const isProfileIncomplete = !profile || requiredFields.some((field) => {
+                  const value = (profile as any)[field];
+                  return !value || value === null || value === undefined || value === "";
+                });
+
+                console.log("Hash-based profile incomplete:", isProfileIncomplete, "Required fields missing:", requiredFields.filter(field => {
+                  const value = profile?.[field];
+                  return !value || value === null || value === undefined || value === "";
+                }));
+
+                // For non-email-change flows, keep original behavior
+                if (profileError) {
+                  console.error("Hash-based profile error:", profileError);
+                  router.push("/complete-profile");
+                } else if (isProfileIncomplete) {
+                  console.log("Hash-based redirecting to complete-profile - profile incomplete");
+                  router.push("/complete-profile");
+                } else {
+                  console.log("Hash-based profile complete, redirecting to home");
+                  router.push("/");
+                }
+                clearTimeout(timeoutId);
+                return;
+              }
+            } catch (error) {
+              console.error('Error handling hash-based verification:', error);
+              setStatus('error');
+              setMessage('Verification failed. The link may have expired or is invalid.');
+              clearTimeout(timeoutId);
+              return;
+            }
+          }
         }
 
-        // If tokens are present (e.g., second step or direct verify via hash), set session and proceed
-        if (accessToken && refreshToken) {
+        // Legacy/query-based flow
+        if (token && (type === "email" || type === "email_change" || type === "recovery")) {
           try {
-            const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken,
+            const { error } = await supabase.auth.verifyOtp({
+              token_hash: token,
+              type: type === "recovery" ? "recovery" : "email",
             });
 
-            if (sessionError) {
-              throw sessionError;
+            if (error) {
+              console.error("Error verifying token:", error.message);
+              setStatus('error');
+              setMessage('Verification failed. The link may have expired or is invalid.');
+              clearTimeout(timeoutId);
+              return;
             }
 
-            if (hashType === 'email_change') {
-              // Handle email change verification once session is established
-              if (sessionData?.user) {
+            // Get the current user's session
+            const {
+              data: { session },
+            } = await supabase.auth.getSession();
+
+            if (session?.user) {
+              // Handle password reset verification
+              if (type === "recovery") {
+                setStatus('success');
+                setMessage('Password reset link verified! You can now reset your password.');
+                
+                // Redirect to reset password page after 2 seconds
+                setTimeout(() => {
+                  router.push(`/auth/reset-password?token=${token}&type=recovery`);
+                }, 2000);
+                clearTimeout(timeoutId);
+                return;
+              }
+
+              // Handle email change verification (query-based): mirror unified flow
+              if (type === "email_change") {
                 const { error: profileError } = await supabase
                   .from("profiles")
-                  .update({ email: sessionData.user.email })
-                  .eq("id", sessionData.user.id);
+                  .update({ email: session.user.email })
+                  .eq("id", session.user.id);
 
                 if (profileError) {
                   console.error("Error updating profile email:", profileError);
                   setStatus('error');
                   setMessage('Email changed but failed to update profile. Please contact support.');
+                  clearTimeout(timeoutId);
                   return;
                 }
 
                 setCurrentEmailConfirmed(true);
                 try { if (typeof window !== 'undefined') window.localStorage.setItem('emailChange:currentConfirmed', '1'); } catch {}
-                setStatus('awaiting');
-                setMessage('Current email confirmed. Waiting for confirmation from the other email if not yet done.');
+                setStatus('success');
+                setMessage('Email changed successfully! Redirecting to settings...');
+                
+                // Redirect to settings with success parameter
+                setTimeout(() => {
+                  router.push('/settings?email_changed=true');
+                }, 2000);
+                clearTimeout(timeoutId);
                 return;
               }
-            }
 
-            // Fallback: if not email_change, route to home or complete-profile depending on profile
-            if (sessionData?.user) {
+              // Regular email verification flow
               const { data: profile, error: profileError } = await supabase
                 .from("profiles")
                 .select("*")
-                .eq("id", sessionData.user.id)
+                .eq("id", session.user.id)
                 .single();
+
+              console.log("Profile check:", { profile, profileError, userId: session.user.id });
 
               const requiredFields = [
                 "username",
@@ -98,135 +228,54 @@ function VerifyEmailContent() {
                 "gender",
               ];
 
+              // Check if profile exists and has all required fields
               const isProfileIncomplete = !profile || requiredFields.some((field) => {
-                const value = (profile as any)[field];
+                const value = profile[field];
                 return !value || value === null || value === undefined || value === "";
               });
 
-              // For non-email-change flows, keep original behavior
-              if (profileError || isProfileIncomplete) {
+              console.log("Profile incomplete:", isProfileIncomplete, "Required fields missing:", requiredFields.filter(field => {
+                const value = profile?.[field];
+                return !value || value === null || value === undefined || value === "";
+              }));
+
+              if (profileError) {
+                console.error("Profile error during verification:", profileError);
+                // If profile doesn't exist, redirect to complete-profile
+                router.push("/complete-profile");
+              } else if (isProfileIncomplete) {
+                console.log("Redirecting to complete-profile - profile incomplete");
                 router.push("/complete-profile");
               } else {
+                console.log("Profile complete, redirecting to home");
                 router.push("/");
               }
+              clearTimeout(timeoutId);
               return;
             }
           } catch (error) {
-            console.error('Error handling hash-based verification:', error);
+            console.error("Error during email verification:", error);
             setStatus('error');
-            setMessage('Verification failed. The link may have expired or is invalid.');
+            setMessage('An unexpected error occurred during verification.');
+            clearTimeout(timeoutId);
             return;
           }
-        }
-      }
-
-      // Legacy/query-based flow
-      if (token && (type === "email" || type === "email_change" || type === "recovery")) {
-        try {
-          const { error } = await supabase.auth.verifyOtp({
-            token_hash: token,
-            type: type === "recovery" ? "recovery" : "email",
-          });
-
-          if (error) {
-            console.error("Error verifying token:", error.message);
-            setStatus('error');
-            setMessage('Verification failed. The link may have expired or is invalid.');
-            return;
-          }
-
-          // Get the current user's session
-          const {
-            data: { session },
-          } = await supabase.auth.getSession();
-
-          if (session?.user) {
-            // Handle password reset verification
-            if (type === "recovery") {
-              setStatus('success');
-              setMessage('Password reset link verified! You can now reset your password.');
-              
-              // Redirect to reset password page after 2 seconds
-              setTimeout(() => {
-                router.push(`/auth/reset-password?token=${token}&type=recovery`);
-              }, 2000);
-              return;
-            }
-
-            // Handle email change verification (query-based): mirror unified flow
-            if (type === "email_change") {
-              const { error: profileError } = await supabase
-                .from("profiles")
-                .update({ email: session.user.email })
-                .eq("id", session.user.id);
-
-              if (profileError) {
-                console.error("Error updating profile email:", profileError);
-                setStatus('error');
-                setMessage('Email changed but failed to update profile. Please contact support.');
-                return;
-              }
-
-              setCurrentEmailConfirmed(true);
-              try { if (typeof window !== 'undefined') window.localStorage.setItem('emailChange:currentConfirmed', '1'); } catch {}
-              setStatus('success');
-              setMessage('Email changed successfully! Redirecting to settings...');
-              
-              // Redirect to settings with success parameter
-              setTimeout(() => {
-                router.push('/settings?email_changed=true');
-              }, 2000);
-              return;
-            }
-
-            // Regular email verification flow
-            const { data: profile, error: profileError } = await supabase
-              .from("profiles")
-              .select("*")
-              .eq("id", session.user.id)
-              .single();
-
-            console.log("Profile check:", { profile, profileError });
-
-            const requiredFields = [
-              "username",
-              "fname",
-              "lname",
-              "address",
-              "contact_no",
-              "birthday",
-              "gender",
-            ];
-
-            // Check if profile exists and has all required fields
-            const isProfileIncomplete = !profile || requiredFields.some((field) => {
-              const value = profile[field];
-              return !value || value === null || value === undefined || value === "";
-            });
-
-            console.log("Profile incomplete:", isProfileIncomplete);
-
-            if (profileError || isProfileIncomplete) {
-              console.log("Redirecting to complete-profile");
-              router.push("/complete-profile");
-            } else {
-              console.log("Profile complete, redirecting to home");
-              router.push("/");
-            }
-          }
-        } catch (error) {
-          console.error("Error during email verification:", error);
+        } else {
+          // No valid parameters found
           setStatus('error');
-          setMessage('An unexpected error occurred during verification.');
+          setMessage('Invalid verification link. Please check your email for the correct verification link.');
+          clearTimeout(timeoutId);
         }
-      } else {
+      } catch (error) {
+        console.error("Unexpected error in verifyEmail:", error);
         setStatus('error');
-        setMessage('Invalid verification link.');
+        setMessage('An unexpected error occurred. Please try again.');
+        clearTimeout(timeoutId);
       }
     };
 
     verifyEmail();
-  }, [token, type, router]);
+  }, [token, type, router, status]);
 
   const renderContent = () => {
     switch (status) {

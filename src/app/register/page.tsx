@@ -182,6 +182,11 @@ export default function RegisterPage() {
 
         if (profileError) {
           console.error("Profile creation error:", profileError);
+          // Don't fail the entire registration if profile creation fails
+          // The user can still verify their email and complete their profile later
+          console.warn("Profile creation failed, but user can complete profile after verification");
+        } else {
+          console.log("Profile created successfully for user:", data.user.id);
         }
 
         // Send custom verification email using our email service
