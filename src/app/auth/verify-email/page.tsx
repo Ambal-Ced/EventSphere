@@ -30,12 +30,16 @@ function VerifyEmailContent() {
       try {
         // First, check if Supabase redirected with URL hash parameters
         const hash = typeof window !== 'undefined' ? window.location.hash : '';
+        console.log('Verification hash:', hash);
+        
         if (hash) {
           const urlParams = new URLSearchParams(hash.substring(1));
           const accessToken = urlParams.get('access_token');
           const refreshToken = urlParams.get('refresh_token');
           const hashType = urlParams.get('type');
           const hashMessage = urlParams.get('message');
+
+          console.log('Hash parameters:', { accessToken: accessToken ? 'present' : 'missing', refreshToken: refreshToken ? 'present' : 'missing', hashType, hashMessage });
 
           // Merge any prior confirmation state from localStorage
           try {
@@ -57,13 +61,17 @@ function VerifyEmailContent() {
 
           // If tokens are present (e.g., second step or direct verify via hash), set session and proceed
           if (accessToken && refreshToken) {
+            console.log('Processing tokens for session setup...');
             try {
               const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
                 access_token: accessToken,
                 refresh_token: refreshToken,
               });
 
+              console.log('Session setup result:', { sessionData: sessionData ? 'success' : 'null', sessionError });
+
               if (sessionError) {
+                console.error('Session setup error:', sessionError);
                 throw sessionError;
               }
 
@@ -94,6 +102,7 @@ function VerifyEmailContent() {
 
               // Fallback: if not email_change, route to home or complete-profile depending on profile
               if (sessionData?.user) {
+                console.log('Regular email verification - checking profile for user:', sessionData.user.id);
                 const { data: profile, error: profileError } = await supabase
                   .from("profiles")
                   .select("*")
@@ -135,6 +144,12 @@ function VerifyEmailContent() {
                 }
                 clearTimeout(timeoutId);
                 return;
+              } else {
+                console.log('No user found in session data after token setup');
+                setStatus('error');
+                setMessage('Verification failed. Unable to establish user session.');
+                clearTimeout(timeoutId);
+                return;
               }
             } catch (error) {
               console.error('Error handling hash-based verification:', error);
@@ -143,6 +158,8 @@ function VerifyEmailContent() {
               clearTimeout(timeoutId);
               return;
             }
+          } else {
+            console.log('No tokens found in hash, checking for query parameters...');
           }
         }
 

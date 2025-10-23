@@ -5,6 +5,7 @@ import { AuthProvider } from "@/context/auth-context";
 import { Header } from "@/components/ui/header";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Footer } from "@/components/ui/footer";
+import { CompleteProfileHandler } from "@/components/ui/complete-profile-handler";
 // Revert to simple layout without conditional wrapper
 
 const inter = Inter({ subsets: ["latin"] });
@@ -43,6 +44,8 @@ export default function RootLayout({
                 <Footer />
               </main>
             </div>
+            {/* Complete Profile Popup Handler */}
+            <CompleteProfileHandler />
           </div>
         </AuthProvider>
       </body>
