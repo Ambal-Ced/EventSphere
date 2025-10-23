@@ -239,6 +239,15 @@ export function Header() {
           >
             FAQs
           </Link>
+          <Link
+            href="/pricing"
+            className={cn(
+              "text-lg font-medium transition-colors hover:text-primary",
+              pathname === "/pricing" ? "text-primary" : "text-muted-foreground"
+            )}
+          >
+            Pricing
+          </Link>
         </div>
       </nav>
 
@@ -398,6 +407,7 @@ export function Header() {
             <Link href="/events" className={cn("text-base", pathname === "/events" ? "text-primary" : "text-muted-foreground")} onClick={()=>setMobileOpen(false)}>Events</Link>
             <Link href="/about" className={cn("text-base", pathname === "/about" ? "text-primary" : "text-muted-foreground")} onClick={()=>setMobileOpen(false)}>About</Link>
             <Link href="/faqs" className={cn("text-base", pathname === "/faqs" ? "text-primary" : "text-muted-foreground")} onClick={()=>setMobileOpen(false)}>FAQs</Link>
+            <Link href="/pricing" className={cn("text-base", pathname === "/pricing" ? "text-primary" : "text-muted-foreground")} onClick={()=>setMobileOpen(false)}>Pricing</Link>
             
             {/* Show notifications only for authenticated users */}
             {user && (

@@ -28,16 +28,16 @@ export default function RootLayout({
         <AuthProvider>
           <div className="flex flex-col min-h-screen">
             <Header />
-            <div className="flex flex-1 overflow-hidden">
+            <div className="flex flex-1">
               {/* Sidebar enabled; reserves its own lane on >=768px and overlays on mobile */}
               <Sidebar />
               {/* Fixed gutter reserved (kept for consistent layout) */}
               <div className="w-3 shrink-0" aria-hidden />
-              <main className="flex-1 overflow-y-auto p-0 flex flex-col">
+              <main className="flex-1 flex flex-col">
                 {/* Minimal, symmetric horizontal padding so pages are near full-width.
                     Sidebar controls overall left offset; we avoid extra margins here. */}
                 {/* Fixed right gutter to mirror the left spacer */}
-                <div className="pr-3 flex-1">
+                <div className="pr-3 flex-1 overflow-y-auto">
                   {children}
                 </div>
                 <Footer />

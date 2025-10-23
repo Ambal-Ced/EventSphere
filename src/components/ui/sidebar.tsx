@@ -11,6 +11,7 @@ import {
   LogOut,
   MessageSquare,
   BarChart2,
+  CreditCard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
@@ -33,6 +34,12 @@ const sidebarLinksConfig = [
     title: "Analytics",
     href: "/analytics",
     icon: BarChart2,
+    authRequired: true,
+  },
+  {
+    title: "Billing",
+    href: "/billing",
+    icon: CreditCard,
     authRequired: true,
   },
   {
