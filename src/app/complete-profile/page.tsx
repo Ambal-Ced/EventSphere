@@ -289,6 +289,10 @@ export default function CompleteProfilePage() {
               if (user) {
                 try {
                   console.log("🆕 Creating account status for user:", user.id);
+                  
+                  // Test the operations first
+                  await AccountStatusManager.testAccountStatusOperations(user.id);
+                  
                   const success = await AccountStatusManager.addNewAccountStatus(user.id);
                   
                   if (success) {

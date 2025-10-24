@@ -33,6 +33,8 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { Database } from "@/types/supabase";
 import { format as formatFns } from "date-fns";
+import { useAccountStatusFailsafe } from "@/hooks/useAccountStatusFailsafe";
+import { AccountStatusFailsafePopup } from "@/components/ui/account-status-failsafe-popup";
 
 type Event = Database["public"]["Tables"]["events"]["Row"];
 
@@ -48,6 +50,14 @@ export default function HomeClient() {
   const [eventCountByDate, setEventCountByDate] = useState<Record<string, number>>({});
   const [eventsByDate, setEventsByDate] = useState<Record<string, { id: string; title: string; date: string }[]>>({});
   const [user, setUser] = useState<any>(null);
+
+  // Add failsafe check
+  const { 
+    showFailsafe, 
+    isChecking, 
+    handleFailsafeSuccess, 
+    handleFailsafeClose 
+  } = useAccountStatusFailsafe();
   
   // Email change confirmation popup state
   const [emailChangePopup, setEmailChangePopup] = useState<{
@@ -930,6 +940,15 @@ export default function HomeClient() {
         </DialogDescription>
       </DialogContent>
     </Dialog>
+    
+    {/* Account Status Failsafe Popup */}
+    {showFailsafe && user && (
+      <AccountStatusFailsafePopup
+        userId={user.id}
+        onSuccess={handleFailsafeSuccess}
+        onClose={handleFailsafeClose}
+      />
+    )}
     </>
   );
 }
