@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, LineChart, Line, ScatterChart, Scatter, ZAxis, Legend } from "recharts";
+import { DefaultSubscriptionManager } from "@/lib/default-subscription-manager";
 
 // Note: Metadata must be exported from a server component. This page is client-only.
 
@@ -247,6 +248,7 @@ export default function AnalyticsPage() {
     insightsGenerated: number;
     canGenerateMore: boolean;
     weekStart: string;
+    maxInsights: number;
   } | null>(null);
 
   // Fetch insights usage info
@@ -254,6 +256,29 @@ export default function AnalyticsPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+
+      // Get user's subscription to determine AI insights limits
+      await DefaultSubscriptionManager.ensureUserHasSubscription(user.id);
+      
+      const { data: subscription, error: subError } = await supabase
+        .from("user_subscriptions")
+        .select(`
+          *,
+          subscription_plans (
+            name
+          )
+        `)
+        .eq("user_id", user.id)
+        .single();
+
+      if (subError) {
+        console.error("❌ Error fetching subscription:", subError);
+        return;
+      }
+
+      const planName = (subscription?.subscription_plans as any)?.name || "Free Tier";
+      const subscriptionFeatures = DefaultSubscriptionManager.getSubscriptionFeatures(planName);
+      const maxAIInsightsOverall = subscriptionFeatures.max_ai_insights_overall;
 
       // Use the dedicated analytics insights usage function
       const { data, error } = await supabase.rpc('get_or_create_analytics_insights_weekly_usage', {
@@ -266,8 +291,9 @@ export default function AnalyticsPage() {
         const usage = data[0];
         setInsightsUsageInfo({
           insightsGenerated: usage.insights_generated,
-          canGenerateMore: usage.can_generate_more,
-          weekStart: usage.week_start_date_return
+          canGenerateMore: usage.insights_generated < maxAIInsightsOverall,
+          weekStart: usage.week_start_date_return,
+          maxInsights: maxAIInsightsOverall
         });
       }
     } catch (error) {
@@ -302,7 +328,7 @@ export default function AnalyticsPage() {
       setInsightsUsageInfo(prev => prev ? {
         ...prev,
         insightsGenerated: prev.insightsGenerated + 1,
-        canGenerateMore: prev.insightsGenerated + 1 < 5
+        canGenerateMore: prev.insightsGenerated + 1 < prev.maxInsights
       } : null);
     } catch (error) {
       console.error('Error incrementing insights usage:', error);
@@ -716,7 +742,7 @@ export default function AnalyticsPage() {
             {insightsUsageInfo && (
               <div className="mb-4 p-3 bg-slate-700/50 border border-slate-600 rounded-lg">
                 <p className="text-xs text-slate-300">
-                  Insights generated this week: {insightsUsageInfo.insightsGenerated}/5
+                  Insights generated this week: {insightsUsageInfo.insightsGenerated}/{insightsUsageInfo.maxInsights}
                   {!insightsUsageInfo.canGenerateMore && (
                     <span className="text-red-400 ml-2">(Limit reached)</span>
                   )}

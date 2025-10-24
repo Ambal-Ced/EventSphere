@@ -65,6 +65,7 @@ import { supabase } from "@/lib/supabase";
 import { deleteEventImage } from "@/lib/utils";
 import AIChat from "@/components/ai-chat";
 import { useAIDelay } from "@/hooks/useAIDelay";
+import { DefaultSubscriptionManager } from "@/lib/default-subscription-manager";
 
 interface Event {
   id: string;
@@ -180,6 +181,7 @@ export default function SingleEventPage() {
     insightsGenerated: number;
     canGenerateMore: boolean;
     weekStart: string;
+    maxInsights: number;
   } | null>(null);
   // Attendees stats
   const [attendeesStats, setAttendeesStats] = useState<{ expected_attendees: number; event_attendees: number } | null>(null);
@@ -1857,6 +1859,29 @@ export default function SingleEventPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Get user's subscription to determine AI insights limits
+      await DefaultSubscriptionManager.ensureUserHasSubscription(user.id);
+      
+      const { data: subscription, error: subError } = await supabase
+        .from("user_subscriptions")
+        .select(`
+          *,
+          subscription_plans (
+            name
+          )
+        `)
+        .eq("user_id", user.id)
+        .single();
+
+      if (subError) {
+        console.error("❌ Error fetching subscription:", subError);
+        return;
+      }
+
+      const planName = (subscription?.subscription_plans as any)?.name || "Free Tier";
+      const subscriptionFeatures = DefaultSubscriptionManager.getSubscriptionFeatures(planName);
+      const maxAIInsightsPerEvent = subscriptionFeatures.max_ai_insights_per_event;
+
       // Get total insights generated for this event this week (shared across all participants)
       const { data, error } = await supabase.rpc('get_event_insights_weekly_usage', {
         p_event_id: eventId
@@ -1868,8 +1893,9 @@ export default function SingleEventPage() {
         const usage = data[0];
         setInsightsUsageInfo({
           insightsGenerated: usage.total_insights_generated || 0,
-          canGenerateMore: (usage.total_insights_generated || 0) < 5,
-          weekStart: usage.week_start_date_return
+          canGenerateMore: (usage.total_insights_generated || 0) < maxAIInsightsPerEvent,
+          weekStart: usage.week_start_date_return,
+          maxInsights: maxAIInsightsPerEvent
         });
       } else {
         // If no data, set default values
@@ -1879,8 +1905,9 @@ export default function SingleEventPage() {
         
         setInsightsUsageInfo({
           insightsGenerated: 0,
-          canGenerateMore: true,
-          weekStart: weekStart.toISOString().split('T')[0]
+          canGenerateMore: 0 < maxAIInsightsPerEvent,
+          weekStart: weekStart.toISOString().split('T')[0],
+          maxInsights: maxAIInsightsPerEvent
         });
       }
     } catch (error) {
@@ -4452,7 +4479,7 @@ RECOMMENDATIONS:
                     <p className="text-xs text-slate-300">
                       {insightsUsageInfo ? (
                         <>
-                          Insights generated this week: {insightsUsageInfo.insightsGenerated}/5
+                          Insights generated this week: {insightsUsageInfo.insightsGenerated}/{insightsUsageInfo.maxInsights}
                           {!insightsUsageInfo.canGenerateMore && (
                             <span className="text-red-400 ml-2">(Limit reached)</span>
                           )}

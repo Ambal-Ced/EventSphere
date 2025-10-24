@@ -7,6 +7,7 @@ import { Send, X, Bot, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { useAIDelay } from '@/hooks/useAIDelay';
+import { DefaultSubscriptionManager } from '@/lib/default-subscription-manager';
 
 interface Message {
   id: string;
@@ -31,6 +32,7 @@ export default function AIChat({ eventId, eventTitle, eventDescription, isEnable
     questionsAsked: number;
     canAskMore: boolean;
     weekStart: string;
+    maxQuestions: number;
   } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { addAIDelay, delayConfig, loading: delayLoading } = useAIDelay();
@@ -54,6 +56,29 @@ export default function AIChat({ eventId, eventTitle, eventDescription, isEnable
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Get user's subscription to determine AI chat limits
+      await DefaultSubscriptionManager.ensureUserHasSubscription(user.id);
+      
+      const { data: subscription, error: subError } = await supabase
+        .from("user_subscriptions")
+        .select(`
+          *,
+          subscription_plans (
+            name
+          )
+        `)
+        .eq("user_id", user.id)
+        .single();
+
+      if (subError) {
+        console.error("❌ Error fetching subscription:", subError);
+        return;
+      }
+
+      const planName = (subscription?.subscription_plans as any)?.name || "Free Tier";
+      const subscriptionFeatures = DefaultSubscriptionManager.getSubscriptionFeatures(planName);
+      const maxAIChat = subscriptionFeatures.max_ai_chat;
+
       const { data, error } = await supabase.rpc('get_or_create_weekly_usage', {
         p_user_id: user.id,
         p_event_id: eventId
@@ -65,8 +90,9 @@ export default function AIChat({ eventId, eventTitle, eventDescription, isEnable
         const usage = data[0];
         setUsageInfo({
           questionsAsked: usage.questions_asked,
-          canAskMore: usage.can_ask_more,
-          weekStart: usage.week_start_date_return
+          canAskMore: usage.questions_asked < maxAIChat,
+          weekStart: usage.week_start_date_return,
+          maxQuestions: maxAIChat
         });
       }
     } catch (error) {
@@ -95,7 +121,7 @@ export default function AIChat({ eventId, eventTitle, eventDescription, isEnable
       setUsageInfo(prev => prev ? {
         ...prev,
         questionsAsked: prev.questionsAsked + 1,
-        canAskMore: prev.questionsAsked + 1 < 5
+        canAskMore: prev.questionsAsked + 1 < prev.maxQuestions
       } : null);
     } catch (error) {
       console.error('Error incrementing usage:', error);
@@ -234,7 +260,7 @@ Keep responses concise and relevant to the event context.
             {usageInfo && (
               <div className="px-4 py-2 bg-slate-700/50 border-b border-slate-600">
                 <p className="text-xs text-slate-300">
-                  Questions this week: {usageInfo.questionsAsked}/5
+                  Questions this week: {usageInfo.questionsAsked}/{usageInfo.maxQuestions}
                   {!usageInfo.canAskMore && (
                     <span className="text-red-400 ml-2">(Limit reached)</span>
                   )}
@@ -252,7 +278,7 @@ Keep responses concise and relevant to the event context.
                     className="w-12 h-12 mx-auto mb-2 object-contain"
                   />
                   <p>Ask me anything about this event!</p>
-                  <p className="text-xs mt-1">You have 5 questions per week.</p>
+                  <p className="text-xs mt-1">You have {usageInfo?.maxQuestions || 5} questions per week.</p>
                 </div>
               )}
               

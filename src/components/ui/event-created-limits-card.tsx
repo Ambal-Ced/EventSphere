@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -33,7 +33,7 @@ export function EventCreatedLimitsCard() {
   });
   const [loading, setLoading] = useState(true);
 
-  const fetchEventCreatedLimits = async () => {
+  const fetchEventCreatedLimits = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -92,7 +92,7 @@ export function EventCreatedLimitsCard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     fetchEventCreatedLimits();
@@ -111,7 +111,7 @@ export function EventCreatedLimitsCard() {
     return () => {
       window.removeEventListener('eventCreated', handleEventCreated);
     };
-  }, [user]);
+  }, [user, fetchEventCreatedLimits]);
 
   if (loading) {
     return (

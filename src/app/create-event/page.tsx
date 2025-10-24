@@ -463,8 +463,11 @@ export default function CreateEventPage() {
       toast.success("Event created successfully!");
       setShowRedirectModal(true);
       
-      // Dispatch event creation event to refresh counters
-      window.dispatchEvent(new CustomEvent('eventCreated'));
+      // Dispatch event creation event to refresh counters with a small delay
+      // to ensure database has been updated
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('eventCreated'));
+      }, 500);
       
       try {
         console.log("Redirecting to new event:", event.id);
