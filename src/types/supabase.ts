@@ -111,6 +111,184 @@ export interface Database {
           bio?: string | null;
         };
       };
+      subscription_plans: {
+        Row: {
+          id: string;
+          name: string;
+          price_cents: number;
+          currency: string;
+          billing_period: string;
+          features: Json;
+          limits: Json;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          price_cents: number;
+          currency?: string;
+          billing_period: string;
+          features?: Json;
+          limits?: Json;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          price_cents?: number;
+          currency?: string;
+          billing_period?: string;
+          features?: Json;
+          limits?: Json;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      user_subscriptions: {
+        Row: {
+          id: string;
+          user_id: string;
+          plan_id: string;
+          status: string;
+          current_period_start: string;
+          current_period_end: string;
+          trial_start: string | null;
+          trial_end: string | null;
+          cancel_at_period_end: boolean;
+          cancelled_at: string | null;
+          stripe_subscription_id: string | null;
+          stripe_customer_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          plan_id: string;
+          status: string;
+          current_period_start: string;
+          current_period_end: string;
+          trial_start?: string | null;
+          trial_end?: string | null;
+          cancel_at_period_end?: boolean;
+          cancelled_at?: string | null;
+          stripe_subscription_id?: string | null;
+          stripe_customer_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          plan_id?: string;
+          status?: string;
+          current_period_start?: string;
+          current_period_end?: string;
+          trial_start?: string | null;
+          trial_end?: string | null;
+          cancel_at_period_end?: boolean;
+          cancelled_at?: string | null;
+          stripe_subscription_id?: string | null;
+          stripe_customer_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      user_usage: {
+        Row: {
+          id: string;
+          user_id: string;
+          usage_type: string;
+          event_id: string | null;
+          count: number;
+          period_start: string;
+          period_end: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          usage_type: string;
+          event_id?: string | null;
+          count?: number;
+          period_start: string;
+          period_end: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          usage_type?: string;
+          event_id?: string | null;
+          count?: number;
+          period_start?: string;
+          period_end?: string;
+          created_at?: string;
+        };
+      };
+      billing_history: {
+        Row: {
+          id: string;
+          user_id: string;
+          subscription_id: string;
+          payment_intent_id: string;
+          amount: number;
+          currency: string;
+          status: string;
+          card_info: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          subscription_id: string;
+          payment_intent_id: string;
+          amount: number;
+          currency: string;
+          status: string;
+          card_info?: Json | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          subscription_id?: string;
+          payment_intent_id?: string;
+          amount?: number;
+          currency?: string;
+          status?: string;
+          card_info?: Json | null;
+          created_at?: string;
+        };
+      };
+      account_status: {
+        Row: {
+          id: string;
+          user_id: string;
+          new_account: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          new_account?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          new_account?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
     };
     Views: {
       [_ in never]: never;

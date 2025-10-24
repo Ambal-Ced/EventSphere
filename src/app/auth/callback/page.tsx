@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { AccountStatusManager } from "@/lib/account-status-manager";
 
 // Use shared singleton client from lib
 
@@ -14,6 +15,17 @@ export default function AuthCallbackPage() {
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (event === "SIGNED_IN" && session?.user?.email_confirmed_at) {
+          console.log("✅ User signed in with confirmed email:", session.user.id);
+          
+          // Add new account status for newly verified users
+          try {
+            console.log("🆕 Adding new account status for verified user...");
+            await AccountStatusManager.addNewAccountStatus(session.user.id);
+          } catch (error) {
+            console.error("❌ Error adding new account status:", error);
+            // Don't fail the flow if this fails
+          }
+
           // Check if profile exists
           const { data: profile, error: profileError } = await supabase
             .from("profiles")

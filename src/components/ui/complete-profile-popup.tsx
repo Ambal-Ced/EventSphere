@@ -48,7 +48,10 @@ export function CompleteProfilePopup({ userId, onComplete }: CompleteProfilePopu
         });
 
         if (isProfileIncomplete) {
+          console.log("📝 Profile is incomplete, showing popup");
           setIsOpen(true);
+        } else {
+          console.log("✅ Profile is complete, not showing popup");
         }
       } catch (error) {
         console.error("Error in profile check:", error);
@@ -70,6 +73,7 @@ export function CompleteProfilePopup({ userId, onComplete }: CompleteProfilePopu
   };
 
   const handleSkip = () => {
+    console.log("⏭️ User skipped complete profile popup");
     setIsOpen(false);
     onComplete?.();
   };
