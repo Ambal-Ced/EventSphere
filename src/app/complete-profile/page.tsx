@@ -16,6 +16,7 @@ import {
 import { DatePicker } from "@/components/ui/date-picker";
 import { cn } from "@/lib/utils";
 import { format, differenceInYears } from "date-fns";
+import { AccountStatusManager } from "@/lib/account-status-manager";
 import { supabase } from "@/lib/supabase";
 import { Camera } from "lucide-react";
 import { User } from "@supabase/supabase-js";
@@ -277,9 +278,34 @@ export default function CompleteProfilePage() {
         <div className="w-full max-w-md rounded-lg bg-background p-4 sm:p-6 md:p-8 shadow-lg text-center">
           <h1 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Profile Completed!</h1>
           <p className="mb-4 sm:mb-6 text-xs sm:text-sm text-muted-foreground">
-            Your profile has been saved successfully.
+            Your profile has been saved successfully. You're now eligible for a 1-month free trial!
           </p>
-          <Button className="w-full text-sm sm:text-base py-2 sm:py-3" onClick={() => router.push("/")}>
+          <Button 
+            className="w-full text-sm sm:text-base py-2 sm:py-3" 
+            onClick={async () => {
+              console.log("🏠 Profile completed, creating account status and navigating to home");
+              
+              // Create account status for new user
+              if (user) {
+                try {
+                  console.log("🆕 Creating account status for user:", user.id);
+                  const success = await AccountStatusManager.addNewAccountStatus(user.id);
+                  
+                  if (success) {
+                    console.log("✅ Account status created successfully - user is now eligible for trial");
+                  } else {
+                    console.log("⚠️ Failed to create account status, but continuing to home");
+                  }
+                } catch (error) {
+                  console.error("❌ Error creating account status:", error);
+                  // Don't fail the navigation if this fails
+                }
+              }
+              
+              // Navigate to home
+              router.push("/");
+            }}
+          >
             Go to Home
           </Button>
         </div>
