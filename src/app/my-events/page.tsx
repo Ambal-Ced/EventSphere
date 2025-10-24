@@ -25,6 +25,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { EventCreatedLimitsCard } from "@/components/ui/event-created-limits-card";
+import { LimitExceededWarningCard } from "@/components/ui/limit-exceeded-warning-card";
+import { LoadingPopup } from "@/components/ui/loading-popup";
 
 // Interface matching the events table structure (adjust if needed)
 interface Event {
@@ -56,6 +59,9 @@ export default function MyEventsPage() {
   // Search and filter state
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  
+  // Loading state for navigation
+  const [isNavigating, setIsNavigating] = useState(false);
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -159,6 +165,12 @@ export default function MyEventsPage() {
     );
   };
 
+  // Handler for navigation with loading
+  const handleNavigate = (href: string) => {
+    setIsNavigating(true);
+    router.push(href);
+  };
+
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -202,16 +214,28 @@ export default function MyEventsPage() {
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
-            <Button asChild size="sm" className="h-8 max-[639px]:h-7 sm:h-9 gap-1 flex-1 max-[374px]:w-full sm:w-auto text-xs max-[639px]:text-xs sm:text-base">
-            <Link href="/create-event">
+            <Button 
+              size="sm" 
+              className="h-8 max-[639px]:h-7 sm:h-9 gap-1 flex-1 max-[374px]:w-full sm:w-auto text-xs max-[639px]:text-xs sm:text-base"
+              onClick={() => handleNavigate("/create-event")}
+            >
               <PlusCircle className="h-3.5 w-3.5" />
-                <span className="max-[374px]:inline sm:inline">
+              <span className="max-[374px]:inline sm:inline">
                 Create Event
               </span>
-            </Link>
-          </Button>
+            </Button>
           </div>
         </div>
+      </div>
+
+      {/* Limit Exceeded Warning Card */}
+      <div className="mb-6">
+        <LimitExceededWarningCard />
+      </div>
+
+      {/* Event Created Limits Card */}
+      <div className="mb-6">
+        <EventCreatedLimitsCard />
       </div>
 
       {isLoading ? (
@@ -334,6 +358,13 @@ export default function MyEventsPage() {
           </div>
         </div>
       )}
+      
+      {/* Loading Popup */}
+      <LoadingPopup 
+        isOpen={isNavigating}
+        title="Loading Create Event Page"
+        description="Please wait while we prepare the event creation form..."
+      />
     </div>
   );
 }

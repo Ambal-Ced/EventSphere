@@ -40,6 +40,8 @@ import { Database } from "@/types/supabase";
 import { EventLimitsCard } from "@/components/ui/event-limits-card";
 import { useEventsPageFailsafe } from "@/hooks/useEventsPageFailsafe";
 import { EventsPageFailsafePopup } from "@/components/ui/events-page-failsafe-popup";
+import { LimitExceededWarningCard } from "@/components/ui/limit-exceeded-warning-card";
+import { LoadingPopup } from "@/components/ui/loading-popup";
 import { useAuth } from "@/context/auth-context";
 
 type Event = Database["public"]["Tables"]["events"]["Row"];
@@ -716,10 +718,15 @@ function EventsPageContent() {
         </div>
       </div>
 
-      {/* Event Limits Card */}
-      <div className="w-full">
-        <EventLimitsCard />
-      </div>
+        {/* Limit Exceeded Warning Card */}
+        <div className="w-full">
+          <LimitExceededWarningCard />
+        </div>
+
+        {/* Event Limits Card */}
+        <div className="w-full">
+          <EventLimitsCard />
+        </div>
 
       {/* Events Grid - Render filteredEvents */}
       <div className="grid gap-3 max-[639px]:gap-3 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

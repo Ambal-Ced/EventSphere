@@ -8,7 +8,9 @@ import Link from "next/link";
 import { useAuth } from "@/context/auth-context";
 import { AccountStatusManager } from "@/lib/account-status-manager";
 import { DefaultSubscriptionManager } from "@/lib/default-subscription-manager";
+import { TrialActivatedPopup } from "@/components/ui/trial-activated-popup";
 import { toast } from "sonner";
+import { SubscriptionNotificationService } from "@/lib/subscription-notification-service";
 
 const pricingTiers = [
   {
@@ -71,6 +73,7 @@ export default function PricingPage() {
   const { user } = useAuth();
   const [isNewAccount, setIsNewAccount] = useState(false);
   const [isActivating, setIsActivating] = useState(false);
+  const [showTrialPopup, setShowTrialPopup] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -118,6 +121,11 @@ export default function PricingPage() {
       if (trialId) {
         toast.success("🎉 30-day free trial activated! You now have access to Small Event Org features.");
         setIsNewAccount(false); // Update UI state
+        setShowTrialPopup(true); // Show congratulations popup
+        
+        // Send notification
+        await SubscriptionNotificationService.notifyTrialActivated(user.id, "Small Event Org");
+        
         console.log("✅ Trial activated successfully:", trialId);
       } else {
         toast.error("Failed to activate trial. Please try again.");
@@ -267,6 +275,12 @@ export default function PricingPage() {
           </div>
         </div>
       </div>
+      
+      {/* Trial Activated Congratulations Popup */}
+      <TrialActivatedPopup
+        isOpen={showTrialPopup}
+        onClose={() => setShowTrialPopup(false)}
+      />
     </div>
   );
 }

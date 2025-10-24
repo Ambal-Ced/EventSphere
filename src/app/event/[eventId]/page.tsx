@@ -64,6 +64,7 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { deleteEventImage } from "@/lib/utils";
 import AIChat from "@/components/ai-chat";
+import { useAIDelay } from "@/hooks/useAIDelay";
 
 interface Event {
   id: string;
@@ -112,6 +113,7 @@ export default function SingleEventPage() {
   const params = useParams();
   const router = useRouter();
   const eventId = params.eventId as string;
+  const { addAIDelay } = useAIDelay();
 
   const [event, setEvent] = useState<Event | null>(null);
   const [eventMembers, setEventMembers] = useState<EventMember[]>([]);
@@ -1948,6 +1950,9 @@ export default function SingleEventPage() {
     try {
       // Increment usage counter
       await incrementInsightsUsage();
+      
+      // Add AI delay based on subscription tier
+      await addAIDelay();
       
       const analytics = generateAnalyticsData();
       if (!analytics) return;

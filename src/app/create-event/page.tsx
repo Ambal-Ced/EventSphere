@@ -17,6 +17,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
+import { DefaultSubscriptionManager } from "@/lib/default-subscription-manager";
+import { EventCountManager } from "@/lib/event-count-manager";
+import { LoadingPopup } from "@/components/ui/loading-popup";
 
 const categories = [
   "Technology",
@@ -192,6 +195,63 @@ export default function CreateEventPage() {
       } = await supabase.auth.getUser();
       if (userError || !user) {
         throw new Error("You must be logged in to create an event");
+      }
+
+      // Check event creation limit
+      console.log("🔍 Checking event creation limit for user:", user.id);
+      try {
+        // Ensure user has subscription
+        await DefaultSubscriptionManager.ensureUserHasSubscription(user.id);
+        
+        // Get user's subscription with plan details
+        const { data: subscription, error: subError } = await supabase
+          .from("user_subscriptions")
+          .select(`
+            *,
+            subscription_plans (
+              name
+            )
+          `)
+          .eq("user_id", user.id)
+          .single();
+
+        if (subError) {
+          console.error("❌ Error fetching subscription:", subError);
+          throw new Error("Unable to verify subscription status");
+        }
+
+        if (!subscription) {
+          console.warn("⚠️ No subscription found for user");
+          throw new Error("No subscription found");
+        }
+
+        const planName = (subscription.subscription_plans as any)?.name || "Free Tier";
+        console.log("📊 User plan:", planName);
+
+        // Get subscription features and limits
+        const subscriptionFeatures = DefaultSubscriptionManager.getSubscriptionFeatures(planName);
+        const maxEventsCreated = subscriptionFeatures.max_events_created;
+
+        // Get current event counts
+        const eventCounts = await EventCountManager.getEventCounts(user.id);
+        
+        console.log("📊 Current events created:", eventCounts.eventsCreated);
+        console.log("📊 Max events allowed:", maxEventsCreated);
+
+        // Check if user has reached their limit
+        if (maxEventsCreated !== -1 && eventCounts.eventsCreated >= maxEventsCreated) {
+          console.log("❌ User has reached event creation limit");
+          toast.error(`You've reached your event creation limit (${eventCounts.eventsCreated}/${maxEventsCreated}). Upgrade your plan to create more events.`);
+          setIsSubmitting(false);
+          return;
+        }
+
+        console.log("✅ Event creation limit check passed");
+      } catch (limitError: any) {
+        console.error("❌ Error checking event creation limit:", limitError);
+        toast.error("Unable to verify event creation limits. Please try again.");
+        setIsSubmitting(false);
+        return;
       }
 
       // 0. Prepare image URL (upload if provided; else upload template to user's folder)
@@ -402,6 +462,10 @@ export default function CreateEventPage() {
 
       toast.success("Event created successfully!");
       setShowRedirectModal(true);
+      
+      // Dispatch event creation event to refresh counters
+      window.dispatchEvent(new CustomEvent('eventCreated'));
+      
       try {
         console.log("Redirecting to new event:", event.id);
         router.push(`/event/${event.id}`);
@@ -769,6 +833,13 @@ export default function CreateEventPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Loading popup for event creation */}
+      <LoadingPopup
+        isOpen={isSubmitting}
+        title="Creating Event"
+        description="Please wait while we create your event and set up everything for you..."
+      />
     </div>
   );
 }

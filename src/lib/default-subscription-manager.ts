@@ -193,6 +193,7 @@ export class DefaultSubscriptionManager {
             is_trial: true,
             trial_start: new Date().toISOString(),
             trial_end: trialEndDate.toISOString(),
+            cancel_at_period_end: true, // Security: Auto-cancel at trial end
             updated_at: new Date().toISOString()
           })
           .eq("user_id", userId);
@@ -217,7 +218,8 @@ export class DefaultSubscriptionManager {
             current_period_end: trialEndDate.toISOString(),
             is_trial: true,
             trial_start: new Date().toISOString(),
-            trial_end: trialEndDate.toISOString()
+            trial_end: trialEndDate.toISOString(),
+            cancel_at_period_end: true // Security: Auto-cancel at trial end
           });
 
         if (insertError) {

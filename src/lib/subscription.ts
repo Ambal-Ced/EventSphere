@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { Database } from '@/types/supabase';
+import { SubscriptionNotificationService } from './subscription-notification-service';
 
 type SubscriptionPlan = Database['public']['Tables']['subscription_plans']['Row'];
 type UserSubscription = Database['public']['Tables']['user_subscriptions']['Row'];
@@ -215,6 +216,19 @@ export class SubscriptionService {
     }
 
     console.log('✅ Subscription created successfully:', data);
+    
+    // Send notification for subscription purchase
+    try {
+      await SubscriptionNotificationService.notifySubscriptionPurchased(
+        userId, 
+        plan.name, 
+        plan.billing_period
+      );
+    } catch (notifError) {
+      console.warn('⚠️ Failed to send subscription notification:', notifError);
+      // Don't fail the subscription creation if notification fails
+    }
+    
     return data;
   }
 
@@ -238,6 +252,36 @@ export class SubscriptionService {
     if (error) {
       console.error('Error cancelling subscription:', error);
       return false;
+    }
+
+    // Send notification for subscription cancellation
+    try {
+      // Get subscription details for notification
+      const { data: subscription } = await supabase
+        .from('user_subscriptions')
+        .select(`
+          *,
+          subscription_plans (
+            name
+          )
+        `)
+        .eq('user_id', userId)
+        .eq('status', cancelAtPeriodEnd ? 'active' : 'cancelled')
+        .single();
+
+      if (subscription) {
+        const planName = (subscription.subscription_plans as any)?.name || "Unknown Plan";
+        const endDate = cancelAtPeriodEnd ? subscription.current_period_end : null;
+        
+        await SubscriptionNotificationService.notifySubscriptionCancelled(
+          userId, 
+          planName, 
+          endDate
+        );
+      }
+    } catch (notifError) {
+      console.warn('⚠️ Failed to send cancellation notification:', notifError);
+      // Don't fail the cancellation if notification fails
     }
 
     return true;

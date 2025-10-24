@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Send, X, Bot, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
+import { useAIDelay } from '@/hooks/useAIDelay';
 
 interface Message {
   id: string;
@@ -32,6 +33,7 @@ export default function AIChat({ eventId, eventTitle, eventDescription, isEnable
     weekStart: string;
   } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { addAIDelay, delayConfig, loading: delayLoading } = useAIDelay();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -117,6 +119,9 @@ export default function AIChat({ eventId, eventTitle, eventDescription, isEnable
     try {
       // Increment usage counter
       await incrementUsage();
+
+      // Add AI delay based on subscription tier
+      await addAIDelay();
 
       // Prepare event context for AI
       const eventContext = `
