@@ -145,7 +145,7 @@ export class DefaultSubscriptionManager {
   }
 
   /**
-   * Activate trial subscription (Small Event Org)
+   * Activate trial subscription (Small Event Org) - handles both new and existing subscriptions
    */
   static async activateTrialSubscription(userId: string): Promise<boolean> {
     try {
@@ -163,34 +163,71 @@ export class DefaultSubscriptionManager {
         return false;
       }
 
-      // Calculate trial end date (1 month from now)
+      // Calculate trial end date (30 days from now)
       const trialEndDate = new Date();
-      trialEndDate.setMonth(trialEndDate.getMonth() + 1);
+      trialEndDate.setDate(trialEndDate.getDate() + 30);
 
-      // Create or update trial subscription
-      const { data: subscription, error: subscriptionError } = await supabase
+      // Check if user already has a subscription
+      const { data: existingSubscription, error: checkError } = await supabase
         .from("user_subscriptions")
-        .upsert({
-          user_id: userId,
-          plan_id: trialPlan.id,
-          status: "trialing",
-          current_period_start: new Date().toISOString(),
-          current_period_end: trialEndDate.toISOString(),
-          is_trial: true,
-          trial_start: new Date().toISOString(),
-          trial_end: trialEndDate.toISOString()
-        }, {
-          onConflict: "user_id"
-        })
-        .select("id")
+        .select("id, plan_id, status")
+        .eq("user_id", userId)
         .single();
 
-      if (subscriptionError) {
-        console.error("❌ Error creating trial subscription:", subscriptionError);
+      if (checkError && checkError.code !== 'PGRST116') { // PGRST116 means no rows found
+        console.error("❌ Error checking existing subscription:", checkError);
         return false;
       }
 
-      console.log("✅ Trial subscription activated:", subscription.id);
+      if (existingSubscription) {
+        // User has existing subscription - UPDATE it to Small Event Org trial
+        console.log("📝 User has existing subscription, updating to Small Event Org trial");
+        
+        const { error: updateError } = await supabase
+          .from("user_subscriptions")
+          .update({
+            plan_id: trialPlan.id,
+            status: "trialing",
+            current_period_start: new Date().toISOString(),
+            current_period_end: trialEndDate.toISOString(),
+            is_trial: true,
+            trial_start: new Date().toISOString(),
+            trial_end: trialEndDate.toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq("user_id", userId);
+
+        if (updateError) {
+          console.error("❌ Error updating existing subscription:", updateError);
+          return false;
+        }
+
+        console.log("✅ Existing subscription updated to Small Event Org trial");
+      } else {
+        // User has no subscription - INSERT new Small Event Org trial
+        console.log("📝 User has no subscription, creating new Small Event Org trial");
+        
+        const { error: insertError } = await supabase
+          .from("user_subscriptions")
+          .insert({
+            user_id: userId,
+            plan_id: trialPlan.id,
+            status: "trialing",
+            current_period_start: new Date().toISOString(),
+            current_period_end: trialEndDate.toISOString(),
+            is_trial: true,
+            trial_start: new Date().toISOString(),
+            trial_end: trialEndDate.toISOString()
+          });
+
+        if (insertError) {
+          console.error("❌ Error creating new trial subscription:", insertError);
+          return false;
+        }
+
+        console.log("✅ New Small Event Org trial subscription created");
+      }
+
       return true;
     } catch (error) {
       console.error("❌ Exception activating trial subscription:", error);

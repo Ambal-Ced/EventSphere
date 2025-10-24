@@ -279,7 +279,7 @@ export default function CompleteProfilePage() {
         <div className="w-full max-w-md rounded-lg bg-background p-4 sm:p-6 md:p-8 shadow-lg text-center">
           <h1 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Profile Completed!</h1>
           <p className="mb-4 sm:mb-6 text-xs sm:text-sm text-muted-foreground">
-            Your profile has been saved successfully. You're now eligible for a 1-month free trial!
+            Your profile has been saved successfully. You're now eligible for a 30-day free trial!
           </p>
           <Button 
             className="w-full text-sm sm:text-base py-2 sm:py-3" 

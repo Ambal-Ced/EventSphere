@@ -116,7 +116,7 @@ export default function PricingPage() {
       const trialId = await AccountStatusManager.activateNewAccountTrial(user.id);
       
       if (trialId) {
-        toast.success("🎉 1-month free trial activated! You now have access to Small Event Org features.");
+        toast.success("🎉 30-day free trial activated! You now have access to Small Event Org features.");
         setIsNewAccount(false); // Update UI state
         console.log("✅ Trial activated successfully:", trialId);
       } else {
@@ -170,7 +170,7 @@ export default function PricingPage() {
                         Welcome! Activate Your Free Trial
                       </h3>
                       <p className="text-sm text-green-700 dark:text-green-300">
-                        Get 1 month of free access to Small Event Org features
+                        Get 30 days of free access to Small Event Org features
                       </p>
                     </div>
                   </div>

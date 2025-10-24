@@ -94,7 +94,8 @@ export class AccountStatusManager {
         return null;
       }
 
-      // Update account status to mark as no longer new
+      // Update account status to mark as no longer new (set new_account = false)
+      console.log('🔄 Setting new_account to false for user:', userId);
       const { error: statusError } = await supabase
         .from('account_status')
         .update({ 
@@ -106,10 +107,12 @@ export class AccountStatusManager {
       if (statusError) {
         console.error('❌ Error updating account status:', statusError);
         // Don't fail the whole operation for this
+      } else {
+        console.log('✅ Account status updated: new_account set to false');
       }
 
       console.log('✅ New account trial activated successfully!');
-      console.log('🎉 User now has 1-month free trial access to Small Event Org features');
+      console.log('🎉 User now has 30-day free trial access to Small Event Org features');
       return 'trial-activated';
     } catch (error) {
       console.error('❌ Exception during new account trial activation:', error);
