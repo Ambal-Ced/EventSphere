@@ -17,6 +17,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { cn } from "@/lib/utils";
 import { format, differenceInYears } from "date-fns";
 import { AccountStatusManager } from "@/lib/account-status-manager";
+import { DefaultSubscriptionManager } from "@/lib/default-subscription-manager";
 import { supabase } from "@/lib/supabase";
 import { Camera } from "lucide-react";
 import { User } from "@supabase/supabase-js";
@@ -283,9 +284,9 @@ export default function CompleteProfilePage() {
           <Button 
             className="w-full text-sm sm:text-base py-2 sm:py-3" 
             onClick={async () => {
-              console.log("🏠 Profile completed, creating account status and navigating to home");
+              console.log("🏠 Profile completed, creating account status and default subscription");
               
-              // Create account status for new user
+              // Create account status and default subscription for new user
               if (user) {
                 try {
                   console.log("🆕 Creating account status for user:", user.id);
@@ -300,8 +301,18 @@ export default function CompleteProfilePage() {
                   } else {
                     console.log("⚠️ Failed to create account status, but continuing to home");
                   }
+
+                  // Create default free tier subscription
+                  console.log("🆕 Creating default free tier subscription for user:", user.id);
+                  const subscriptionSuccess = await DefaultSubscriptionManager.createDefaultSubscription(user.id);
+                  
+                  if (subscriptionSuccess) {
+                    console.log("✅ Default free tier subscription created successfully");
+                  } else {
+                    console.log("⚠️ Failed to create default subscription, but continuing to home");
+                  }
                 } catch (error) {
-                  console.error("❌ Error creating account status:", error);
+                  console.error("❌ Error creating account status/subscription:", error);
                   // Don't fail the navigation if this fails
                 }
               }

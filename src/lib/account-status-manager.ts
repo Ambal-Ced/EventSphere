@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { DefaultSubscriptionManager } from '@/lib/default-subscription-manager';
 
 export class AccountStatusManager {
   /**
@@ -85,42 +86,11 @@ export class AccountStatusManager {
     console.log('🚀 Activating new account trial for user:', userId);
 
     try {
-      // First, get the Small Event Org plan ID
-      const { data: planData, error: planError } = await supabase
-        .from('subscription_plans')
-        .select('id')
-        .eq('name', 'Small Event Org')
-        .single();
-
-      if (planError || !planData) {
-        console.error('❌ Error finding Small Event Org plan:', planError);
-        return null;
-      }
-
-      const planId = planData.id;
-      const trialEndDate = new Date();
-      trialEndDate.setMonth(trialEndDate.getMonth() + 1); // 1 month from now
-
-      // Create or update trial subscription
-      const { data: subscriptionData, error: subscriptionError } = await supabase
-        .from('user_subscriptions')
-        .upsert({
-          user_id: userId,
-          plan_id: planId,
-          status: 'trialing',
-          current_period_start: new Date().toISOString(),
-          current_period_end: trialEndDate.toISOString(),
-          is_trial: true,
-          trial_start: new Date().toISOString(),
-          trial_end: trialEndDate.toISOString()
-        }, {
-          onConflict: 'user_id'
-        })
-        .select('id')
-        .single();
-
-      if (subscriptionError) {
-        console.error('❌ Error creating trial subscription:', subscriptionError);
+      // Use DefaultSubscriptionManager to activate trial
+      const success = await DefaultSubscriptionManager.activateTrialSubscription(userId);
+      
+      if (!success) {
+        console.error('❌ Failed to activate trial subscription');
         return null;
       }
 
@@ -138,10 +108,9 @@ export class AccountStatusManager {
         // Don't fail the whole operation for this
       }
 
-      const trialId = subscriptionData.id;
-      console.log('✅ New account trial activated successfully! Trial ID:', trialId);
+      console.log('✅ New account trial activated successfully!');
       console.log('🎉 User now has 1-month free trial access to Small Event Org features');
-      return trialId;
+      return 'trial-activated';
     } catch (error) {
       console.error('❌ Exception during new account trial activation:', error);
       return null;

@@ -7,6 +7,7 @@ import { Check, Star, Gift } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/context/auth-context";
 import { AccountStatusManager } from "@/lib/account-status-manager";
+import { DefaultSubscriptionManager } from "@/lib/default-subscription-manager";
 import { toast } from "sonner";
 
 const pricingTiers = [
@@ -100,6 +101,18 @@ export default function PricingPage() {
     setIsActivating(true);
     try {
       console.log("🚀 Activating new account trial...");
+      
+      // First, ensure user has a subscription (create default if not)
+      console.log("🔍 Ensuring user has subscription...");
+      const subscriptionEnsured = await DefaultSubscriptionManager.ensureUserHasSubscription(user.id);
+      
+      if (!subscriptionEnsured) {
+        console.error("❌ Failed to ensure user subscription");
+        toast.error("Failed to set up your subscription. Please try again.");
+        return;
+      }
+      
+      // Now activate the trial (this will upgrade to Small Event Org)
       const trialId = await AccountStatusManager.activateNewAccountTrial(user.id);
       
       if (trialId) {

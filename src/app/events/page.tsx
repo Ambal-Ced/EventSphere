@@ -37,6 +37,10 @@ import {
 import { supabase } from "@/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Database } from "@/types/supabase";
+import { EventLimitsCard } from "@/components/ui/event-limits-card";
+import { useEventsPageFailsafe } from "@/hooks/useEventsPageFailsafe";
+import { EventsPageFailsafePopup } from "@/components/ui/events-page-failsafe-popup";
+import { useAuth } from "@/context/auth-context";
 
 type Event = Database["public"]["Tables"]["events"]["Row"];
 
@@ -59,6 +63,17 @@ function EventsPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
+
+  // Add failsafe check
+  const { 
+    showFailsafe, 
+    isChecking, 
+    handleFailsafeSuccess, 
+    handleFailsafeClose 
+  } = useEventsPageFailsafe();
+
+  // Get user for failsafe popup
+  const { user } = useAuth();
 
   // Pagination state
   const [page, setPage] = useState(1);
@@ -701,6 +716,11 @@ function EventsPageContent() {
         </div>
       </div>
 
+      {/* Event Limits Card */}
+      <div className="w-full">
+        <EventLimitsCard />
+      </div>
+
       {/* Events Grid - Render filteredEvents */}
       <div className="grid gap-3 max-[639px]:gap-3 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {/* Join Event Card */}
@@ -965,6 +985,15 @@ function EventsPageContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      {/* Events Page Failsafe Popup */}
+      {showFailsafe && user && (
+        <EventsPageFailsafePopup
+          userId={user.id}
+          onSuccess={handleFailsafeSuccess}
+          onClose={handleFailsafeClose}
+        />
+      )}
     </div>
   );
 }
