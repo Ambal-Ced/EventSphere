@@ -116,6 +116,22 @@ export function LimitExceededWarningCard() {
     };
   }, [user]);
 
+  // Refresh data when component becomes visible (user navigates back)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && user) {
+        console.log("🔄 LimitExceededWarningCard: Page became visible, checking limits...");
+        checkForExceededLimits();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [user]);
+
   if (loading) {
     return null; // Don't show anything while loading
   }

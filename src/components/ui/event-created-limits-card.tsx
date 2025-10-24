@@ -96,7 +96,7 @@ export function EventCreatedLimitsCard() {
 
   useEffect(() => {
     fetchEventCreatedLimits();
-  }, [user]);
+  }, [user, fetchEventCreatedLimits]);
 
   // Listen for event creation events to refresh the data
   useEffect(() => {
@@ -110,6 +110,22 @@ export function EventCreatedLimitsCard() {
     
     return () => {
       window.removeEventListener('eventCreated', handleEventCreated);
+    };
+  }, [fetchEventCreatedLimits]);
+
+  // Refresh data when component becomes visible (user navigates back)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && user) {
+        console.log("🔄 EventCreatedLimitsCard: Page became visible, refreshing limits...");
+        fetchEventCreatedLimits();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [user, fetchEventCreatedLimits]);
 

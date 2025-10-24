@@ -463,11 +463,29 @@ export default function CreateEventPage() {
       toast.success("Event created successfully!");
       setShowRedirectModal(true);
       
-      // Dispatch event creation event to refresh counters with a small delay
-      // to ensure database has been updated
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('eventCreated'));
-      }, 500);
+      // Dispatch event creation event to refresh counters with a delay
+      // to ensure database has been updated and verified
+      setTimeout(async () => {
+        try {
+          // Verify the event was actually created in the database
+          const { data: verifyEvent, error: verifyError } = await supabase
+            .from("events")
+            .select("id")
+            .eq("id", event.id)
+            .single();
+          
+          if (verifyEvent && !verifyError) {
+            console.log("✅ Event verified in database, dispatching refresh event");
+            window.dispatchEvent(new CustomEvent('eventCreated'));
+          } else {
+            console.warn("⚠️ Event not found in database, skipping refresh");
+          }
+        } catch (verifyErr) {
+          console.warn("⚠️ Error verifying event in database:", verifyErr);
+          // Still dispatch the event as a fallback
+          window.dispatchEvent(new CustomEvent('eventCreated'));
+        }
+      }, 1000);
       
       try {
         console.log("Redirecting to new event:", event.id);
