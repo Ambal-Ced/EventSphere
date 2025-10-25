@@ -125,76 +125,102 @@ export class SubscriptionService {
     }
   }
 
-  /**
-   * Get billing history for user
-   */
-  static async getBillingHistory(userId: string): Promise<BillingHistory[]> {
-    const { data, error } = await supabase
-      .from('billing_history')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching billing history:', error);
-      return [];
-    }
-
-    return data || [];
-  }
 
   /**
-   * Create a new subscription for a user
+   * Create or update subscription for a user
    */
   static async createSubscription(
     userId: string,
-    planId: string,
+    planIdOrName: string,
     stripeSubscriptionId?: string,
-    stripeCustomerId?: string
+    stripeCustomerId?: string,
+    transactionDetails?: {
+      netAmountCents: number;
+      paymentMethodBrand?: string;
+      paymentMethodLast4?: string;
+      paymongoPaymentId?: string;
+      paymongoPaymentIntentId?: string;
+      originalAmountCents: number;
+    }
   ): Promise<UserSubscription | null> {
-    console.log('🔐 Creating subscription:', {
+    console.log('🔐 Creating/updating subscription:', {
       userId,
-      planId,
+      planIdOrName,
       stripeSubscriptionId,
       stripeCustomerId
     });
 
-    // Get plan details
-    const { data: plan, error: planError } = await supabase
+    // First, check if user already has a subscription
+    console.log('🔍 Checking for existing subscription...');
+    const { data: existingSubscription, error: existingError } = await supabase
+      .from('user_subscriptions')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    if (existingError && existingError.code !== 'PGRST116') {
+      console.error('❌ Error checking existing subscription:', existingError);
+      return null;
+    }
+
+    // Get plan details - try by ID first, then by name
+    let plan = null;
+    let planError = null;
+
+    // First try to find by ID
+    const { data: planById, error: planByIdError } = await supabase
       .from('subscription_plans')
       .select('*')
-      .eq('id', planId)
+      .eq('id', planIdOrName)
       .single();
+
+    if (planById && !planByIdError) {
+      plan = planById;
+      console.log('📋 Plan found by ID:', plan);
+    } else {
+      // Try to find by name
+      console.log('🔍 Plan not found by ID, trying by name...');
+      const { data: planByName, error: planByNameError } = await supabase
+        .from('subscription_plans')
+        .select('*')
+        .eq('name', planIdOrName)
+        .single();
+
+      if (planByName && !planByNameError) {
+        plan = planByName;
+        console.log('📋 Plan found by name:', plan);
+      } else {
+        planError = planByNameError;
+        console.error('❌ Error fetching plan by name:', planByNameError);
+      }
+    }
 
     if (planError || !plan) {
       console.error('❌ Error fetching plan:', planError);
       return null;
     }
 
-    console.log('📋 Plan details:', plan);
-
-    // Calculate billing period
+    // Calculate billing period based on plan type
     const now = new Date();
     const periodEnd = new Date(now);
     
-    if (plan.billing_period === 'monthly') {
-      periodEnd.setMonth(periodEnd.getMonth() + 1);
-    } else if (plan.billing_period === 'yearly') {
-      periodEnd.setFullYear(periodEnd.getFullYear() + 1);
-    } else {
-      // Forever plan
+    if (plan.name === 'Free') {
+      // Free tier has no expiry (forever)
       periodEnd.setFullYear(periodEnd.getFullYear() + 100);
+    } else {
+      // All other plans (Free Trial, Small Event Org, Large Event Org) are 30 days
+      periodEnd.setDate(periodEnd.getDate() + 30);
     }
 
     console.log('📅 Billing period:', {
       start: now.toISOString(),
       end: periodEnd.toISOString(),
-      period: plan.billing_period
+      period: plan.name === 'Free' ? 'No expiry (Free tier)' : '30 days'
     });
 
     const subscriptionData = {
       user_id: userId,
-      plan_id: planId,
+      plan_id: plan.id, // Use the actual plan ID from database
       status: 'active',
       current_period_start: now.toISOString(),
       current_period_end: periodEnd.toISOString(),
@@ -202,34 +228,226 @@ export class SubscriptionService {
       stripe_customer_id: stripeCustomerId
     };
 
-    console.log('💾 Inserting subscription data:', subscriptionData);
+    if (existingSubscription) {
+      // Update existing subscription
+      console.log('🔄 Updating existing subscription:', existingSubscription.id);
+      console.log('💾 Updating subscription data:', subscriptionData);
+
+      const { data, error } = await supabase
+        .from('user_subscriptions')
+        .update(subscriptionData)
+        .eq('id', existingSubscription.id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('❌ Error updating subscription:', error);
+        return null;
+      }
+
+      console.log('✅ Subscription updated successfully:', data);
+      return data;
+    } else {
+      // Create new subscription
+      console.log('🆕 Creating new subscription...');
+      console.log('💾 Inserting subscription data:', subscriptionData);
+
+      const { data, error } = await supabase
+        .from('user_subscriptions')
+        .insert(subscriptionData)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('❌ Error creating subscription:', error);
+        return null;
+      }
+
+      console.log('✅ Subscription created successfully:', data);
+      
+      // Create transaction record if transaction details are provided
+      if (transactionDetails) {
+        await this.createTransaction({
+          userId,
+          subscriptionId: data.id,
+          planName: plan.name,
+          originalAmountCents: transactionDetails.originalAmountCents,
+          netAmountCents: transactionDetails.netAmountCents,
+          paymentMethodBrand: transactionDetails.paymentMethodBrand,
+          paymentMethodLast4: transactionDetails.paymentMethodLast4,
+          paymongoPaymentId: transactionDetails.paymongoPaymentId,
+          paymongoPaymentIntentId: transactionDetails.paymongoPaymentIntentId
+        });
+      }
+      
+      return data;
+    }
+  }
+
+  /**
+   * Create a transaction record for admin tracking and billing history
+   */
+  static async createTransaction(transactionData: {
+    userId: string;
+    subscriptionId: string;
+    planName: string;
+    originalAmountCents: number;
+    netAmountCents: number;
+    paymentMethodBrand?: string;
+    paymentMethodLast4?: string;
+    paymongoPaymentId?: string;
+    paymongoPaymentIntentId?: string;
+  }): Promise<any> {
+    console.log('💰 Creating transaction record:', transactionData);
+
+    const transactionRecord = {
+      user_id: transactionData.userId,
+      subscription_id: transactionData.subscriptionId,
+      original_amount_cents: transactionData.originalAmountCents,
+      net_amount_cents: transactionData.netAmountCents,
+      currency: 'PHP',
+      payment_method_type: 'card',
+      payment_method_brand: transactionData.paymentMethodBrand,
+      payment_method_last4: transactionData.paymentMethodLast4,
+      paymongo_payment_id: transactionData.paymongoPaymentId,
+      paymongo_payment_intent_id: transactionData.paymongoPaymentIntentId,
+      status: 'paid',
+      transaction_type: 'purchase',
+      plan_name: transactionData.planName,
+      metadata: {
+        plan_name: transactionData.planName,
+        original_amount: transactionData.originalAmountCents,
+        net_amount: transactionData.netAmountCents,
+        payment_method: transactionData.paymentMethodBrand,
+        created_at: new Date().toISOString()
+      }
+    };
 
     const { data, error } = await supabase
-      .from('user_subscriptions')
-      .insert(subscriptionData)
+      .from('transactions')
+      .insert(transactionRecord)
       .select()
       .single();
 
     if (error) {
-      console.error('❌ Error creating subscription:', error);
+      console.error('❌ Error creating transaction record:', error);
       return null;
     }
 
-    console.log('✅ Subscription created successfully:', data);
-    
-    // Send notification for subscription purchase
-    try {
-      await SubscriptionNotificationService.notifySubscriptionPurchased(
-        userId, 
-        plan.name, 
-        plan.billing_period
-      );
-    } catch (notifError) {
-      console.warn('⚠️ Failed to send subscription notification:', notifError);
-      // Don't fail the subscription creation if notification fails
-    }
-    
+    console.log('✅ Transaction record created successfully:', data);
     return data;
+  }
+
+  /**
+   * Get user's billing history (transactions)
+   */
+  static async getBillingHistory(userId: string): Promise<any[]> {
+    console.log('📊 Fetching billing history for user:', userId);
+
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('❌ Error fetching billing history:', error);
+      return [];
+    }
+
+    console.log('✅ Billing history fetched successfully:', data?.length || 0, 'transactions');
+    return data || [];
+  }
+
+  /**
+   * Auto-cancel expired subscriptions (30 days)
+   */
+  static async autoCancelExpiredSubscriptions(): Promise<{ cancelled: number; errors: number }> {
+    console.log('🔄 Checking for expired subscriptions...');
+    
+    const now = new Date();
+    let cancelled = 0;
+    let errors = 0;
+
+    try {
+      // Find all active subscriptions that have expired
+      const { data: expiredSubscriptions, error: fetchError } = await supabase
+        .from('user_subscriptions')
+        .select('*')
+        .eq('status', 'active')
+        .lt('current_period_end', now.toISOString());
+
+      if (fetchError) {
+        console.error('❌ Error fetching expired subscriptions:', fetchError);
+        return { cancelled: 0, errors: 1 };
+      }
+
+      if (!expiredSubscriptions || expiredSubscriptions.length === 0) {
+        console.log('✅ No expired subscriptions found');
+        return { cancelled: 0, errors: 0 };
+      }
+
+      console.log(`📊 Found ${expiredSubscriptions.length} expired subscriptions`);
+
+      // Cancel each expired subscription
+      for (const subscription of expiredSubscriptions) {
+        try {
+          const { error: cancelError } = await supabase
+            .from('user_subscriptions')
+            .update({
+              status: 'cancelled',
+              cancelled_at: now.toISOString(),
+              cancel_at_period_end: false
+            })
+            .eq('id', subscription.id);
+
+          if (cancelError) {
+            console.error(`❌ Error cancelling subscription ${subscription.id}:`, cancelError);
+            errors++;
+          } else {
+            console.log(`✅ Auto-cancelled expired subscription: ${subscription.id}`);
+            cancelled++;
+
+            // Create a cancellation transaction record
+            await this.createTransaction({
+              userId: subscription.user_id,
+              subscriptionId: subscription.id,
+              planName: 'Expired Subscription',
+              originalAmountCents: 0,
+              netAmountCents: 0,
+              paymongoPaymentId: undefined,
+              paymongoPaymentIntentId: undefined
+            });
+
+            // Update the transaction to reflect cancellation
+            await supabase
+              .from('transactions')
+              .update({
+                status: 'cancelled',
+                transaction_type: 'cancellation',
+                metadata: {
+                  ...subscription,
+                  auto_cancelled: true,
+                  cancelled_at: now.toISOString(),
+                  reason: 'subscription_expired'
+                }
+              })
+              .eq('subscription_id', subscription.id)
+              .eq('transaction_type', 'purchase');
+          }
+        } catch (error) {
+          console.error(`❌ Error processing subscription ${subscription.id}:`, error);
+          errors++;
+        }
+      }
+
+      console.log(`✅ Auto-cancellation completed: ${cancelled} cancelled, ${errors} errors`);
+      return { cancelled, errors };
+
+    } catch (error) {
+      console.error('❌ Error in auto-cancel expired subscriptions:', error);
+      return { cancelled: 0, errors: 1 };
+    }
   }
 
   /**

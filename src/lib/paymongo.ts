@@ -69,7 +69,9 @@ class PayMongoService {
       hasSecretKey: !!this.config.secretKey,
       baseUrl: this.config.baseUrl,
       isTestMode: this.config.isTestMode,
-      publicKeyPrefix: this.config.publicKey.substring(0, 10) + '...'
+      publicKeyPrefix: this.config.publicKey.substring(0, 10) + '...',
+      secretKeyPrefix: this.config.secretKey.substring(0, 10) + '...',
+      secretKeyLength: this.config.secretKey.length
     });
   }
 
@@ -94,34 +96,82 @@ class PayMongoService {
       country: cardData.country
     });
 
-    const paymentMethodData: PaymentMethodData = {
-      type: 'card',
+    // Validate card data
+    const cleanCardNumber = cardData.cardNumber.replace(/\s/g, '');
+    console.log('🔍 Card validation:', {
+      originalCardNumber: cardData.cardNumber,
+      cleanCardNumber: cleanCardNumber,
+      cardLength: cleanCardNumber.length,
+      expiryMonth: cardData.expiryMonth,
+      expiryYear: cardData.expiryYear,
+      cvcLength: cardData.cvc.length
+    });
+
+    if (cleanCardNumber.length < 13 || cleanCardNumber.length > 19) {
+      throw new Error(`Invalid card number length: ${cleanCardNumber.length} (expected 13-19)`);
+    }
+    
+    if (cardData.expiryMonth < 1 || cardData.expiryMonth > 12) {
+      throw new Error(`Invalid expiry month: ${cardData.expiryMonth} (expected 1-12)`);
+    }
+    
+    if (cardData.expiryYear < new Date().getFullYear()) {
+      throw new Error(`Card has expired: ${cardData.expiryYear} (current year: ${new Date().getFullYear()})`);
+    }
+    
+    if (cardData.cvc.length < 3 || cardData.cvc.length > 4) {
+      throw new Error(`Invalid CVC length: ${cardData.cvc.length} (expected 3-4)`);
+    }
+
+    console.log('✅ Card data validation passed');
+
+    const paymentMethodData = {
+      type: 'payment_method',
       attributes: {
         type: 'card',
         details: {
-          card_number: cardData.cardNumber.replace(/\s/g, ''), // Remove spaces
+          card_number: cleanCardNumber, // Use validated clean card number
           exp_month: cardData.expiryMonth,
           exp_year: cardData.expiryYear,
           cvc: cardData.cvc
         },
-        billing: {
+        billing: cardData.email || cardData.country ? {
           name: cardData.cardholderName,
           email: cardData.email || '',
           address: cardData.country ? {
             country: cardData.country
           } : undefined
+        } : undefined
+      }
+    };
+
+    // Try minimal request first
+    const minimalPaymentMethodData = {
+      type: 'payment_method',
+      attributes: {
+        type: 'card',
+        details: {
+          card_number: cleanCardNumber,
+          exp_month: cardData.expiryMonth,
+          exp_year: cardData.expiryYear,
+          cvc: cardData.cvc
         }
       }
     };
 
-    console.log('📤 PayMongo API Request - Create Payment Method:', {
+    console.log('📤 PayMongo API Request - Create Payment Method (Minimal):', {
       url: `${this.config.baseUrl}/payment_methods`,
+      headers: {
+        'Authorization': `Basic ${btoa(this.config.secretKey + ':').substring(0, 20)}...`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
       data: {
-        ...paymentMethodData,
+        ...minimalPaymentMethodData,
         attributes: {
-          ...paymentMethodData.attributes,
+          ...minimalPaymentMethodData.attributes,
           details: {
-            ...paymentMethodData.attributes.details,
+            ...minimalPaymentMethodData.attributes.details,
             card_number: '[MASKED]',
             cvc: '[MASKED]'
           }
@@ -138,7 +188,7 @@ class PayMongoService {
           'Accept': 'application/json'
         },
         body: JSON.stringify({
-          data: paymentMethodData
+          data: minimalPaymentMethodData
         })
       });
 
@@ -150,11 +200,17 @@ class PayMongoService {
         data: responseData
       });
 
+      // Log detailed error information for debugging
+      if (!response.ok && responseData.errors) {
+        console.log('🔍 Detailed PayMongo Errors:', JSON.stringify(responseData.errors, null, 2));
+      }
+
       if (!response.ok) {
-        console.error('❌ PayMongo API Error:', {
+        console.error('❌ PayMongo API Error - Create Payment Method:', {
           status: response.status,
           statusText: response.statusText,
-          errors: responseData.errors
+          errors: responseData.errors,
+          fullResponse: responseData
         });
         throw new Error(`PayMongo API Error: ${response.status} ${response.statusText}`);
       }
@@ -176,16 +232,20 @@ class PayMongoService {
   }): Promise<PayMongoResponse<{ id: string; type: string; attributes: any }>> {
     console.log('💰 Creating payment intent:', intentData);
 
-    const paymentIntentData: PaymentIntentData = {
-      amount: intentData.amount,
-      currency: intentData.currency || 'PHP',
-      payment_method_allowed: ['card'],
-      payment_method_options: {
-        card: {
-          request_three_d_secure: 'automatic'
-        }
-      },
-      metadata: intentData.metadata
+    const paymentIntentData = {
+      type: 'payment_intent',
+      attributes: {
+        amount: intentData.amount,
+        currency: intentData.currency || 'PHP',
+        payment_method_allowed: ['card'],
+        payment_method_options: {
+          card: {
+            request_three_d_secure: 'automatic'
+          }
+        },
+        metadata: intentData.metadata,
+        test_mode: this.config.isTestMode // Explicitly set test mode
+      }
     };
 
     console.log('📤 PayMongo API Request - Create Payment Intent:', {
@@ -215,10 +275,11 @@ class PayMongoService {
       });
 
       if (!response.ok) {
-        console.error('❌ PayMongo API Error:', {
+        console.error('❌ PayMongo API Error - Create Payment Intent:', {
           status: response.status,
           statusText: response.statusText,
-          errors: responseData.errors
+          errors: responseData.errors,
+          fullResponse: responseData
         });
         throw new Error(`PayMongo API Error: ${response.status} ${response.statusText}`);
       }
@@ -254,6 +315,7 @@ class PayMongoService {
         },
         body: JSON.stringify({
           data: {
+            type: 'payment_intent',
             attributes: {
               payment_method: paymentMethodId
             }
@@ -270,10 +332,11 @@ class PayMongoService {
       });
 
       if (!response.ok) {
-        console.error('❌ PayMongo API Error:', {
+        console.error('❌ PayMongo API Error - Attach Payment Method:', {
           status: response.status,
           statusText: response.statusText,
-          errors: responseData.errors
+          errors: responseData.errors,
+          fullResponse: responseData
         });
         throw new Error(`PayMongo API Error: ${response.status} ${response.statusText}`);
       }
