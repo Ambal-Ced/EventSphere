@@ -1,0 +1,314 @@
+table_name,column_name,data_type,full_data_type,is_nullable,column_default,constraints
+account_status,id,uuid,uuid,NO,gen_random_uuid(),PK
+account_status,user_id,uuid,uuid,NO,null,FK
+account_status,user_id,uuid,uuid,NO,null,UQ
+account_status,new_account,boolean,boolean,YES,true,
+account_status,created_at,timestamp with time zone,timestamp with time zone,YES,now(),
+account_status,updated_at,timestamp with time zone,timestamp with time zone,YES,now(),
+ai_chat_usage,id,uuid,uuid,NO,gen_random_uuid(),PK
+ai_chat_usage,created_at,timestamp with time zone,timestamp with time zone,NO,"timezone('utc'::text, now())",
+ai_chat_usage,user_id,uuid,uuid,NO,null,FK
+ai_chat_usage,user_id,uuid,uuid,NO,null,UQ
+ai_chat_usage,event_id,uuid,uuid,NO,null,FK
+ai_chat_usage,event_id,uuid,uuid,NO,null,UQ
+ai_chat_usage,questions_asked,integer,"integer(32,0)",NO,0,
+ai_chat_usage,week_start_date,date,date,NO,null,UQ
+ai_chat_usage,last_question_at,timestamp with time zone,timestamp with time zone,YES,null,
+ai_insights_usage,id,uuid,uuid,NO,gen_random_uuid(),PK
+ai_insights_usage,created_at,timestamp with time zone,timestamp with time zone,NO,"timezone('utc'::text, now())",
+ai_insights_usage,user_id,uuid,uuid,NO,null,UQ
+ai_insights_usage,user_id,uuid,uuid,NO,null,FK
+ai_insights_usage,event_id,uuid,uuid,NO,null,UQ
+ai_insights_usage,event_id,uuid,uuid,NO,null,FK
+ai_insights_usage,insights_generated,integer,"integer(32,0)",NO,0,
+ai_insights_usage,week_start_date,date,date,NO,null,UQ
+ai_insights_usage,last_generation_at,timestamp with time zone,timestamp with time zone,YES,null,
+analytics_insights,id,uuid,uuid,NO,gen_random_uuid(),PK
+analytics_insights,created_at,timestamp with time zone,timestamp with time zone,NO,"timezone('utc'::text, now())",
+analytics_insights,user_id,uuid,uuid,NO,null,FK
+analytics_insights,user_id,uuid,uuid,NO,null,UQ
+analytics_insights,insights,text,text,NO,null,
+analytics_insights,generated_at,timestamp with time zone,timestamp with time zone,NO,"timezone('utc'::text, now())",
+analytics_insights,week_start_date,date,date,NO,null,UQ
+analytics_insights_usage,id,uuid,uuid,NO,gen_random_uuid(),PK
+analytics_insights_usage,created_at,timestamp with time zone,timestamp with time zone,NO,"timezone('utc'::text, now())",
+analytics_insights_usage,user_id,uuid,uuid,NO,null,UQ
+analytics_insights_usage,user_id,uuid,uuid,NO,null,FK
+analytics_insights_usage,insights_generated,integer,"integer(32,0)",NO,0,
+analytics_insights_usage,week_start_date,date,date,NO,null,UQ
+analytics_insights_usage,last_generation_at,timestamp with time zone,timestamp with time zone,YES,null,
+attendance_portals,id,uuid,uuid,NO,gen_random_uuid(),PK
+attendance_portals,created_at,timestamp with time zone,timestamp with time zone,NO,now(),
+attendance_portals,updated_at,timestamp with time zone,timestamp with time zone,NO,now(),
+attendance_portals,event_id,uuid,uuid,NO,null,FK
+attendance_portals,created_by,uuid,uuid,NO,null,FK
+attendance_portals,token,text,text,NO,null,UQ
+attendance_portals,is_active,boolean,boolean,NO,true,
+attendance_portals,expires_at,timestamp with time zone,timestamp with time zone,YES,null,
+attendance_portals,title,text,text,YES,'Event Check-in'::text,
+attendance_portals,description,text,text,YES,null,
+attendance_records,id,uuid,uuid,NO,gen_random_uuid(),PK
+attendance_records,created_at,timestamp with time zone,timestamp with time zone,NO,now(),
+attendance_records,portal_id,uuid,uuid,NO,null,FK
+attendance_records,event_id,uuid,uuid,NO,null,FK
+attendance_records,attendee_name,text,text,NO,null,
+attendance_records,attendee_email,text,text,YES,null,
+attendance_records,note,text,text,YES,null,
+attendance_records,checkin_at,timestamp with time zone,timestamp with time zone,NO,now(),
+attendance_records,checkout_at,timestamp with time zone,timestamp with time zone,YES,null,
+attendance_records,user_agent,text,text,YES,null,
+attendance_records,ip_hash,text,text,YES,null,
+attendees,id,uuid,uuid,NO,gen_random_uuid(),PK
+attendees,created_at,timestamp with time zone,timestamp with time zone,NO,now(),
+attendees,updated_at,timestamp with time zone,timestamp with time zone,NO,now(),
+attendees,event_id,uuid,uuid,NO,null,FK
+attendees,event_id,uuid,uuid,NO,null,UQ
+attendees,expected_attendees,integer,"integer(32,0)",NO,0,
+attendees,event_attendees,integer,"integer(32,0)",NO,0,
+event_chat,id,uuid,uuid,NO,gen_random_uuid(),PK
+event_chat,created_at,timestamp with time zone,timestamp with time zone,NO,"timezone('utc'::text, now())",
+event_chat,updated_at,timestamp with time zone,timestamp with time zone,NO,"timezone('utc'::text, now())",
+event_chat,event_id,uuid,uuid,NO,null,FK
+event_chat,user_id,uuid,uuid,NO,null,FK
+event_chat,message,text,text,NO,null,
+event_chat,message_type,text,text,YES,'text'::text,
+event_chat,parent_message_id,uuid,uuid,YES,null,FK
+event_chat,is_edited,boolean,boolean,YES,false,
+event_chat,edited_at,timestamp with time zone,timestamp with time zone,YES,null,
+event_chat,is_deleted,boolean,boolean,YES,false,
+event_chat,deleted_at,timestamp with time zone,timestamp with time zone,YES,null,
+event_chat,deleted_by,uuid,uuid,YES,null,FK
+event_collaborators,id,uuid,uuid,NO,gen_random_uuid(),PK
+event_collaborators,event_id,uuid,uuid,NO,null,FK
+event_collaborators,event_id,uuid,uuid,NO,null,UQ
+event_collaborators,user_id,uuid,uuid,NO,null,FK
+event_collaborators,user_id,uuid,uuid,NO,null,UQ
+event_collaborators,role,text,text,NO,null,
+event_collaborators,invite_code,text,text,YES,null,FK
+event_collaborators,invited_by,uuid,uuid,YES,null,FK
+event_collaborators,joined_at,timestamp with time zone,timestamp with time zone,NO,now(),
+event_collaborators,created_at,timestamp with time zone,timestamp with time zone,NO,now(),
+event_collaborators,updated_at,timestamp with time zone,timestamp with time zone,NO,now(),
+event_feedback,id,uuid,uuid,NO,gen_random_uuid(),PK
+event_feedback,created_at,timestamp with time zone,timestamp with time zone,NO,"timezone('utc'::text, now())",
+event_feedback,updated_at,timestamp with time zone,timestamp with time zone,NO,"timezone('utc'::text, now())",
+event_feedback,feedback_id,uuid,uuid,NO,null,UQ
+event_feedback,feedback_id,uuid,uuid,NO,null,FK
+event_feedback,event_id,uuid,uuid,NO,null,FK
+event_feedback,event_id,uuid,uuid,NO,null,UQ
+event_insights_usage,id,uuid,uuid,NO,gen_random_uuid(),PK
+event_insights_usage,event_id,uuid,uuid,NO,null,UQ
+event_insights_usage,event_id,uuid,uuid,NO,null,FK
+event_insights_usage,week_start_date,date,date,NO,null,UQ
+event_insights_usage,total_insights_generated,integer,"integer(32,0)",YES,0,
+event_insights_usage,last_generation_at,timestamp with time zone,timestamp with time zone,YES,null,
+event_insights_usage,created_at,timestamp with time zone,timestamp with time zone,YES,now(),
+event_insights_usage,updated_at,timestamp with time zone,timestamp with time zone,YES,now(),
+event_invites,id,uuid,uuid,NO,gen_random_uuid(),PK
+event_invites,event_id,uuid,uuid,NO,null,FK
+event_invites,event_id,uuid,uuid,NO,null,FK
+event_invites,invite_code,text,text,NO,null,UQ
+event_invites,role,text,text,NO,null,
+event_invites,created_by,uuid,uuid,NO,null,FK
+event_invites,expires_at,timestamp with time zone,timestamp with time zone,YES,null,
+event_invites,max_uses,integer,"integer(32,0)",YES,20,
+event_invites,current_uses,integer,"integer(32,0)",YES,0,
+event_invites,is_active,boolean,boolean,YES,true,
+event_invites,created_at,timestamp with time zone,timestamp with time zone,YES,now(),
+event_invites,updated_at,timestamp with time zone,timestamp with time zone,YES,now(),
+event_items,id,uuid,uuid,NO,gen_random_uuid(),PK
+event_items,event_id,uuid,uuid,YES,null,FK
+event_items,item_name,text,text,NO,null,
+event_items,item_description,text,text,YES,null,
+event_items,item_quantity,integer,"integer(32,0)",NO,null,
+event_items,created_at,timestamp with time zone,timestamp with time zone,YES,now(),
+event_items,shared_with,ARRAY,ARRAY,YES,'{}'::uuid[],
+event_items,updated_at,timestamp with time zone,timestamp with time zone,YES,"timezone('utc'::text, now())",
+event_items,cost,numeric,"numeric(10,2)",YES,0.00,
+event_notes,id,uuid,uuid,NO,gen_random_uuid(),PK
+event_notes,created_at,timestamp with time zone,timestamp with time zone,NO,"timezone('utc'::text, now())",
+event_notes,updated_at,timestamp with time zone,timestamp with time zone,NO,"timezone('utc'::text, now())",
+event_notes,event_id,uuid,uuid,NO,null,FK
+event_notes,event_id,uuid,uuid,NO,null,UQ
+event_notes,user_id,uuid,uuid,NO,null,FK
+event_notes,user_id,uuid,uuid,NO,null,UQ
+event_notes,notes,text,text,YES,''::text,
+event_revenue,id,uuid,uuid,NO,gen_random_uuid(),PK
+event_revenue,created_at,timestamp with time zone,timestamp with time zone,NO,"timezone('utc'::text, now())",
+event_revenue,updated_at,timestamp with time zone,timestamp with time zone,NO,"timezone('utc'::text, now())",
+event_revenue,event_id,uuid,uuid,NO,null,UQ
+event_revenue,event_id,uuid,uuid,NO,null,FK
+event_revenue,organizer_id,uuid,uuid,NO,null,FK
+event_revenue,total_item_cost,numeric,"numeric(10,2)",YES,0.00,
+event_revenue,markup_amount,numeric,"numeric(10,2)",YES,0.00,
+event_revenue,discount_amount,numeric,"numeric(10,2)",YES,0.00,
+event_revenue,final_event_price,numeric,"numeric(10,2)",YES,0.00,
+event_revenue,total_revenue,numeric,"numeric(10,2)",YES,0.00,
+event_revenue,total_participants,integer,"integer(32,0)",YES,0,
+event_revenue,revenue_per_participant,numeric,"numeric(10,2)",YES,0.00,
+event_revenue,gross_profit,numeric,"numeric(10,2)",YES,0.00,
+event_revenue,profit_margin_percentage,numeric,"numeric(5,2)",YES,0.00,
+event_revenue,status,text,text,YES,'active'::text,
+event_script,id,uuid,uuid,NO,gen_random_uuid(),PK
+event_script,created_at,timestamp with time zone,timestamp with time zone,NO,"timezone('utc'::text, now())",
+event_script,updated_at,timestamp with time zone,timestamp with time zone,NO,"timezone('utc'::text, now())",
+event_script,event_id,uuid,uuid,NO,null,FK
+event_script,user_id,uuid,uuid,NO,null,FK
+event_script,file_url,text,text,NO,null,
+event_script,file_name,text,text,NO,null,
+event_script,file_size,bigint,"bigint(64,0)",YES,null,
+event_script,mime_type,text,text,YES,null,
+event_script,notes,text,text,YES,null,
+events,id,uuid,uuid,NO,gen_random_uuid(),PK
+events,user_id,uuid,uuid,NO,null,FK
+events,title,text,text,NO,null,
+events,description,text,text,YES,null,
+events,date,timestamp with time zone,timestamp with time zone,YES,null,
+events,location,text,text,YES,null,
+events,category,text,text,YES,null,
+events,image_url,text,text,YES,null,
+events,created_at,timestamp with time zone,timestamp with time zone,NO,"timezone('utc'::text, now())",
+events,updated_at,timestamp with time zone,timestamp with time zone,NO,"timezone('utc'::text, now())",
+events,owner_id,uuid,uuid,NO,null,FK
+events,is_public,boolean,boolean,YES,false,
+events,status,text,text,YES,'coming_soon'::text,
+events,role,text,text,YES,'owner'::text,
+events,markup_type,text,text,YES,'percentage'::text,
+events,markup_value,numeric,"numeric(10,2)",YES,0.00,
+events,discount_type,text,text,YES,'none'::text,
+events,discount_value,numeric,"numeric(10,2)",YES,0.00,
+events,ai_chat_enabled,boolean,boolean,YES,false,
+events,ai_insights,text,text,YES,null,
+events,insights_generated_at,timestamp with time zone,timestamp with time zone,YES,null,
+events,insights_generated_by,uuid,uuid,YES,null,FK
+feedback,id,uuid,uuid,NO,gen_random_uuid(),PK
+feedback,created_at,timestamp with time zone,timestamp with time zone,NO,now(),
+feedback,updated_at,timestamp with time zone,timestamp with time zone,NO,now(),
+feedback,user_id,uuid,uuid,NO,null,FK
+feedback,event_id,text,text,YES,null,
+feedback,feedback_type,text,text,NO,null,
+feedback,title,text,text,NO,null,
+feedback,description,text,text,NO,null,
+feedback,rating,integer,"integer(32,0)",YES,null,
+feedback,status,text,text,YES,'open'::text,
+feedback,priority,text,text,YES,'normal'::text,
+feedback,admin_notes,text,text,YES,null,
+feedback,resolved_at,timestamp with time zone,timestamp with time zone,YES,null,
+feedback,resolved_by,uuid,uuid,YES,null,FK
+feedback_portals,id,uuid,uuid,NO,gen_random_uuid(),PK
+feedback_portals,created_at,timestamp with time zone,timestamp with time zone,NO,now(),
+feedback_portals,updated_at,timestamp with time zone,timestamp with time zone,NO,now(),
+feedback_portals,event_id,uuid,uuid,NO,null,FK
+feedback_portals,created_by,uuid,uuid,NO,null,FK
+feedback_portals,token,text,text,NO,null,UQ
+feedback_portals,is_active,boolean,boolean,NO,true,
+feedback_portals,expires_at,timestamp with time zone,timestamp with time zone,YES,null,
+feedback_portals,title,text,text,YES,'Event Feedback'::text,
+feedback_portals,description,text,text,YES,null,
+feedback_responses,id,uuid,uuid,NO,gen_random_uuid(),PK
+feedback_responses,created_at,timestamp with time zone,timestamp with time zone,NO,now(),
+feedback_responses,portal_id,uuid,uuid,NO,null,FK
+feedback_responses,event_id,uuid,uuid,NO,null,FK
+feedback_responses,respondent_name,text,text,YES,null,
+feedback_responses,respondent_email,text,text,YES,null,
+feedback_responses,rating,integer,"integer(32,0)",YES,null,
+feedback_responses,sentiment,text,text,YES,null,
+feedback_responses,comments,text,text,YES,null,
+feedback_responses,user_agent,text,text,YES,null,
+feedback_responses,ip_hash,text,text,YES,null,
+notifications,id,uuid,uuid,NO,gen_random_uuid(),PK
+notifications,created_at,timestamp with time zone,timestamp with time zone,NO,now(),
+notifications,user_id,uuid,uuid,NO,null,FK
+notifications,type,text,text,NO,null,
+notifications,title,text,text,NO,null,
+notifications,message,text,text,NO,null,
+notifications,event_id,uuid,uuid,YES,null,FK
+notifications,level,text,text,YES,'info'::text,
+notifications,link_url,text,text,YES,null,
+notifications,metadata,jsonb,jsonb,YES,'{}'::jsonb,
+notifications,read_at,timestamp with time zone,timestamp with time zone,YES,null,
+notifications_dedupe,key,text,text,NO,null,PK
+notifications_dedupe,created_at,timestamp with time zone,timestamp with time zone,YES,now(),
+profiles,id,uuid,uuid,NO,null,PK
+profiles,id,uuid,uuid,NO,null,FK
+profiles,username,text,text,YES,null,
+profiles,email,text,text,YES,null,
+profiles,fname,text,text,YES,null,
+profiles,lname,text,text,YES,null,
+profiles,mname,text,text,YES,null,
+profiles,suffix,text,text,YES,null,
+profiles,address,text,text,YES,null,
+profiles,contact_no,text,text,YES,null,
+profiles,birthday,date,date,YES,null,
+profiles,age,integer,"integer(32,0)",YES,null,
+profiles,gender,text,text,YES,null,
+profiles,interests,ARRAY,ARRAY,YES,null,
+profiles,role,text,text,YES,null,
+profiles,created_at,timestamp with time zone,timestamp with time zone,NO,"timezone('utc'::text, now())",
+profiles,updated_at,timestamp with time zone,timestamp with time zone,NO,"timezone('utc'::text, now())",
+profiles,avatar_url,text,text,YES,null,
+secure_card_data,id,uuid,uuid,NO,gen_random_uuid(),PK
+secure_card_data,user_id,uuid,uuid,NO,null,FK
+secure_card_data,user_id,uuid,uuid,NO,null,UQ
+secure_card_data,payment_method_id,text,text,YES,null,UQ
+secure_card_data,last4,text,text,YES,null,
+secure_card_data,brand,text,text,YES,null,
+secure_card_data,exp_month,integer,"integer(32,0)",YES,null,
+secure_card_data,exp_year,integer,"integer(32,0)",YES,null,
+secure_card_data,expires_at,timestamp with time zone,timestamp with time zone,NO,null,
+secure_card_data,created_at,timestamp with time zone,timestamp with time zone,YES,now(),
+secure_card_data,updated_at,timestamp with time zone,timestamp with time zone,YES,now(),
+subscription_plans,id,uuid,uuid,NO,gen_random_uuid(),PK
+subscription_plans,name,text,text,NO,null,UQ
+subscription_plans,price_cents,bigint,"bigint(64,0)",NO,0,
+subscription_plans,currency,text,text,NO,'PHP'::text,
+subscription_plans,billing_period,text,text,NO,null,
+subscription_plans,features,jsonb,jsonb,YES,'{}'::jsonb,
+subscription_plans,limits,jsonb,jsonb,YES,'{}'::jsonb,
+subscription_plans,is_active,boolean,boolean,YES,true,
+subscription_plans,created_at,timestamp with time zone,timestamp with time zone,YES,now(),
+subscription_plans,updated_at,timestamp with time zone,timestamp with time zone,YES,now(),
+transactions,id,uuid,uuid,NO,gen_random_uuid(),PK
+transactions,user_id,uuid,uuid,NO,null,FK
+transactions,subscription_id,uuid,uuid,YES,null,FK
+transactions,invoice_number,text,text,NO,null,UQ
+transactions,original_amount_cents,integer,"integer(32,0)",NO,null,
+transactions,net_amount_cents,integer,"integer(32,0)",NO,null,
+transactions,currency,text,text,NO,'PHP'::text,
+transactions,payment_method_type,text,text,YES,null,
+transactions,payment_method_brand,text,text,YES,null,
+transactions,payment_method_last4,text,text,YES,null,
+transactions,paymongo_payment_id,text,text,YES,null,UQ
+transactions,paymongo_payment_intent_id,text,text,YES,null,UQ
+transactions,status,text,text,NO,'paid'::text,
+transactions,transaction_type,text,text,NO,'purchase'::text,
+transactions,plan_name,text,text,YES,null,
+transactions,created_at,timestamp with time zone,timestamp with time zone,YES,now(),
+transactions,updated_at,timestamp with time zone,timestamp with time zone,YES,now(),
+transactions,metadata,jsonb,jsonb,YES,null,
+user_subscriptions,id,uuid,uuid,NO,gen_random_uuid(),PK
+user_subscriptions,user_id,uuid,uuid,NO,null,FK
+user_subscriptions,user_id,uuid,uuid,NO,null,UQ
+user_subscriptions,plan_id,uuid,uuid,NO,null,FK
+user_subscriptions,plan_id,uuid,uuid,NO,null,UQ
+user_subscriptions,status,text,text,NO,'active'::text,
+user_subscriptions,current_period_start,timestamp with time zone,timestamp with time zone,YES,null,
+user_subscriptions,current_period_end,timestamp with time zone,timestamp with time zone,YES,null,
+user_subscriptions,trial_start,timestamp with time zone,timestamp with time zone,YES,null,
+user_subscriptions,trial_end,timestamp with time zone,timestamp with time zone,YES,null,
+user_subscriptions,is_trial,boolean,boolean,YES,false,
+user_subscriptions,cancel_at_period_end,boolean,boolean,YES,false,
+user_subscriptions,cancelled_at,timestamp with time zone,timestamp with time zone,YES,null,
+user_subscriptions,stripe_subscription_id,text,text,YES,null,
+user_subscriptions,stripe_customer_id,text,text,YES,null,
+user_subscriptions,created_at,timestamp with time zone,timestamp with time zone,YES,now(),
+user_subscriptions,updated_at,timestamp with time zone,timestamp with time zone,YES,now(),
+user_usage,id,uuid,uuid,NO,gen_random_uuid(),PK
+user_usage,user_id,uuid,uuid,NO,null,UQ
+user_usage,user_id,uuid,uuid,NO,null,FK
+user_usage,events_created,integer,"integer(32,0)",YES,0,
+user_usage,events_joined,integer,"integer(32,0)",YES,0,
+user_usage,ai_chat_messages,integer,"integer(32,0)",YES,0,
+user_usage,feedback_responses,integer,"integer(32,0)",YES,0,
+user_usage,created_at,timestamp with time zone,timestamp with time zone,YES,now(),
+user_usage,updated_at,timestamp with time zone,timestamp with time zone,YES,now(),

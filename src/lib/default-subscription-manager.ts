@@ -52,7 +52,7 @@ export class DefaultSubscriptionManager {
           plan_id: freePlan.id,
           status: "active",
           current_period_start: new Date().toISOString(),
-          current_period_end: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year from now
+          current_period_end: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000 * 100).toISOString(), // 100 years from now (effectively no expiry)
           is_trial: false
         })
         .select("id")
@@ -118,11 +118,14 @@ export class DefaultSubscriptionManager {
     try {
       console.log("🔍 Checking if user has subscription:", userId);
 
-      // Check if user already has a subscription
+      // Check if user already has an active subscription
       const { data: existingSubscription, error: checkError } = await supabase
         .from("user_subscriptions")
         .select("id")
         .eq("user_id", userId)
+        .eq("status", "active")
+        .order("created_at", { ascending: false })
+        .limit(1)
         .single();
 
       if (checkError && checkError.code !== 'PGRST116') { // PGRST116 means no rows found

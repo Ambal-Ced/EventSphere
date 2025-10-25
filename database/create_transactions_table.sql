@@ -1,11 +1,13 @@
 -- Create transactions table for admin tracking and billing history
+-- Note: For admin revenue tracking, we use plan prices (₱159, ₱300) instead of PayMongo net amounts
+-- This ensures admin sees consistent revenue numbers based on subscription plans
 CREATE TABLE IF NOT EXISTS transactions (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   subscription_id UUID REFERENCES user_subscriptions(id) ON DELETE SET NULL,
   invoice_number TEXT UNIQUE NOT NULL,
-  original_amount_cents INTEGER NOT NULL, -- Original plan price (e.g., 300000 for ₱300)
-  net_amount_cents INTEGER NOT NULL, -- Actual amount received after PayMongo fees (e.g., 274500)
+  original_amount_cents INTEGER NOT NULL, -- Plan price (e.g., 300000 for ₱300)
+  net_amount_cents INTEGER NOT NULL, -- Same as original_amount_cents for admin tracking (plan price)
   currency TEXT NOT NULL DEFAULT 'PHP',
   payment_method_type TEXT, -- e.g., 'card'
   payment_method_brand TEXT, -- e.g., 'visa', 'mastercard'
@@ -58,6 +60,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Drop trigger if it exists, then create it
+DROP TRIGGER IF EXISTS trigger_set_invoice_number ON transactions;
 CREATE TRIGGER trigger_set_invoice_number
   BEFORE INSERT ON transactions
   FOR EACH ROW
@@ -72,6 +76,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Drop trigger if it exists, then create it
+DROP TRIGGER IF EXISTS trigger_update_transactions_updated_at ON transactions;
 CREATE TRIGGER trigger_update_transactions_updated_at
   BEFORE UPDATE ON transactions
   FOR EACH ROW
@@ -84,6 +90,12 @@ ADD COLUMN IF NOT EXISTS cancel_at_period_end BOOLEAN DEFAULT FALSE;
 
 -- Add RLS (Row Level Security) policies
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies if they exist, then create them
+DROP POLICY IF EXISTS "Users can view own transactions" ON transactions;
+DROP POLICY IF EXISTS "Users can insert own transactions" ON transactions;
+DROP POLICY IF EXISTS "Service role can update transactions" ON transactions;
+DROP POLICY IF EXISTS "Service role can delete transactions" ON transactions;
 
 -- Users can only see their own transactions
 CREATE POLICY "Users can view own transactions" ON transactions

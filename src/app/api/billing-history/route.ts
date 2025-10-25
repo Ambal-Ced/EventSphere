@@ -36,6 +36,14 @@ export async function GET(request: NextRequest) {
     const billingHistory = await SubscriptionService.getBillingHistory(user.id);
     
     console.log('📊 Billing history retrieved:', billingHistory.length, 'transactions');
+    console.log('📊 Transaction details:', billingHistory.map(t => ({
+      invoice_number: t.invoice_number,
+      plan_name: t.plan_name,
+      original_amount_cents: t.original_amount_cents,
+      status: t.status,
+      transaction_type: t.transaction_type,
+      created_at: t.created_at
+    })));
 
     return NextResponse.json({
       success: true,

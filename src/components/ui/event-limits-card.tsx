@@ -40,62 +40,62 @@ export function EventLimitsCard() {
   const fetchEventLimits = async () => {
     if (!user) return;
 
-    try {
-      console.log("📊 Fetching event limits for user:", user.id);
+      try {
+        console.log("📊 Fetching event limits for user:", user.id);
 
-      // Ensure user has a subscription
-      await DefaultSubscriptionManager.ensureUserHasSubscription(user.id);
+        // Ensure user has a subscription
+        await DefaultSubscriptionManager.ensureUserHasSubscription(user.id);
 
-      // Get user's current subscription
-      const { data: subscription, error: subError } = await supabase
-        .from("user_subscriptions")
-        .select(`
-          id,
-          status,
-          is_trial,
-          trial_start,
-          trial_end,
-          subscription_plans (
-            name
-          )
-        `)
-        .eq("user_id", user.id)
-        .single();
+        // Get user's current subscription
+        const { data: subscription, error: subError } = await supabase
+          .from("user_subscriptions")
+          .select(`
+            id,
+            status,
+            is_trial,
+            trial_start,
+            trial_end,
+            subscription_plans (
+              name
+            )
+          `)
+          .eq("user_id", user.id)
+          .single();
 
-      if (subError) {
-        console.error("❌ Error fetching subscription:", subError);
-      }
-
-      const planName = (subscription?.subscription_plans as any)?.name || "Free";
-      const subscriptionFeatures = DefaultSubscriptionManager.getSubscriptionFeatures(planName);
-
-      // Get event counts
-      const counts = await EventCountManager.getEventCounts(user.id);
-
-      console.log("📊 Event limits:", {
-        eventsCreated: counts.eventsCreated,
-        eventsJoined: counts.eventsJoined,
-        planName,
-        features: subscriptionFeatures
-      });
-
-      setLimits({
-        eventsCreated: counts.eventsCreated,
-        eventsJoined: counts.eventsJoined,
-        maxEventsCreated: subscriptionFeatures.max_events_created === -1 ? 999 : subscriptionFeatures.max_events_created,
-        maxEventsJoined: subscriptionFeatures.max_events_joined === -1 ? 999 : subscriptionFeatures.max_events_joined,
-        planName,
-        features: {
-          fast_ai_access: subscriptionFeatures.fast_ai_access,
-          higher_ai_priority: subscriptionFeatures.higher_ai_priority
+        if (subError) {
+          console.error("❌ Error fetching subscription:", subError);
         }
-      });
-    } catch (error) {
-      console.error("❌ Error fetching event limits:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+
+        const planName = (subscription?.subscription_plans as any)?.name || "Free";
+        const subscriptionFeatures = DefaultSubscriptionManager.getSubscriptionFeatures(planName);
+
+        // Get event counts
+        const counts = await EventCountManager.getEventCounts(user.id);
+
+        console.log("📊 Event limits:", {
+          eventsCreated: counts.eventsCreated,
+          eventsJoined: counts.eventsJoined,
+          planName,
+          features: subscriptionFeatures
+        });
+
+        setLimits({
+          eventsCreated: counts.eventsCreated,
+          eventsJoined: counts.eventsJoined,
+          maxEventsCreated: subscriptionFeatures.max_events_created === -1 ? 999 : subscriptionFeatures.max_events_created,
+          maxEventsJoined: subscriptionFeatures.max_events_joined === -1 ? 999 : subscriptionFeatures.max_events_joined,
+          planName,
+          features: {
+            fast_ai_access: subscriptionFeatures.fast_ai_access,
+            higher_ai_priority: subscriptionFeatures.higher_ai_priority
+          }
+        });
+      } catch (error) {
+        console.error("❌ Error fetching event limits:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
   useEffect(() => {
     fetchEventLimits();
@@ -113,7 +113,7 @@ export function EventLimitsCard() {
     const handleEventJoined = () => {
       console.log("🔄 EventLimitsCard: Event joined, refreshing limits...");
       if (user) {
-        fetchEventLimits();
+      fetchEventLimits();
       }
     };
 

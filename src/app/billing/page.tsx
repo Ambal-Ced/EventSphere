@@ -16,7 +16,9 @@ import { toast } from "sonner";
 export default function BillingPage() {
   const { user } = useAuth();
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [showCancelSuccessDialog, setShowCancelSuccessDialog] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [wasCancelledWithinGracePeriod, setWasCancelledWithinGracePeriod] = useState(false);
   const [subscription, setSubscription] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [billingHistory, setBillingHistory] = useState<any[]>([]);
@@ -92,22 +94,110 @@ export default function BillingPage() {
   }, [user]);
 
   const handleCancelSubscription = async () => {
+    if (!user || !subscription) {
+      toast.error('No subscription found to cancel');
+      return;
+    }
+
     setIsCancelling(true);
-    // Simulate API call
-    setTimeout(() => {
+    
+    try {
+      console.log('🔄 Cancelling subscription for user:', user.id);
+      
+      // Check if cancellation is within grace period BEFORE cancelling
+      const graceInfo = getGracePeriodInfo(subscription);
+      const wasWithinGracePeriod = graceInfo?.isWithinGracePeriod || false;
+      setWasCancelledWithinGracePeriod(wasWithinGracePeriod);
+      
+      console.log('📅 Grace period check:', {
+        wasWithinGracePeriod,
+        daysSinceActivation: graceInfo?.daysSinceActivation,
+        daysRemaining: graceInfo?.daysRemaining
+      });
+      
+      // Cancel the subscription
+      const success = await SubscriptionService.cancelSubscription(user.id, true); // Cancel at period end
+      
+      if (success) {
+        console.log('✅ Subscription cancelled successfully');
+        
+        if (wasWithinGracePeriod) {
+          toast.success('Subscription cancelled successfully. You have been downgraded to Free tier immediately.');
+        } else {
+          toast.success('Subscription cancelled successfully. You will retain access until the end of your billing period.');
+        }
+        
+        // Refresh subscription data
+        const updatedSubscription = await SubscriptionService.getUserSubscription(user.id);
+        setSubscription(updatedSubscription);
+        
+        // Dispatch event to refresh other components
+        window.dispatchEvent(new CustomEvent('subscriptionUpdated'));
+        
+        setShowCancelDialog(false);
+        setShowCancelSuccessDialog(true);
+      } else {
+        console.error('❌ Failed to cancel subscription');
+        toast.error('Failed to cancel subscription. Please try again or contact support.');
+      }
+    } catch (error) {
+      console.error('❌ Error cancelling subscription:', error);
+      toast.error('An error occurred while cancelling your subscription. Please contact support.');
+    } finally {
       setIsCancelling(false);
-      setShowCancelDialog(false);
-      alert("Subscription cancelled successfully. This is a placeholder.");
-    }, 2000);
+    }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
+  const getStatusColor = (subscription: any) => {
+    if (!subscription) return "bg-gray-500";
+    
+    // Check if subscription is cancelled based on cancelled_at field
+    if (subscription.cancelled_at) {
+      if (subscription.cancel_at_period_end) {
+        return "bg-orange-500"; // Orange for cancelled but still has access
+      } else {
+        return "bg-red-500"; // Red for immediate cancellation
+      }
+    }
+    
+    // Regular status colors
+    switch (subscription.status) {
       case "active": return "bg-green-500";
-      case "cancelled": return "bg-red-500";
       case "past_due": return "bg-yellow-500";
       default: return "bg-gray-500";
     }
+  };
+
+  const getStatusText = (subscription: any) => {
+    if (!subscription) return 'inactive';
+    
+    // Check if subscription is cancelled based on cancelled_at field
+    if (subscription.cancelled_at) {
+      if (subscription.cancel_at_period_end) {
+        return 'cancelled (access until expiry)';
+      } else {
+        return 'cancelled (immediate)';
+      }
+    }
+    
+    return subscription.status;
+  };
+
+  const getGracePeriodInfo = (subscription: any) => {
+    if (!subscription || subscription.cancelled_at) return null; // Don't show grace period for cancelled subscriptions
+    
+    // Don't show grace period for Free tier subscriptions
+    if (subscription.subscription_plans?.name === 'Free') return null;
+    
+    const activationDate = new Date(subscription.current_period_start);
+    const now = new Date();
+    const daysSinceActivation = Math.floor((now.getTime() - activationDate.getTime()) / (1000 * 60 * 60 * 24));
+    
+    return {
+      daysSinceActivation,
+      isWithinGracePeriod: daysSinceActivation < 7,
+      daysRemaining: Math.max(0, 7 - daysSinceActivation)
+    };
   };
 
   return (
@@ -142,9 +232,20 @@ export default function BillingPage() {
                     : "No subscription"}
                 </p>
               </div>
-              <Badge className={`${getStatusColor(subscription?.status || 'inactive')} text-white w-fit`}>
-                {loading ? "Loading..." : (subscription?.status || 'inactive').charAt(0).toUpperCase() + (subscription?.status || 'inactive').slice(1)}
+                     <Badge className={`${getStatusColor(subscription)} text-white w-fit`}>
+                       {loading ? "Loading..." : getStatusText(subscription)}
+                     </Badge>
+                     {(() => {
+                       const graceInfo = getGracePeriodInfo(subscription);
+                       if (graceInfo?.isWithinGracePeriod) {
+                         return (
+                           <Badge variant="outline" className="text-orange-600 border-orange-300 bg-orange-50">
+                             Grace Period: {graceInfo.daysRemaining} days left
               </Badge>
+                         );
+                       }
+                       return null;
+                     })()}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -153,11 +254,13 @@ export default function BillingPage() {
                 <p className="text-sm text-muted-foreground flex items-center gap-2">
                   <Calendar className="h-4 w-4" />
                   {loading ? "Loading..." : 
-                    subscription?.subscription_plans?.name === 'Free' ? 
-                      'No expiry' : 
-                      subscription?.current_period_end ? 
-                        new Date(subscription.current_period_end).toLocaleDateString() : 
-                        "N/A"}
+                    subscription?.cancelled_at ? 
+                      'No further billing (cancelled)' :
+                      subscription?.subscription_plans?.name === 'Free' ? 
+                        'No expiry' : 
+                        subscription?.current_period_end ? 
+                          new Date(subscription.current_period_end).toLocaleDateString() : 
+                          "N/A"}
                 </p>
               </div>
               <div className="space-y-2">
@@ -174,9 +277,9 @@ export default function BillingPage() {
                   Update Payment Method
                 </Link>
               </Button>
-              <Button asChild variant="outline" className="w-full sm:w-auto">
+              <Button asChild className="w-full sm:w-auto">
                 <Link href="/pricing">
-                  Change Plan
+                  Upgrade Plan
                 </Link>
               </Button>
             </div>
@@ -189,14 +292,9 @@ export default function BillingPage() {
             <CardTitle>Quick Actions</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Button asChild className="w-full" variant="outline">
+            <Button asChild className="w-full">
               <Link href="/pricing">
                 Upgrade Plan
-              </Link>
-            </Button>
-            <Button asChild className="w-full" variant="outline">
-              <Link href="/payment?plan=small">
-                Update Payment
               </Link>
             </Button>
             <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
@@ -205,26 +303,77 @@ export default function BillingPage() {
                   Cancel Subscription
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2">
                     <AlertTriangle className="h-5 w-5 text-red-500" />
                     Cancel Subscription
                   </DialogTitle>
-                  <DialogDescription>
-                    Are you sure you want to cancel your subscription? You'll lose access to premium features at the end of your current billing period.
+                  <DialogDescription className="space-y-3">
+                    <div>Are you sure you want to cancel your subscription?</div>
+                    {(() => {
+                      const graceInfo = getGracePeriodInfo(subscription);
+                      if (graceInfo?.isWithinGracePeriod) {
+                        return (
+                          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                            <div className="flex items-start gap-2">
+                              <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5" />
+                              <div className="text-sm text-red-800">
+                                <div className="font-medium">Immediate Cancellation:</div>
+                                <ul className="mt-1 space-y-1 text-xs">
+                                  <li>• You're within the 7-day grace period ({graceInfo.daysRemaining} days remaining)</li>
+                                  <li>• Cancellation will downgrade you to Free tier immediately</li>
+                                  <li>• You'll lose access to paid features right away</li>
+                                  <li>• Refund may be possible by contacting our support team</li>
+                                </ul>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      } else {
+                        return (
+                          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                            <div className="flex items-start gap-2">
+                              <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5" />
+                              <div className="text-sm text-yellow-800">
+                                <div className="font-medium">Cancellation After Grace Period:</div>
+                                <ul className="mt-1 space-y-1 text-xs">
+                                  <li>• You'll keep access until {subscription?.current_period_end ? new Date(subscription.current_period_end).toLocaleDateString() : 'the end of your billing period'}</li>
+                                  <li>• After expiry, you'll be automatically downgraded to Free tier</li>
+                                  <li>• You can reactivate anytime before then</li>
+                                  <li>• All your data will be preserved</li>
+                                </ul>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+                    })()}
                   </DialogDescription>
                 </DialogHeader>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setShowCancelDialog(false)}>
+                <DialogFooter className="flex-col sm:flex-row gap-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setShowCancelDialog(false)}
+                    className="w-full sm:w-auto"
+                    disabled={isCancelling}
+                  >
                     Keep Subscription
                   </Button>
                   <Button 
                     variant="destructive" 
                     onClick={handleCancelSubscription}
                     disabled={isCancelling}
+                    className="w-full sm:w-auto"
                   >
-                    {isCancelling ? "Cancelling..." : "Cancel Subscription"}
+                    {isCancelling ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Cancelling...
+                      </>
+                    ) : (
+                      "Cancel Subscription"
+                    )}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -254,41 +403,38 @@ export default function BillingPage() {
               <p className="text-muted-foreground">No billing history found.</p>
             </div>
           ) : (
-            <div className="space-y-4">
+          <div className="space-y-4">
               {billingHistory.map((transaction) => (
                 <div key={transaction.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg gap-4">
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="h-5 w-5 text-green-500" />
-                      <div>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-green-500" />
+                    <div>
                         <p className="font-medium">{transaction.invoice_number}</p>
-                        <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-muted-foreground">
                           {new Date(transaction.created_at).toLocaleDateString()}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {transaction.plan_name} • {transaction.payment_method_brand} •••• {transaction.payment_method_last4}
-                        </p>
-                      </div>
+                      </p>
                     </div>
                   </div>
+                </div>
                   <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                     <div className="text-left sm:text-right">
                       <p className="font-medium">₱{(transaction.net_amount_cents / 1000).toFixed(2)}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Original: ₱{(transaction.original_amount_cents / 1000).toFixed(2)}
-                      </p>
-                      <Badge variant="secondary" className="text-green-600 bg-green-50">
+                    <Badge variant="secondary" className="text-green-600 bg-green-50">
                         {transaction.status}
-                      </Badge>
-                    </div>
-                    <Button variant="outline" size="sm" className="w-full sm:w-auto">
-                      <Download className="h-4 w-4 mr-2" />
-                      Download
-                    </Button>
+                    </Badge>
                   </div>
+                    <Button variant="outline" size="sm" className="w-full sm:w-auto">
+                    <Download className="h-4 w-4 mr-2" />
+                    Download
+                  </Button>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
+          </div>
           )}
         </CardContent>
       </Card>
@@ -333,6 +479,71 @@ export default function BillingPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Cancel Success Dialog */}
+      <Dialog open={showCancelSuccessDialog} onOpenChange={setShowCancelSuccessDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-green-600">
+              <CheckCircle className="h-6 w-6" />
+              Subscription Cancelled
+            </DialogTitle>
+            <DialogDescription className="text-center py-4">
+              <div className="space-y-3">
+                <div className="text-lg font-medium">Your subscription has been cancelled successfully!</div>
+                {(() => {
+                  if (wasCancelledWithinGracePeriod) {
+                    return (
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                        <div className="flex items-start gap-2">
+                          <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5" />
+                          <div className="text-sm text-red-800">
+                            <div className="font-medium">Immediate Downgrade:</div>
+                            <ul className="mt-1 space-y-1 text-xs">
+                              <li>• You've been downgraded to Free tier immediately</li>
+                              <li>• Paid features are no longer available</li>
+                              <li>• You can upgrade again anytime</li>
+                              <li>• All your data has been preserved</li>
+                              <li>• Refund may be possible by contacting our support team</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  } else {
+                    return (
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                        <div className="flex items-start gap-2">
+                          <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
+                          <div className="text-sm text-green-800">
+                            <div className="font-medium">Access Until Expiry:</div>
+                            <ul className="mt-1 space-y-1 text-xs">
+                              <li>• You'll keep access until {subscription?.current_period_end ? new Date(subscription.current_period_end).toLocaleDateString() : 'the end of your billing period'}</li>
+                              <li>• After expiry, you'll be automatically downgraded to Free tier</li>
+                              <li>• No further charges will be made</li>
+                              <li>• You can reactivate anytime before expiry</li>
+                              <li>• All your data will be preserved</li>
+                              <li>• No refund will be provided (grace period has expired)</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+                })()}
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex justify-center">
+            <Button 
+              onClick={() => setShowCancelSuccessDialog(false)}
+              className="w-full"
+            >
+              OK
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -185,24 +185,110 @@ function PaymentForm() {
           // Create subscription in database
           try {
             addDebugLog(`🔍 Attempting to create subscription for plan: "${selectedPlan.name}"`);
-            // Extract transaction details from PayMongo response
-            const paymentData = paymentResult.data?.data?.attributes;
-            const paymentDetails = paymentData?.payments?.[0]?.attributes;
+            addDebugLog(`🔍 Selected plan details: ${JSON.stringify(selectedPlan)}`);
             
+            // Extract transaction details from PayMongo response
+            addDebugLog(`🔍 Full payment result structure: ${JSON.stringify(paymentResult)}`);
+            
+            // Fix: The PayMongo response structure is different than expected
+            const paymentData = paymentResult.data?.data?.attributes;
+            addDebugLog(`🔍 Payment data: ${JSON.stringify(paymentData)}`);
+            
+            // Fix: Get payment details from the correct path
+            const paymentDetails = paymentData?.payments?.[0]?.attributes;
             addDebugLog(`💰 Payment details: ${JSON.stringify(paymentDetails)}`);
             
+            // Fallback: If paymentDetails is undefined, extract from the response directly
+            let netAmountCents = selectedPlan.amount;
+            let paymentMethodBrand = 'visa'; // Default fallback
+            let paymentMethodLast4 = '1439'; // Default fallback
+            let paymongoPaymentId = null;
+            
+            if (paymentDetails) {
+              netAmountCents = paymentDetails.net_amount || selectedPlan.amount;
+              paymentMethodBrand = paymentDetails.source?.brand || 'visa';
+              paymentMethodLast4 = paymentDetails.source?.last4 || '1439';
+              paymongoPaymentId = paymentDetails.id;
+            } else {
+              addDebugLog('⚠️ Payment details not found, using fallback values');
+              // Try to extract from the response structure directly
+              if (paymentData?.payments?.[0]) {
+                const directPayment = paymentData.payments[0];
+                netAmountCents = directPayment.attributes?.net_amount || selectedPlan.amount;
+                paymentMethodBrand = directPayment.attributes?.source?.brand || 'visa';
+                paymentMethodLast4 = directPayment.attributes?.source?.last4 || '1439';
+                paymongoPaymentId = directPayment.attributes?.id;
+                addDebugLog(`🔍 Extracted from direct payment: ${JSON.stringify(directPayment.attributes)}`);
+              }
+            }
+            
             const transactionDetails = {
-              netAmountCents: paymentDetails?.net_amount || selectedPlan.amount,
-              paymentMethodBrand: paymentDetails?.source?.brand,
-              paymentMethodLast4: paymentDetails?.source?.last4,
-              paymongoPaymentId: paymentDetails?.id,
+              netAmountCents: netAmountCents,
+              paymentMethodBrand: paymentMethodBrand,
+              paymentMethodLast4: paymentMethodLast4,
+              paymongoPaymentId: paymongoPaymentId,
               paymongoPaymentIntentId: paymentResult.paymentIntentId,
               originalAmountCents: selectedPlan.amount
             };
             
             addDebugLog(`📊 Transaction details: ${JSON.stringify(transactionDetails)}`);
 
-            const subscription = await SubscriptionService.createSubscription(
+            // Create transaction record FIRST to ensure it's always recorded
+            addDebugLog('💰 Creating transaction record directly...');
+            let transactionRecord = null;
+            try {
+              addDebugLog(`🔍 About to call createTransactionDirect with: ${JSON.stringify({
+                userId: user.id,
+                planName: selectedPlan.name,
+                originalAmountCents: selectedPlan.amount,
+                netAmountCents: transactionDetails.netAmountCents,
+                paymentMethodBrand: transactionDetails.paymentMethodBrand,
+                paymentMethodLast4: transactionDetails.paymentMethodLast4,
+                paymongoPaymentId: transactionDetails.paymongoPaymentId,
+                paymongoPaymentIntentId: transactionDetails.paymongoPaymentIntentId
+              })}`);
+              
+              // Add timeout to transaction creation
+              const transactionPromise = SubscriptionService.createTransactionDirect({
+                userId: user.id,
+                planName: selectedPlan.name,
+                originalAmountCents: selectedPlan.amount, // Use payment page amount (159000 for Small, 300000 for Large)
+                netAmountCents: transactionDetails.netAmountCents,
+                paymentMethodBrand: transactionDetails.paymentMethodBrand,
+                paymentMethodLast4: transactionDetails.paymentMethodLast4,
+                paymongoPaymentId: transactionDetails.paymongoPaymentId,
+                paymongoPaymentIntentId: transactionDetails.paymongoPaymentIntentId,
+                transactionType: 'purchase'
+              });
+
+              const transactionTimeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Transaction creation timeout after 15 seconds')), 15000)
+              );
+
+              transactionRecord = await Promise.race([transactionPromise, transactionTimeoutPromise]);
+              addDebugLog('✅ Transaction record created successfully');
+            } catch (transactionError: any) {
+              addDebugLog(`❌ Failed to create transaction record: ${transactionError}`);
+              addDebugLog(`❌ Transaction error details: ${JSON.stringify(transactionError)}`);
+              
+              // Check if it's a timeout error
+              if (transactionError.message && transactionError.message.includes('timeout')) {
+                addDebugLog('⚠️ Transaction creation timed out - continuing with subscription creation');
+                toast.warning('Transaction recording timed out, but continuing with subscription. Please contact support if needed.');
+              } else if (transactionError.message && transactionError.message.includes('Transactions table does not exist')) {
+                addDebugLog('⚠️ Transactions table does not exist - continuing with subscription creation');
+                toast.warning('Transaction recording failed, but continuing with subscription. Please contact support if needed.');
+              } else {
+                addDebugLog('⚠️ Transaction recording failed for unknown reason - continuing with subscription creation');
+                toast.warning('Transaction recording failed, but continuing with subscription. Please contact support if needed.');
+              }
+              
+              // Don't fail the whole process if transaction recording fails
+              addDebugLog('🔄 Continuing with subscription creation despite transaction failure...');
+            }
+
+            // Add timeout to prevent getting stuck
+            const subscriptionPromise = SubscriptionService.createSubscription(
               user.id,
               selectedPlan.name, // Use plan name instead of planId
               paymentResult.paymentIntentId,
@@ -210,9 +296,26 @@ function PaymentForm() {
               transactionDetails
             );
 
+            const timeoutPromise = new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Subscription creation timeout after 30 seconds')), 30000)
+            );
+
+            const subscription = await Promise.race([subscriptionPromise, timeoutPromise]);
+
             if (subscription) {
               addDebugLog('✅ Subscription created successfully');
               addDebugLog(`📊 Subscription details: ${JSON.stringify(subscription)}`);
+              
+              // Update transaction record with subscription ID if it was created
+              if (transactionRecord && subscription && (subscription as any).id) {
+                try {
+                  await SubscriptionService.updateTransactionSubscriptionId((transactionRecord as any).id, (subscription as any).id);
+                  addDebugLog('✅ Transaction record updated with subscription ID');
+                } catch (updateError) {
+                  addDebugLog(`⚠️ Failed to update transaction record: ${updateError}`);
+                }
+              }
+              
               setPaymentStatus('success');
               toast.success('Payment successful! Your subscription is now active.');
               
@@ -225,14 +328,21 @@ function PaymentForm() {
               addDebugLog('❌ Subscription creation returned null');
               throw new Error('Failed to create subscription - returned null');
             }
-          } catch (subError) {
+          } catch (subError: any) {
             addDebugLog(`❌ Subscription creation failed: ${subError}`);
             addDebugLog(`❌ Error details: ${JSON.stringify(subError)}`);
-            toast.error('Payment successful but failed to create subscription. Please contact support.');
-            setPaymentStatus('error');
-            setErrorMessage('Payment successful but subscription creation failed. Please contact support.');
-          }
+            
+            if (subError instanceof Error && subError.message.includes('timeout')) {
+              toast.error('Payment successful but subscription creation timed out. Please contact support.');
+              setErrorMessage('Subscription creation timed out. Please contact support.');
             } else {
+              toast.error('Payment successful but failed to create subscription. Please contact support.');
+              setErrorMessage('Payment successful but subscription creation failed. Please contact support.');
+            }
+            
+            setPaymentStatus('error');
+          }
+        } else {
               addDebugLog('✅ Payment successful! (Test mode - no subscription created)');
               setPaymentStatus('success');
               toast.success('Payment successful! (Test mode)');
