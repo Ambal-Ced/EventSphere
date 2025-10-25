@@ -19,7 +19,7 @@ export class EventCountManager {
       const { data: createdEvents, error: createdError } = await supabase
         .from("events")
         .select("id")
-        .eq("created_by", userId);
+        .eq("user_id", userId);
 
       if (createdError) {
         console.error("❌ Error fetching created events:", createdError);
