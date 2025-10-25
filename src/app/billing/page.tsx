@@ -67,7 +67,7 @@ export default function BillingPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <div className="container mx-auto px-4 py-8 max-w-4xl overflow-x-hidden">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Billing & Subscription</h1>
         <p className="text-muted-foreground">
@@ -85,14 +85,14 @@ export default function BillingPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h3 className="text-xl font-semibold">{mockSubscription.plan}</h3>
                 <p className="text-muted-foreground">
                   {mockSubscription.price} {mockSubscription.period}
                 </p>
               </div>
-              <Badge className={`${getStatusColor(mockSubscription.status)} text-white`}>
+              <Badge className={`${getStatusColor(mockSubscription.status)} text-white w-fit`}>
                 {mockSubscription.status.charAt(0).toUpperCase() + mockSubscription.status.slice(1)}
               </Badge>
             </div>
@@ -113,13 +113,13 @@ export default function BillingPage() {
               </div>
             </div>
 
-            <div className="flex gap-3">
-              <Button asChild variant="outline">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button asChild variant="outline" className="w-full sm:w-auto">
                 <Link href="/payment?plan=small">
                   Update Payment Method
                 </Link>
               </Button>
-              <Button asChild variant="outline">
+              <Button asChild variant="outline" className="w-full sm:w-auto">
                 <Link href="/pricing">
                   Change Plan
                 </Link>
@@ -189,7 +189,7 @@ export default function BillingPage() {
         <CardContent>
           <div className="space-y-4">
             {mockInvoices.map((invoice) => (
-              <div key={invoice.id} className="flex items-center justify-between p-4 border rounded-lg">
+              <div key={invoice.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg gap-4">
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2">
                     <CheckCircle className="h-5 w-5 text-green-500" />
@@ -201,14 +201,14 @@ export default function BillingPage() {
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                  <div className="text-left sm:text-right">
                     <p className="font-medium">{invoice.amount}</p>
                     <Badge variant="secondary" className="text-green-600 bg-green-50">
                       {invoice.status}
                     </Badge>
                   </div>
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" className="w-full sm:w-auto">
                     <Download className="h-4 w-4 mr-2" />
                     Download
                   </Button>
@@ -228,7 +228,7 @@ export default function BillingPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span>AI Insights Overall</span>
