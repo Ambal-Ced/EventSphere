@@ -3816,23 +3816,25 @@ RECOMMENDATIONS:
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-slate-800 border border-red-500/30 rounded-lg p-6 w-full max-w-md mx-4">
-            <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Trash2 className="w-8 h-8 text-red-400" />
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 border border-red-500/30 rounded-lg p-4 sm:p-6 w-full max-w-md mx-auto">
+            <div className="text-center mb-4 sm:mb-6">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                <Trash2 className="w-6 h-6 sm:w-8 sm:h-8 text-red-400" />
               </div>
-              <h3 className="text-2xl font-semibold text-white mb-2">
+              <h3 className="text-xl sm:text-2xl font-semibold text-white mb-2">
                 {deleteType === "event" ? "Delete Event" : "Delete Item"}
               </h3>
-              <p className="text-slate-300">
+              <p className="text-sm sm:text-base text-slate-300">
                 {deleteType === "event"
                   ? "Are you sure you want to delete this event? This action cannot be undone."
-                  : `Are you sure you want to delete "${itemToDelete?.item_name}"?`}
+                  : `Are you sure you want to delete "${itemToDelete?.item_name && itemToDelete.item_name.length > 30 
+                    ? itemToDelete.item_name.substring(0, 30) + "..." 
+                    : itemToDelete?.item_name}"?`}
               </p>
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3">
               <Button
                 variant="outline"
                 onClick={() => {
@@ -4052,7 +4054,9 @@ RECOMMENDATIONS:
             {scriptToDelete && (
               <div className="mt-3 p-3 bg-slate-800 rounded-lg">
                 <p className="text-sm text-slate-300">
-                  <strong>File:</strong> {scriptToDelete.file_name || 'Unknown file'}
+                  <strong>File:</strong> {scriptToDelete.file_name && scriptToDelete.file_name.length > 9 
+                    ? scriptToDelete.file_name.substring(0, 9) + "..." 
+                    : scriptToDelete.file_name || 'Unknown file'}
                 </p>
                 <p className="text-sm text-slate-400">
                   <strong>Size:</strong> {scriptToDelete.file_size ? `${(scriptToDelete.file_size / 1024).toFixed(1)} KB` : 'Unknown'}
@@ -4366,7 +4370,17 @@ RECOMMENDATIONS:
                   </div>
 
                   <div className="bg-slate-800/60 rounded-lg p-4 border border-slate-600">
-                    <h3 className="text-lg font-semibold text-white mb-4">Attendance & Engagement</h3>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold text-white">Attendance & Engagement</h3>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => window.open(`/attendance-list?event=${event.id}`, '_blank')}
+                        className="text-xs"
+                      >
+                        View All Attendance
+                      </Button>
+                    </div>
                     {attendeesStats && (
                       <div className="mb-4 grid grid-cols-2 gap-3 text-sm">
                         <div className="flex justify-between"><span className="text-slate-400">Expected:</span><span className="text-white font-semibold">{attendeesStats.expected_attendees}</span></div>
@@ -4379,7 +4393,19 @@ RECOMMENDATIONS:
                     
                     {/* Feedback Section */}
                     <div className="mt-4 pt-4 border-t border-slate-600">
-                      <h4 className="text-md font-semibold text-white mb-3">Feedback Analysis</h4>
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-md font-semibold text-white">Feedback Analysis</h4>
+                        {analyticsData.feedbackMetrics.total > 0 && (
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => window.open(`/feedback-list?event=${event.id}`, '_blank')}
+                            className="text-xs"
+                          >
+                            View All Feedback
+                          </Button>
+                        )}
+                      </div>
                       <div className="grid grid-cols-2 gap-3 text-sm">
                         <div className="flex justify-between"><span className="text-slate-400">Total Responses:</span><span className="text-white font-semibold">{analyticsData.feedbackMetrics.total}</span></div>
                         <div className="flex justify-between"><span className="text-slate-400">Avg Rating:</span><span className="text-white font-semibold">{analyticsData.feedbackMetrics.averageRating.toFixed(1)}/5</span></div>

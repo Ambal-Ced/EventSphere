@@ -17,7 +17,7 @@ export const supabase: SupabaseClient<Database> =
       autoRefreshToken: true,
       storageKey: "eventsphere.auth",
     },
-    global: { headers: { "x-client": "eventsphere-web" } },
+    global: { headers: { "x-client": "eventtria-web" } },
   });
 
 if (process.env.NODE_ENV !== "production") {

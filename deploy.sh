@@ -34,7 +34,7 @@ npm run build
 cat > ecosystem.config.js << EOF
 module.exports = {
   apps: [{
-    name: 'eventsphere',
+    name: 'eventtria',
     script: 'npm',
     args: 'start',
     cwd: './',
@@ -51,8 +51,8 @@ module.exports = {
 EOF
 
 # Stop existing PM2 process if running
-pm2 stop eventsphere 2>/dev/null || true
-pm2 delete eventsphere 2>/dev/null || true
+pm2 stop eventtria 2>/dev/null || true
+pm2 delete eventtria 2>/dev/null || true
 
 # Start the application with PM2
 echo "🚀 Starting application with PM2..."
@@ -70,6 +70,6 @@ pm2 status
 
 echo ""
 echo "🌐 Your application should be running on port 3000"
-echo "🔧 Use 'pm2 logs eventsphere' to view logs"
-echo "🔄 Use 'pm2 restart eventsphere' to restart the app"
-echo "⏹️  Use 'pm2 stop eventsphere' to stop the app"
+echo "🔧 Use 'pm2 logs eventtria' to view logs"
+echo "🔄 Use 'pm2 restart eventtria' to restart the app"
+echo "⏹️  Use 'pm2 stop eventtria' to stop the app"

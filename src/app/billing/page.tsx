@@ -24,6 +24,189 @@ export default function BillingPage() {
   const [billingHistory, setBillingHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
 
+  // Generate PDF invoice
+  const generateInvoicePDF = (transaction: any) => {
+    const invoiceHTML = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Invoice ${transaction.invoice_number}</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              margin: 0;
+              padding: 20px;
+              background: white;
+              color: #333;
+            }
+            .invoice-header {
+              text-align: center;
+              margin-bottom: 30px;
+              border-bottom: 2px solid #e5e7eb;
+              padding-bottom: 20px;
+            }
+            .invoice-title {
+              font-size: 28px;
+              font-weight: bold;
+              color: #1f2937;
+              margin-bottom: 10px;
+            }
+            .invoice-number {
+              font-size: 16px;
+              color: #6b7280;
+            }
+            .invoice-details {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 30px;
+            }
+            .company-info, .customer-info {
+              flex: 1;
+            }
+            .company-info h3, .customer-info h3 {
+              margin: 0 0 10px 0;
+              color: #1f2937;
+              font-size: 18px;
+            }
+            .company-info p, .customer-info p {
+              margin: 5px 0;
+              color: #6b7280;
+              font-size: 14px;
+            }
+            .invoice-table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 30px;
+            }
+            .invoice-table th, .invoice-table td {
+              padding: 12px;
+              text-align: left;
+              border-bottom: 1px solid #e5e7eb;
+            }
+            .invoice-table th {
+              background-color: #f9fafb;
+              font-weight: bold;
+              color: #1f2937;
+            }
+            .invoice-table td {
+              color: #374151;
+            }
+            .total-section {
+              text-align: right;
+              margin-top: 20px;
+            }
+            .total-row {
+              display: flex;
+              justify-content: space-between;
+              padding: 8px 0;
+              border-bottom: 1px solid #e5e7eb;
+            }
+            .total-label {
+              font-weight: bold;
+              color: #1f2937;
+            }
+            .total-amount {
+              font-weight: bold;
+              color: #059669;
+              font-size: 18px;
+            }
+            .invoice-footer {
+              margin-top: 40px;
+              text-align: center;
+              color: #6b7280;
+              font-size: 12px;
+              border-top: 1px solid #e5e7eb;
+              padding-top: 20px;
+            }
+            .status-badge {
+              display: inline-block;
+              padding: 4px 8px;
+              border-radius: 4px;
+              font-size: 12px;
+              font-weight: bold;
+              text-transform: uppercase;
+            }
+            .status-paid {
+              background-color: #dcfce7;
+              color: #166534;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="invoice-header">
+            <div class="invoice-title">EventTria</div>
+            <div class="invoice-number">Invoice ${transaction.invoice_number}</div>
+          </div>
+          
+          <div class="invoice-details">
+            <div class="company-info">
+              <h3>EventTria</h3>
+              <p>Event Management Platform</p>
+              <p>support@eventtria.com</p>
+              <p>Invoice Date: ${new Date(transaction.created_at).toLocaleDateString()}</p>
+            </div>
+            <div class="customer-info">
+              <h3>Bill To</h3>
+              <p>${user?.email || 'Customer'}</p>
+              <p>Payment Method: ${transaction.payment_method_brand} •••• ${transaction.payment_method_last4}</p>
+              <p>Transaction ID: ${transaction.id}</p>
+            </div>
+          </div>
+          
+          <table class="invoice-table">
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th>Plan</th>
+                <th>Status</th>
+                <th>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Subscription Payment</td>
+                <td>${transaction.plan_name}</td>
+                <td><span class="status-badge status-paid">${transaction.status}</span></td>
+                <td>₱${(transaction.net_amount_cents / 1000).toFixed(2)}</td>
+              </tr>
+            </tbody>
+          </table>
+          
+          <div class="total-section">
+            <div class="total-row">
+              <span class="total-label">Total Amount:</span>
+              <span class="total-amount">₱${(transaction.net_amount_cents / 1000).toFixed(2)}</span>
+            </div>
+          </div>
+          
+          <div class="invoice-footer">
+            <p>Thank you for using EventTria!</p>
+            <p>This invoice was generated on ${new Date().toLocaleDateString()}</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    // Create a new window for printing
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(invoiceHTML);
+      printWindow.document.close();
+      
+      // Wait for content to load, then trigger print
+      printWindow.onload = () => {
+        setTimeout(() => {
+          printWindow.print();
+          // Close the window after printing
+          setTimeout(() => {
+            printWindow.close();
+          }, 1000);
+        }, 500);
+      };
+    }
+  };
+
   // Fetch subscription data
   useEffect(() => {
     const fetchSubscription = async () => {
@@ -427,10 +610,15 @@ export default function BillingPage() {
                         {transaction.status}
                     </Badge>
                   </div>
-                    <Button variant="outline" size="sm" className="w-full sm:w-auto">
-                    <Download className="h-4 w-4 mr-2" />
-                    Download
-                  </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full sm:w-auto"
+                      onClick={() => generateInvoicePDF(transaction)}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Download PDF
+                    </Button>
                 </div>
               </div>
             ))}
