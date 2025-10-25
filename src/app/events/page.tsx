@@ -18,6 +18,7 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { toast } from "sonner";
+import { EventCountManager } from "@/lib/event-count-manager";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -555,6 +556,16 @@ function EventsPageContent() {
       if (usageErr) console.warn('Failed to update invite usage', usageErr);
 
       toast.success('Joined the event!');
+
+      // Update event counts
+      try {
+        await EventCountManager.onEventJoined(user.id, invite.event_id);
+        // Dispatch event to refresh counters
+        window.dispatchEvent(new CustomEvent('eventJoined'));
+      } catch (countError) {
+        console.warn("Failed to update event counts:", countError);
+        // Don't fail the whole process if count update fails
+      }
 
       // Reset and go
       setInviteCode('');

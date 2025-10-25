@@ -101,7 +101,7 @@ export function EventLimitsCard() {
     fetchEventLimits();
   }, [user]);
 
-  // Listen for event creation events to refresh the data
+  // Listen for event creation and joining events to refresh the data
   useEffect(() => {
     const handleEventCreated = () => {
       console.log("🔄 EventLimitsCard: Event created, refreshing limits...");
@@ -110,11 +110,20 @@ export function EventLimitsCard() {
       }
     };
 
-    // Listen for custom event creation events
+    const handleEventJoined = () => {
+      console.log("🔄 EventLimitsCard: Event joined, refreshing limits...");
+      if (user) {
+        fetchEventLimits();
+      }
+    };
+
+    // Listen for custom event creation and joining events
     window.addEventListener('eventCreated', handleEventCreated);
+    window.addEventListener('eventJoined', handleEventJoined);
     
     return () => {
       window.removeEventListener('eventCreated', handleEventCreated);
+      window.removeEventListener('eventJoined', handleEventJoined);
     };
   }, [user]);
 

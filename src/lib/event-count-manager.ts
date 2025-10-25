@@ -25,12 +25,11 @@ export class EventCountManager {
         console.error("❌ Error fetching created events:", createdError);
       }
 
-      // Get events joined by user (from attendance_records)
+      // Get events joined by user (from event_collaborators)
       const { data: joinedEvents, error: joinedError } = await supabase
-        .from("attendance_records")
+        .from("event_collaborators")
         .select("event_id")
-        .eq("user_id", userId)
-        .eq("status", "confirmed");
+        .eq("user_id", userId);
 
       if (joinedError) {
         console.error("❌ Error fetching joined events:", joinedError);
@@ -66,7 +65,7 @@ export class EventCountManager {
     try {
       console.log("✅ User joined event:", { userId, eventId });
 
-      // Create attendance record
+      // Create attendance record for tracking purposes
       const { error } = await supabase
         .from("attendance_records")
         .insert({
@@ -78,13 +77,16 @@ export class EventCountManager {
 
       if (error) {
         console.error("❌ Error creating attendance record:", error);
-        throw error;
+        // Don't throw error - attendance records are supplementary
+      } else {
+        console.log("✅ Attendance record created successfully");
       }
 
-      console.log("✅ Attendance record created successfully");
+      // Note: The main event joining is handled by the join_event_with_code RPC
+      // which creates records in event_collaborators table
     } catch (error) {
       console.error("❌ Error in onEventJoined:", error);
-      throw error;
+      // Don't throw error - this is supplementary tracking
     }
   }
 
