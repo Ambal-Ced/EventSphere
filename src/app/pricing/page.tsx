@@ -11,6 +11,7 @@ import { DefaultSubscriptionManager } from "@/lib/default-subscription-manager";
 import { TrialActivatedPopup } from "@/components/ui/trial-activated-popup";
 import { toast } from "sonner";
 import { SubscriptionNotificationService } from "@/lib/subscription-notification-service";
+import { useRouter } from "next/navigation";
 
 const pricingTiers = [
   {
@@ -29,7 +30,8 @@ const pricingTiers = [
     buttonText: "Get Started",
     buttonVariant: "outline" as const,
     popular: false,
-    href: "/register"
+    href: "/register",
+    requiresAuth: false as const,
   },
   {
     name: "Small Event Org",
@@ -47,7 +49,8 @@ const pricingTiers = [
     buttonText: "Choose Plan",
     buttonVariant: "default" as const,
     popular: true,
-    href: "/payment"
+    href: "/payment",
+    requiresAuth: true as const,
   },
   {
     name: "Large Event Org",
@@ -65,7 +68,8 @@ const pricingTiers = [
     buttonText: "Choose Plan",
     buttonVariant: "default" as const,
     popular: false,
-    href: "/payment"
+    href: "/payment",
+    requiresAuth: true as const,
   }
 ];
 
@@ -75,6 +79,7 @@ export default function PricingPage() {
   const [isActivating, setIsActivating] = useState(false);
   const [showTrialPopup, setShowTrialPopup] = useState(false);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     const checkAccountStatus = async () => {
@@ -104,7 +109,6 @@ export default function PricingPage() {
     setIsActivating(true);
     try {
       console.log("🚀 Activating new account trial...");
-      
       // First, ensure user has a subscription (create default if not)
       console.log("🔍 Ensuring user has subscription...");
       const subscriptionEnsured = await DefaultSubscriptionManager.ensureUserHasSubscription(user.id);
@@ -137,6 +141,14 @@ export default function PricingPage() {
     } finally {
       setIsActivating(false);
     }
+  };
+
+  const handleTierClick = (href: string, requiresAuth: boolean) => {
+    if (requiresAuth && !user) {
+      router.push(`/login?redirect=${encodeURIComponent("/payment")}`);
+      return;
+    }
+    router.push(href);
   };
 
   if (loading) {
@@ -228,15 +240,23 @@ export default function PricingPage() {
                 </ul>
                 
                 <div className="pt-4">
-                  <Button 
-                    asChild 
-                    className={`w-full ${tier.buttonVariant === 'outline' ? 'border-primary text-primary hover:bg-primary hover:text-primary-foreground' : ''}`}
-                    variant={tier.buttonVariant}
-                  >
-                    <Link href={tier.href}>
+                  {tier.requiresAuth ? (
+                    <Button 
+                      className={`w-full`}
+                      variant={tier.buttonVariant}
+                      onClick={() => handleTierClick(tier.href, tier.requiresAuth)}
+                    >
                       {tier.buttonText}
-                    </Link>
-                  </Button>
+                    </Button>
+                  ) : (
+                    <Button 
+                      asChild 
+                      className={`w-full ${tier.buttonVariant === 'outline' ? 'border-primary text-primary hover:bg-primary hover:text-primary-foreground' : ''}`}
+                      variant={tier.buttonVariant}
+                    >
+                      <Link href={tier.href}>{tier.buttonText}</Link>
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
