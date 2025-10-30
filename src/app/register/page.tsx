@@ -329,54 +329,76 @@ export default function RegisterPage() {
               <DialogTitle>Terms and Conditions</DialogTitle>
             </DialogHeader>
             <div className="rounded-md border bg-muted/10 p-4 max-h-96 overflow-y-auto space-y-3 text-sm text-muted-foreground">
+              <p className="font-medium">Summary of key terms</p>
+              <ul className="list-disc pl-5 space-y-2">
+                <li>
+                  Pricing and fees are shown before purchase. Taxes or processing fees may
+                  apply based on your location and will be itemized at checkout.
+                </li>
+                <li>
+                  Purchases are processed by secure payment partners. Subscriptions renew
+                  automatically unless cancelled. Ticket refunds follow the organizer’s policy
+                  shown at checkout.
+                </li>
+                <li>
+                  We collect only what’s needed to provide the service (e.g., account details,
+                  event/ticket info, check‑in data, and essential cookies). See the full policy for
+                  how data is used and shared.
+                </li>
+                <li>
+                  Use the service lawfully and respect others’ rights. We may contact you for
+                  transactional purposes (security, receipts, updates). Marketing emails are
+                  optional and include opt‑out controls.
+                </li>
+              </ul>
               <p>
-                Placeholder terms. This box will contain your full legal text. It is
-                intentionally verbose so you can verify the scrolling behavior. Feel
-                free to replace every paragraph here with your actual Terms and
-                Conditions later.
+                By continuing, you agree to our <a className="underline" href="/policy">Terms of Service & Privacy Policy</a>.
               </p>
-              <p>
-                1) You agree to abide by the platform rules, community guidelines,
-                and any policy updates that we may publish from time to time. You
-                understand that failure to comply can result in limitations or
-                removal of access.
-              </p>
-              <p>
-                2) You consent to receive transactional communications that are
-                necessary for account security, service notifications, receipts,
-                and changes in policy. Marketing emails, if any, will always include
-                opt‑out controls.
-              </p>
-              <p>
-                3) You are responsible for the confidentiality of your credentials
-                and for all activity that occurs under your account. Use strong
-                passwords and do not share them. Promptly notify us of any suspected
-                unauthorized use or security incident.
-              </p>
-              <p>
-                4) You warrant that any content you submit is accurate, lawful,
-                and that you hold the necessary rights and permissions. You agree
-                not to upload content that infringes intellectual property, violates
-                privacy, or contains malware, harassment, or illegal material.
-              </p>
-              <p>
-                5) The service is provided on an “as is” and “as available” basis
-                without warranties of any kind, either express or implied. We do
-                not guarantee uninterrupted availability, error‑free operation, or
-                that defects will be corrected.
-              </p>
-              <p>
-                6) To the maximum extent permitted by law, our liability is limited
-                to the amount you have paid for the service in the preceding twelve
-                months, and we are not liable for indirect, incidental, special,
-                consequential, or exemplary damages.
-              </p>
-              <p>
-                7) By continuing, you acknowledge that you have read, understood,
-                and agreed to these Terms and any referenced policies. These
-                placeholders exist solely so you can test the UI; please replace
-                them with your official legal copy before launch.
-              </p>
+
+              <hr className="my-3" />
+              <p className="font-medium">Core terms</p>
+              <div className="space-y-2">
+                <p>
+                  <strong>1)</strong> You agree to abide by the platform rules, community guidelines,
+                  and any policy updates that we may publish from time to time. You
+                  understand that failure to comply can result in limitations or
+                  removal of access.
+                </p>
+                <p>
+                  <strong>2)</strong> You consent to receive transactional communications that are
+                  necessary for account security, service notifications, receipts,
+                  and changes in policy. Marketing emails, if any, will always include
+                  opt‑out controls.
+                </p>
+                <p>
+                  <strong>3)</strong> You are responsible for the confidentiality of your credentials
+                  and for all activity that occurs under your account. Use strong
+                  passwords and do not share them. Promptly notify us of any suspected
+                  unauthorized use or security incident.
+                </p>
+                <p>
+                  <strong>4)</strong> You warrant that any content you submit is accurate, lawful,
+                  and that you hold the necessary rights and permissions. You agree
+                  not to upload content that infringes intellectual property, violates
+                  privacy, or contains malware, harassment, or illegal material.
+                </p>
+                <p>
+                  <strong>5)</strong> The service is provided on an “as is” and “as available” basis
+                  without warranties of any kind, either express or implied. We do
+                  not guarantee uninterrupted availability, error‑free operation, or
+                  that defects will be corrected.
+                </p>
+                <p>
+                  <strong>6)</strong> To the maximum extent permitted by law, our liability is limited
+                  to the amount you have paid for the service in the preceding twelve
+                  months, and we are not liable for indirect, incidental, special,
+                  consequential, or exemplary damages.
+                </p>
+                <p>
+                  <strong>7)</strong> By continuing, you acknowledge that you have read, understood,
+                  and agreed to these Terms and any referenced policies.
+                </p>
+              </div>
             </div>
             <div className="mt-4 flex items-center gap-2">
               <input
