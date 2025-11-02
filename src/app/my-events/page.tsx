@@ -25,19 +25,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import dynamic from "next/dynamic";
-// Lazy load heavy components for code splitting
-const EventCreatedLimitsCard = dynamic(() => import("@/components/ui/event-created-limits-card").then(mod => ({ default: mod.EventCreatedLimitsCard })), {
-  ssr: false,
-  loading: () => <div className="w-full h-32 bg-muted animate-pulse rounded-lg" />,
-});
-const LimitExceededWarningCard = dynamic(() => import("@/components/ui/limit-exceeded-warning-card").then(mod => ({ default: mod.LimitExceededWarningCard })), {
-  ssr: false,
-  loading: () => <div className="w-full h-24 bg-muted animate-pulse rounded-lg" />,
-});
-const LoadingPopup = dynamic(() => import("@/components/ui/loading-popup").then(mod => ({ default: mod.LoadingPopup })), {
-  ssr: false,
-});
+import { EventCreatedLimitsCard } from "@/components/ui/event-created-limits-card";
+import { LimitExceededWarningCard } from "@/components/ui/limit-exceeded-warning-card";
+import { LoadingPopup } from "@/components/ui/loading-popup";
 
 // Interface matching the events table structure (adjust if needed)
 interface Event {

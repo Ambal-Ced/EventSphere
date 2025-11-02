@@ -2,7 +2,6 @@
 
 import { useState, useMemo, useEffect, useRef, Suspense } from "react"; // Import hooks
 import { Metadata } from "next"; // Keep Metadata type import if needed elsewhere, but can't export from client component
-import dynamic from "next/dynamic"; // For code splitting
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -43,21 +42,10 @@ import { useEventsPageFailsafe } from "@/hooks/useEventsPageFailsafe";
 import { useAuth } from "@/context/auth-context";
 import { useDebounce } from "@/hooks/useDebounce";
 
-// Lazy load heavy components for code splitting
-const EventLimitsCard = dynamic(() => import("@/components/ui/event-limits-card").then(mod => ({ default: mod.EventLimitsCard })), {
-  ssr: false,
-  loading: () => <div className="w-full h-32 bg-muted animate-pulse rounded-lg" />,
-});
-const LimitExceededWarningCard = dynamic(() => import("@/components/ui/limit-exceeded-warning-card").then(mod => ({ default: mod.LimitExceededWarningCard })), {
-  ssr: false,
-  loading: () => <div className="w-full h-24 bg-muted animate-pulse rounded-lg" />,
-});
-const EventsPageFailsafePopup = dynamic(() => import("@/components/ui/events-page-failsafe-popup").then(mod => ({ default: mod.EventsPageFailsafePopup })), {
-  ssr: false,
-});
-const LoadingPopup = dynamic(() => import("@/components/ui/loading-popup").then(mod => ({ default: mod.LoadingPopup })), {
-  ssr: false,
-});
+import { EventLimitsCard } from "@/components/ui/event-limits-card";
+import { LimitExceededWarningCard } from "@/components/ui/limit-exceeded-warning-card";
+import { EventsPageFailsafePopup } from "@/components/ui/events-page-failsafe-popup";
+import { LoadingPopup } from "@/components/ui/loading-popup";
 
 type Event = Database["public"]["Tables"]["events"]["Row"];
 
@@ -934,9 +922,8 @@ function EventsPageContent() {
                 <Image
                   src={event.image_url || getDefaultImage(event.category)}
                   alt={event.title}
-                  width={800}
-                  height={450}
-                  className="object-cover brightness-90 transition-transform duration-300 group-hover:scale-105 w-full h-full"
+                  fill
+                  className="object-cover brightness-90 transition-transform duration-300 group-hover:scale-105"
                   loading="lazy"
                   sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
                   quality={85}
