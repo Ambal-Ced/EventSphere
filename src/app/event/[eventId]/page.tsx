@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { CohereClientV2 } from 'cohere-ai';
@@ -199,6 +199,7 @@ export default function SingleEventPage() {
   const [showMoreActions, setShowMoreActions] = useState(false);
   const [showPortalModal, setShowPortalModal] = useState<{ type: 'feedback' | 'attendance' | null, url: string | null }>({ type: null, url: null });
   const [portalModalKey, setPortalModalKey] = useState(0);
+  const [isGeneratingPortal, setIsGeneratingPortal] = useState<{ type: 'feedback' | 'attendance' | null }>({ type: null });
 
   // Markup editing state
   const [isEditingMarkup, setIsEditingMarkup] = useState(false);
@@ -595,8 +596,19 @@ export default function SingleEventPage() {
 
   // Generate or reuse a public portal and open modal with URL/QR
   const generatePublicPortal = async (kind: 'feedback' | 'attendance') => {
+    // Prevent multiple simultaneous calls
+    if (isGeneratingPortal.type) {
+      return;
+    }
+    
     try {
-      if (!event) return;
+      setIsGeneratingPortal({ type: kind });
+      
+      if (!event) {
+        toast.error('Event not found');
+        return;
+      }
+      
       // Reuse active portal if one exists
       const table = kind === 'feedback' ? 'feedback_portals' : 'attendance_portals';
       // Try reuse any active portal quickly (no ordering to avoid sort cost)
@@ -634,14 +646,25 @@ export default function SingleEventPage() {
 
       if (!token) throw new Error('Failed to prepare link');
       const url = `${window.location.origin}/${kind === 'feedback' ? 'feedback' : 'checkin'}/${token}`;
-      // Reset and force remount so it reliably re-opens even with the same URL
+      
+      // Close any existing modal first
       setShowPortalModal({ type: null, url: null });
+      
+      // Small delay to ensure state is reset, then open new modal
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
+      // Increment key to force remount
       setPortalModalKey((k) => k + 1);
-      setTimeout(() => setShowPortalModal({ type: kind, url }), 0);
+      // Set modal state
+      setShowPortalModal({ type: kind, url });
       toast.success(`${kind === 'feedback' ? 'Feedback' : 'Attendance'} link ready`);
     } catch (e: any) {
       console.error('Portal generation failed', e);
       toast.error(e.message || 'Failed to generate link');
+      // Ensure modal is closed on error
+      setShowPortalModal({ type: null, url: null });
+    } finally {
+      setIsGeneratingPortal({ type: null });
     }
   };
 
@@ -941,18 +964,24 @@ export default function SingleEventPage() {
   };
 
   // Auto-update status based on date
-  const updateEventStatusAutomatically = async () => {
+  const updateEventStatusAutomatically = useCallback(async () => {
     if (!event) return;
 
     const now = new Date();
     const eventDate = new Date(event.date);
-    const eventEndDate = new Date(eventDate.getTime() + 2 * 60 * 60 * 1000); // 2 hours after start
+    const eventEndDate = new Date(eventDate.getTime() + 6 * 60 * 60 * 1000); // 6 hours after start
+    
+    // Check if we're past the event date (compare dates, not just times)
+    const eventDateOnly = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
+    const nowDateOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const isPastEventDate = nowDateOnly > eventDateOnly;
 
     let newStatus = event.status;
 
     if (event.status === "coming_soon" && now >= eventDate) {
       newStatus = "ongoing";
-    } else if (event.status === "ongoing" && now >= eventEndDate) {
+    } else if (event.status === "ongoing" && (isPastEventDate || now >= eventEndDate)) {
+      // Mark as done if we're past the event date OR if it's been 6+ hours since event start
       newStatus = "done";
     }
 
@@ -973,7 +1002,22 @@ export default function SingleEventPage() {
         console.error("Failed to auto-update event status:", error);
       }
     }
-  };
+  }, [event]);
+
+  // Auto-update event status periodically
+  useEffect(() => {
+    if (!event) return;
+
+    // Check immediately
+    updateEventStatusAutomatically();
+
+    // Then check every 5 minutes
+    const statusInterval = setInterval(() => {
+      updateEventStatusAutomatically();
+    }, 5 * 60 * 1000);
+
+    return () => clearInterval(statusInterval);
+  }, [event, updateEventStatusAutomatically]);
 
   const handleRemoveCollaborator = async (
     collaboratorId: string,
@@ -3087,10 +3131,15 @@ RECOMMENDATIONS:
                             variant="outline"
                             className="w-full justify-start border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300"
                             onClick={() => generatePublicPortal('feedback')}
+                            disabled={isGeneratingPortal.type === 'feedback'}
                           >
                             <span className="flex items-center gap-2 text-sm whitespace-normal break-words leading-snug text-left">
-                              <Link2 className="w-4 h-4" />
-                              Feedback Link
+                              {isGeneratingPortal.type === 'feedback' ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Link2 className="w-4 h-4" />
+                              )}
+                              {isGeneratingPortal.type === 'feedback' ? 'Generating...' : 'Feedback Link'}
                             </span>
                           </Button>
 
@@ -3098,10 +3147,15 @@ RECOMMENDATIONS:
                             variant="outline"
                             className="w-full justify-start border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300"
                             onClick={() => generatePublicPortal('attendance')}
+                            disabled={isGeneratingPortal.type === 'attendance'}
                           >
                             <span className="flex items-center gap-2 text-sm whitespace-normal break-words leading-snug text-left">
-                              <QrCode className="w-4 h-4" />
-                              Attendance Link
+                              {isGeneratingPortal.type === 'attendance' ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <QrCode className="w-4 h-4" />
+                              )}
+                              {isGeneratingPortal.type === 'attendance' ? 'Generating...' : 'Attendance Link'}
                             </span>
                           </Button>
                         </div>

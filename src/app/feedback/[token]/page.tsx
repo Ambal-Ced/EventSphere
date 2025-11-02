@@ -35,27 +35,75 @@ export default function PublicFeedbackPage() {
     (async () => {
       setLoading(true);
       try {
-        const { data: p } = await supabase
+        // Clean and normalize the token
+        const normalizedToken = token?.trim();
+        if (!normalizedToken) {
+          setPortal(null);
+          setEvent(null);
+          return;
+        }
+        
+        // First, check if portal exists (regardless of status)
+        const { data: p, error: portalError } = await supabase
           .from("feedback_portals")
-          .select("*, events(id,title,description,location,date)")
-          .eq("token", token)
-          .eq("is_active", true)
+          .select("*")
+          .eq("token", normalizedToken)
           .maybeSingle();
         
-        // Check if portal exists and is not expired
+        if (portalError) {
+          console.error("Error fetching portal:", portalError);
+          setPortal(null);
+          setEvent(null);
+          return;
+        }
+        
+        // Check if portal exists, is active, and is not expired
         if (p) {
+          // Check if portal is active
+          if (!p.is_active) {
+            console.warn("Portal found but is not active:", normalizedToken);
+            setPortal(null);
+            setEvent(null);
+            return;
+          }
+          
           const now = new Date();
           const expiresAt = p.expires_at ? new Date(p.expires_at) : null;
           
           // If portal has expiration and it's expired, don't set it
           if (expiresAt && expiresAt < now) {
+            console.warn("Portal found but is expired:", normalizedToken);
             setPortal(null);
             setEvent(null);
-          } else {
-            setPortal(p);
-            setEvent(p.events);
+            return;
           }
+          
+          setPortal(p);
+          
+          // Now fetch the event separately
+          if (p.event_id) {
+            const { data: eventData, error: eventError } = await supabase
+              .from("events")
+              .select("id,title,description,location,date")
+              .eq("id", p.event_id)
+              .maybeSingle();
+            
+            if (eventError) {
+              console.error("Error fetching event:", eventError);
+            }
+            
+            setEvent(eventData || null);
+          } else {
+            setEvent(null);
+          }
+        } else {
+          setPortal(null);
+          setEvent(null);
         }
+      } catch (err: any) {
+        console.error("Unexpected error:", err);
+        setPortal(null);
+        setEvent(null);
       } finally {
         setLoading(false);
       }

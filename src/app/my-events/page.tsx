@@ -59,6 +59,8 @@ export default function MyEventsPage() {
   // Search and filter state
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [showDone, setShowDone] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   
   // Loading state for navigation
   const [isNavigating, setIsNavigating] = useState(false);
@@ -67,6 +69,89 @@ export default function MyEventsPage() {
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 6;
 
+
+  // Function to update event statuses automatically
+  const updateEventStatuses = async () => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const now = new Date();
+
+      // Get events owned by user
+      const { data: ownedEvents } = await supabase
+        .from("events")
+        .select("id, date, status")
+        .eq("user_id", user.id)
+        .in("status", ["coming_soon", "ongoing"])
+        .not("status", "in", "('cancelled', 'archived')");
+
+      // Get events user has joined
+      const { data: collabRows } = await supabase
+        .from("event_collaborators")
+        .select("event_id")
+        .eq("user_id", user.id);
+
+      const joinedEventIds = (collabRows || []).map((r: any) => r.event_id);
+      let joinedEvents: any[] = [];
+
+      if (joinedEventIds.length > 0) {
+        const { data: joinedEventsData } = await supabase
+          .from("events")
+          .select("id, date, status")
+          .in("id", joinedEventIds)
+          .in("status", ["coming_soon", "ongoing"])
+          .not("status", "in", "('cancelled', 'archived')");
+        joinedEvents = joinedEventsData || [];
+      }
+
+      // Combine owned and joined events, remove duplicates
+      const allEventsMap = new Map<string, any>();
+      [...(ownedEvents || []), ...joinedEvents].forEach((evt) => {
+        if (!allEventsMap.has(evt.id)) {
+          allEventsMap.set(evt.id, evt);
+        }
+      });
+      const eventsToUpdate = Array.from(allEventsMap.values());
+
+      if (eventsToUpdate.length > 0) {
+        for (const event of eventsToUpdate) {
+          const eventDate = new Date(event.date);
+          const eventEndDate = new Date(
+            eventDate.getTime() + 6 * 60 * 60 * 1000
+          ); // 6 hours after start
+          
+          // Check if we're past the event date (compare dates, not just times)
+          const eventDateOnly = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
+          const nowDateOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          const isPastEventDate = nowDateOnly > eventDateOnly;
+
+          let newStatus = event.status;
+
+          if (event.status === "coming_soon" && now >= eventDate) {
+            newStatus = "ongoing";
+          } else if (event.status === "ongoing" && (isPastEventDate || now >= eventEndDate)) {
+            // Mark as done if we're past the event date OR if it's been 6+ hours since event start
+            newStatus = "done";
+          }
+
+          if (newStatus !== event.status) {
+            await supabase
+              .from("events")
+              .update({ status: newStatus })
+              .eq("id", event.id);
+          }
+        }
+
+        // Refresh events list if any statuses were updated
+        fetchMyEvents();
+      }
+    } catch (error) {
+      console.error("Error updating event statuses:", error);
+    }
+  };
 
   const fetchMyEvents = async () => {
     try {
@@ -81,13 +166,13 @@ export default function MyEventsPage() {
         return;
       }
 
-      // Fetch events that are NOT archived, cancelled, or deleted
-      // These events should not appear in "My Events" but are kept for analytics
+      // Fetch events (include done and archived, we'll filter them client-side)
+      // Only exclude cancelled events
       const { data, error } = await supabase
         .from("events")
         .select("*")
         .eq("user_id", user.id)
-        .not("status", "in", "('archived', 'cancelled')")
+        .not("status", "eq", "cancelled") // Only exclude cancelled, include done and archived
         .order("date", { ascending: true });
 
       if (error) {
@@ -118,6 +203,16 @@ export default function MyEventsPage() {
 
   useEffect(() => {
     fetchMyEvents();
+    
+    // Check immediately on page load
+    updateEventStatuses();
+
+    // Then check every 5 minutes
+    const statusInterval = setInterval(() => {
+      updateEventStatuses();
+    }, 5 * 60 * 1000); // 5 minutes
+
+    return () => clearInterval(statusInterval); // Cleanup when user leaves the page
   }, [router]);
 
   // Memoized filtering logic
@@ -132,14 +227,23 @@ export default function MyEventsPage() {
         selectedCategories.length === 0 ||
         (event.category && selectedCategories.includes(event.category));
 
-      return matchesSearch && matchesCategory;
+      // Filter by status - hide done and archived unless checkboxes are checked
+      const matchesStatus = (() => {
+        const status = event.status || "coming_soon";
+        if (status === "done" && !showDone) return false;
+        if (status === "archived" && !showArchived) return false;
+        if (status === "cancelled") return false; // Always hide cancelled
+        return true;
+      })();
+
+      return matchesSearch && matchesCategory && matchesStatus;
     });
-  }, [searchTerm, selectedCategories, events]);
+  }, [searchTerm, selectedCategories, events, showDone, showArchived]);
 
   // Reset to first page on filter/search change
   useEffect(() => {
     setPage(1);
-  }, [searchTerm, selectedCategories]);
+  }, [searchTerm, selectedCategories, showDone, showArchived]);
 
   const totalPages = useMemo(() => {
     return Math.max(1, Math.ceil(filteredEvents.length / PAGE_SIZE));
@@ -225,6 +329,28 @@ export default function MyEventsPage() {
               </span>
             </Button>
           </div>
+        </div>
+        
+        {/* Show Done and Show Archive checkboxes */}
+        <div className="flex flex-col sm:flex-row gap-3 mt-3 justify-end">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showDone}
+              onChange={(e) => setShowDone(e.target.checked)}
+              className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+            />
+            <span className="text-sm text-muted-foreground">Show Done</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showArchived}
+              onChange={(e) => setShowArchived(e.target.checked)}
+              className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+            />
+            <span className="text-sm text-muted-foreground">Show Archive</span>
+          </label>
         </div>
       </div>
 

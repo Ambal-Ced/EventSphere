@@ -60,6 +60,8 @@ function EventsPageContent() {
   // State for search and filters
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [showDone, setShowDone] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const [events, setEvents] = useState<Event[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -132,43 +134,80 @@ function EventsPageContent() {
       }
     }
 
+    // Check immediately on page load
+    updateEventStatuses();
+
+    // Then check every 5 minutes
     const statusInterval = setInterval(() => {
       updateEventStatuses();
-    }, 60000);
+    }, 5 * 60 * 1000); // 5 minutes
 
-    return () => clearInterval(statusInterval);
+    return () => clearInterval(statusInterval); // Cleanup when user leaves the page
   }, [searchParams, isAuthenticated]);
 
   // Function to update event statuses automatically
   const updateEventStatuses = async () => {
     try {
-      // Only update events owned by current user to avoid RLS 400s
       const { data: { session } } = await supabase.auth.getSession();
       const uid = session?.user?.id;
       if (!uid) return;
 
       const now = new Date();
 
-      // Update events that should change status
-      const { data: eventsToUpdate } = await supabase
+      // Get events owned by user
+      const { data: ownedEvents } = await supabase
         .from("events")
         .select("id, date, status")
         .eq("user_id", uid)
         .in("status", ["coming_soon", "ongoing"])
         .not("status", "in", "('cancelled', 'archived')");
 
-      if (eventsToUpdate) {
+      // Get events user has joined
+      const { data: collabRows } = await supabase
+        .from("event_collaborators")
+        .select("event_id")
+        .eq("user_id", uid);
+
+      const joinedEventIds = (collabRows || []).map((r: any) => r.event_id);
+      let joinedEvents: any[] = [];
+
+      if (joinedEventIds.length > 0) {
+        const { data: joinedEventsData } = await supabase
+          .from("events")
+          .select("id, date, status")
+          .in("id", joinedEventIds)
+          .in("status", ["coming_soon", "ongoing"])
+          .not("status", "in", "('cancelled', 'archived')");
+        joinedEvents = joinedEventsData || [];
+      }
+
+      // Combine owned and joined events, remove duplicates
+      const allEventsMap = new Map<string, any>();
+      [...(ownedEvents || []), ...joinedEvents].forEach((evt) => {
+        if (!allEventsMap.has(evt.id)) {
+          allEventsMap.set(evt.id, evt);
+        }
+      });
+      const eventsToUpdate = Array.from(allEventsMap.values());
+
+      if (eventsToUpdate.length > 0) {
         for (const event of eventsToUpdate) {
           const eventDate = new Date(event.date);
           const eventEndDate = new Date(
-            eventDate.getTime() + 2 * 60 * 60 * 1000
-          ); // 2 hours after start
+            eventDate.getTime() + 6 * 60 * 60 * 1000
+          ); // 6 hours after start
+          
+          // Check if we're past the event date (compare dates, not just times)
+          const eventDateOnly = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
+          const nowDateOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          const isPastEventDate = nowDateOnly > eventDateOnly;
 
           let newStatus = event.status;
 
           if (event.status === "coming_soon" && now >= eventDate) {
             newStatus = "ongoing";
-          } else if (event.status === "ongoing" && now >= eventEndDate) {
+          } else if (event.status === "ongoing" && (isPastEventDate || now >= eventEndDate)) {
+            // Mark as done if we're past the event date OR if it's been 6+ hours since event start
             newStatus = "done";
           }
 
@@ -229,12 +268,12 @@ function EventsPageContent() {
       // Use whichever approach worked
       const finalCollabRows = collabRows || fallbackCollabRows;
       
-      // Fetch own events
+      // Fetch own events (include done and archived, we'll filter them client-side)
       const { data: ownEvents, error: ownError } = await supabase
         .from("events")
         .select("*")
         .eq("user_id", user.id)
-        .not("status", "in", "('cancelled', 'archived')");
+        .not("status", "eq", "cancelled"); // Only exclude cancelled, include done and archived
 
       if (ownError) {
         console.error("Error fetching own events:", ownError);
@@ -255,7 +294,7 @@ function EventsPageContent() {
           .from("events")
           .select("*")
           .in("id", joinedEventIds)
-          .not("status", "in", "('cancelled', 'archived')");
+          .not("status", "eq", "cancelled"); // Only exclude cancelled, include done and archived
         if (joinedError) {
           console.error("Error fetching joined events:", joinedError);
           throw joinedError;
@@ -317,14 +356,23 @@ function EventsPageContent() {
         selectedCategories.length === 0 ||
         selectedCategories.includes(event.category);
 
-      return matchesSearch && matchesCategory;
+      // Filter by status - hide done and archived unless checkboxes are checked
+      const matchesStatus = (() => {
+        const status = event.status || "coming_soon";
+        if (status === "done" && !showDone) return false;
+        if (status === "archived" && !showArchived) return false;
+        if (status === "cancelled") return false; // Always hide cancelled
+        return true;
+      })();
+
+      return matchesSearch && matchesCategory && matchesStatus;
     });
-  }, [searchTerm, selectedCategories, events]); // Recalculate when search, filters, or events change
+  }, [searchTerm, selectedCategories, events, showDone, showArchived]); // Recalculate when search, filters, status filters, or events change
 
   // Reset to first page when filters/search change
   useEffect(() => {
     setPage(1);
-  }, [searchTerm, selectedCategories]);
+  }, [searchTerm, selectedCategories, showDone, showArchived]);
 
   // Compute current page slice
   const totalPages = useMemo(() => {
@@ -727,6 +775,28 @@ function EventsPageContent() {
           </Button>
         </div>
         </div>
+        
+        {/* Show Done and Show Archive checkboxes */}
+        <div className="flex flex-col sm:flex-row gap-3 mt-3 justify-end">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showDone}
+              onChange={(e) => setShowDone(e.target.checked)}
+              className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+            />
+            <span className="text-sm text-muted-foreground">Show Done</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showArchived}
+              onChange={(e) => setShowArchived(e.target.checked)}
+              className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+            />
+            <span className="text-sm text-muted-foreground">Show Archive</span>
+          </label>
+        </div>
       </div>
 
         {/* Limit Exceeded Warning Card */}
@@ -847,17 +917,17 @@ function EventsPageContent() {
                   fill
                   className="object-cover brightness-90 transition-transform duration-300 group-hover:scale-105"
                 />
-                <div className="absolute right-2 top-2 space-y-2">
+                <div className="absolute right-2 top-2 flex flex-col items-end gap-2">
                   {/* Status Badge - Only show if status column exists */}
                   {event.status && (
                     <div
-                      className={`rounded-full px-3 py-1 text-xs font-medium border ${getStatusBadge(event.status).className}`}
+                      className={`rounded-full px-3 py-1 text-xs font-medium border shrink-0 ${getStatusBadge(event.status).className}`}
                     >
                       {getStatusBadge(event.status).label}
                     </div>
                   )}
                   {/* Category Badge */}
-                  <div className="rounded-full bg-black/50 px-3 py-1 text-xs font-medium text-white">
+                  <div className="rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 px-3 py-1 text-xs font-medium shrink-0">
                     {event.category}
                   </div>
                 </div>
