@@ -161,6 +161,7 @@ export default function SingleEventPage() {
   );
   const [inviteCode, setInviteCode] = useState<string>("");
   const [isGeneratingInvite, setIsGeneratingInvite] = useState(false);
+  const [showQRCode, setShowQRCode] = useState(false);
 
   // Event status management
   const [showStatusModal, setShowStatusModal] = useState(false);
@@ -3310,20 +3311,31 @@ RECOMMENDATIONS:
 
                   <div className="space-y-2 text-center">
                     <Label className="text-white text-sm">QR Code</Label>
-                    <div className="bg-white p-4 rounded-lg border border-amber-500/30 inline-flex items-center justify-center">
-                      {typeof window !== "undefined" && inviteCode && (
-                        <QRCode
-                          value={`${window.location.origin}/events?code=${inviteCode}`}
-                          size={200}
-                          level="M"
-                          fgColor="#000000"
-                          bgColor="#ffffff"
-                        />
-                      )}
-                    </div>
-                    <p className="text-slate-400 text-xs">
-                      Scan this QR code to join the event
-                    </p>
+                    <Button
+                      onClick={() => setShowQRCode(!showQRCode)}
+                      className="bg-amber-600 hover:bg-amber-700 text-white w-full"
+                      type="button"
+                    >
+                      {showQRCode ? "Hide QR" : "Show QR"}
+                    </Button>
+                    {showQRCode && (
+                      <>
+                        <div className="bg-white p-4 rounded-lg border border-amber-500/30 inline-flex items-center justify-center">
+                          {typeof window !== "undefined" && inviteCode && (
+                            <QRCode
+                              value={`${window.location.origin}/events?code=${inviteCode}`}
+                              size={200}
+                              level="M"
+                              fgColor="#000000"
+                              bgColor="#ffffff"
+                            />
+                          )}
+                        </div>
+                        <p className="text-slate-400 text-xs">
+                          Scan this QR code to join the event
+                        </p>
+                      </>
+                    )}
                   </div>
 
                   <div className="space-y-2">
