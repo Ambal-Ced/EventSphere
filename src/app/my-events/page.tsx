@@ -181,7 +181,10 @@ export default function MyEventsPage() {
         setCategories([]);
         setError(null); // Don't show error, just show "no events" message
       } else {
-        const eventsData = data || [];
+        const eventsData = (data || []).map((event: any) => ({
+          ...event,
+          max_participants: null, // Column doesn't exist in database, set to null
+        }));
         console.log("✅ My Events fetched:", eventsData.length, eventsData);
         setEvents(eventsData);
         setError(null);
