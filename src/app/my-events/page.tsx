@@ -170,7 +170,7 @@ export default function MyEventsPage() {
       // Optimize: Only select needed columns instead of *
       const { data, error } = await supabase
         .from("events")
-        .select("id,title,description,date,location,category,image_url,created_at,updated_at,status,user_id,is_public,max_participants,price,role")
+        .select("id,title,description,date,location,category,image_url,created_at,updated_at,status,user_id,is_public,price,role")
         .eq("user_id", user.id)
         .not("status", "eq", "cancelled") // Only exclude cancelled, include done and archived
         .order("date", { ascending: true });
@@ -182,6 +182,7 @@ export default function MyEventsPage() {
         setError(null); // Don't show error, just show "no events" message
       } else {
         const eventsData = data || [];
+        console.log("✅ My Events fetched:", eventsData.length, eventsData);
         setEvents(eventsData);
         setError(null);
         
@@ -190,6 +191,14 @@ export default function MyEventsPage() {
           ...new Set(eventsData.map((event) => event.category).filter(Boolean) as string[]),
         ];
         setCategories(uniqueCategories);
+        
+        // Log events statuses for debugging
+        const statusCounts = eventsData.reduce((acc, event) => {
+          const status = event.status || "coming_soon";
+          acc[status] = (acc[status] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+        console.log("📈 Event status distribution:", statusCounts);
       }
     } catch (err: any) {
       console.error("Error fetching my events:", err);
@@ -217,7 +226,15 @@ export default function MyEventsPage() {
 
   // Memoized filtering logic
   const filteredEvents = useMemo(() => {
-    return events.filter((event) => {
+    console.log("🔍 My Events - Filtering events:", {
+      totalEvents: events.length,
+      searchTerm,
+      selectedCategories,
+      showDone,
+      showArchived,
+    });
+    
+    const filtered = events.filter((event) => {
       const matchesSearch =
         searchTerm === "" ||
         event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -236,8 +253,23 @@ export default function MyEventsPage() {
         return true;
       })();
 
-      return matchesSearch && matchesCategory && matchesStatus;
+      const matches = matchesSearch && matchesCategory && matchesStatus;
+      
+      if (!matches) {
+        console.log("❌ My Event filtered out:", {
+          title: event.title,
+          matchesSearch,
+          matchesCategory,
+          matchesStatus,
+          status: event.status,
+        });
+      }
+
+      return matches;
     });
+    
+    console.log("✅ My Events - Filtered events result:", filtered.length);
+    return filtered;
   }, [searchTerm, selectedCategories, events, showDone, showArchived]);
 
   // Reset to first page on filter/search change
@@ -275,6 +307,17 @@ export default function MyEventsPage() {
     router.push(href);
   };
 
+  // Debug: Log events state
+  console.log("📊 My Events Page State:", {
+    eventsCount: events.length,
+    filteredEventsCount: filteredEvents.length,
+    currentPageEventsCount: currentPageEvents.length,
+    isLoading,
+    showDone,
+    showArchived,
+    searchTerm,
+    selectedCategories,
+  });
 
   return (
     <div className="container mx-auto py-8 px-4">

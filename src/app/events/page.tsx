@@ -275,7 +275,7 @@ function EventsPageContent() {
       // Optimize: Only select needed columns instead of *
       const { data: ownEvents, error: ownError } = await supabase
         .from("events")
-        .select("id,title,description,date,location,category,image_url,created_at,updated_at,status,user_id,is_public,max_participants,price,role")
+        .select("id,title,description,date,location,category,image_url,created_at,updated_at,status,user_id,is_public,price,role")
         .eq("user_id", user.id)
         .not("status", "eq", "cancelled") // Only exclude cancelled, include done and archived
         .order("date", { ascending: true }); // Add ordering for consistency
@@ -298,7 +298,7 @@ function EventsPageContent() {
         // Optimize: Only select needed columns instead of *
         const { data: joinedData, error: joinedError } = await supabase
           .from("events")
-          .select("id,title,description,date,location,category,image_url,created_at,updated_at,status,user_id,is_public,max_participants,price,role")
+          .select("id,title,description,date,location,category,image_url,created_at,updated_at,status,user_id,is_public,price,role")
           .in("id", joinedEventIds)
           .not("status", "eq", "cancelled") // Only exclude cancelled, include done and archived
           .order("date", { ascending: true }); // Add ordering for consistency
@@ -319,9 +319,17 @@ function EventsPageContent() {
         (a, b) => new Date(a.date as any).getTime() - new Date(b.date as any).getTime()
       );
 
-      console.log("Final merged events:", merged);
+      console.log("✅ Final merged events:", merged.length, merged);
       setEvents(merged);
       setError(null);
+      
+      // Log events statuses for debugging
+      const statusCounts = merged.reduce((acc, event) => {
+        const status = event.status || "coming_soon";
+        acc[status] = (acc[status] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      console.log("📈 Event status distribution:", statusCounts);
 
       // Extract unique categories from events
       const uniqueCategories = [
@@ -353,7 +361,15 @@ function EventsPageContent() {
 
   // Memoized filtering logic - use debounced search for better performance
   const filteredEvents = useMemo(() => {
-    return events.filter((event) => {
+    console.log("🔍 Filtering events:", {
+      totalEvents: events.length,
+      debouncedSearch,
+      selectedCategories,
+      showDone,
+      showArchived,
+    });
+    
+    const filtered = events.filter((event) => {
       const matchesSearch =
         debouncedSearch === "" ||
         event.title.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
@@ -372,8 +388,23 @@ function EventsPageContent() {
         return true;
       })();
 
-      return matchesSearch && matchesCategory && matchesStatus;
+      const matches = matchesSearch && matchesCategory && matchesStatus;
+      
+      if (!matches) {
+        console.log("❌ Event filtered out:", {
+          title: event.title,
+          matchesSearch,
+          matchesCategory,
+          matchesStatus,
+          status: event.status,
+        });
+      }
+
+      return matches;
     });
+    
+    console.log("✅ Filtered events result:", filtered.length);
+    return filtered;
   }, [debouncedSearch, selectedCategories, events, showDone, showArchived]); // Use debouncedSearch instead of searchTerm
 
   // Reset to first page when filters/search change
@@ -728,6 +759,20 @@ function EventsPageContent() {
       </div>
     );
   }
+
+  // Debug: Log events state
+  console.log("📊 Events Page State:", {
+    eventsCount: events.length,
+    filteredEventsCount: filteredEvents.length,
+    currentPageEventsCount: currentPageEvents.length,
+    isLoading,
+    isAuthenticated,
+    showDone,
+    showArchived,
+    searchTerm,
+    debouncedSearch,
+    selectedCategories,
+  });
 
   return (
     <div className="flex flex-col gap-8">
