@@ -39,10 +39,22 @@ export default function PublicFeedbackPage() {
           .from("feedback_portals")
           .select("*, events(id,title,description,location,date)")
           .eq("token", token)
+          .eq("is_active", true)
           .maybeSingle();
+        
+        // Check if portal exists and is not expired
         if (p) {
-          setPortal(p);
-          setEvent(p.events);
+          const now = new Date();
+          const expiresAt = p.expires_at ? new Date(p.expires_at) : null;
+          
+          // If portal has expiration and it's expired, don't set it
+          if (expiresAt && expiresAt < now) {
+            setPortal(null);
+            setEvent(null);
+          } else {
+            setPortal(p);
+            setEvent(p.events);
+          }
         }
       } finally {
         setLoading(false);
@@ -83,7 +95,14 @@ export default function PublicFeedbackPage() {
   };
 
   if (loading) return <div className="p-6 text-center text-slate-300">Loading...</div>;
-  if (!portal || !event) return <div className="p-6 text-center text-red-400">This feedback link is invalid or expired.</div>;
+  if (!portal || !event) {
+    return (
+      <div className="p-6 text-center text-red-400 space-y-2">
+        <div className="font-semibold">This feedback link is invalid or expired.</div>
+        <div className="text-sm text-slate-400">Please contact the event organizer for a new link.</div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl mx-auto p-6 space-y-6">

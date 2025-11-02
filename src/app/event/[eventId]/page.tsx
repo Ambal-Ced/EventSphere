@@ -66,6 +66,7 @@ import { deleteEventImage } from "@/lib/utils";
 import AIChat from "@/components/ai-chat";
 import { useAIDelay } from "@/hooks/useAIDelay";
 import { DefaultSubscriptionManager } from "@/lib/default-subscription-manager";
+import QRCode from "react-qr-code";
 
 interface Event {
   id: string;
@@ -3304,6 +3305,24 @@ RECOMMENDATIONS:
                     </div>
                     <p className="text-slate-400 text-xs mt-2">
                       Share this code with others to invite them to your event
+                    </p>
+                  </div>
+
+                  <div className="space-y-2 text-center">
+                    <Label className="text-white text-sm">QR Code</Label>
+                    <div className="bg-white p-4 rounded-lg border border-amber-500/30 inline-flex items-center justify-center">
+                      {typeof window !== "undefined" && inviteCode && (
+                        <QRCode
+                          value={`${window.location.origin}/events?code=${inviteCode}`}
+                          size={200}
+                          level="M"
+                          fgColor="#000000"
+                          bgColor="#ffffff"
+                        />
+                      )}
+                    </div>
+                    <p className="text-slate-400 text-xs">
+                      Scan this QR code to join the event
                     </p>
                   </div>
 
