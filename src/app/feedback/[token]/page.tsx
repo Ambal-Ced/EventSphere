@@ -16,7 +16,9 @@ import {
 
 export default function PublicFeedbackPage() {
   const params = useParams();
-  const token = (params?.token as string) || "";
+  // Handle token extraction - decode URL if needed
+  const rawToken = (params?.token as string) || "";
+  const token = decodeURIComponent(rawToken);
 
   const [loading, setLoading] = useState(true);
   const [portal, setPortal] = useState<any>(null);
@@ -37,21 +39,49 @@ export default function PublicFeedbackPage() {
       try {
         // Clean and normalize the token
         const normalizedToken = token?.trim();
+        console.log("🔵 Checking feedback portal with token:", normalizedToken);
+        
         if (!normalizedToken) {
+          console.warn("❌ No token provided");
           setPortal(null);
           setEvent(null);
           return;
         }
         
-        // First, check if portal exists (regardless of status)
+        // Try API route first (bypasses RLS)
+        try {
+          const apiResponse = await fetch(`/api/portal/feedback/${encodeURIComponent(normalizedToken)}`);
+          const apiData = await apiResponse.json();
+          
+          if (apiResponse.ok && apiData.success) {
+            console.log("✅ Portal found via API:", apiData);
+            setPortal(apiData.portal);
+            setEvent(apiData.event);
+            return;
+          } else {
+            console.warn("⚠️ API route returned error:", apiData);
+          }
+        } catch (apiErr) {
+          console.warn("⚠️ API route failed, falling back to direct query:", apiErr);
+        }
+        
+        // Fallback: Direct query (may fail due to RLS)
         const { data: p, error: portalError } = await supabase
           .from("feedback_portals")
           .select("*")
           .eq("token", normalizedToken)
           .maybeSingle();
         
+        console.log("🔵 Portal query result:", { data: p, error: portalError });
+        
         if (portalError) {
-          console.error("Error fetching portal:", portalError);
+          console.error("❌ Error fetching portal:", portalError);
+          console.error("❌ Portal error details:", {
+            message: portalError.message,
+            details: portalError.details,
+            hint: portalError.hint,
+            code: portalError.code
+          });
           setPortal(null);
           setEvent(null);
           return;
@@ -59,9 +89,11 @@ export default function PublicFeedbackPage() {
         
         // Check if portal exists, is active, and is not expired
         if (p) {
+          console.log("✅ Portal found:", { id: p.id, is_active: p.is_active, event_id: p.event_id });
+          
           // Check if portal is active
           if (!p.is_active) {
-            console.warn("Portal found but is not active:", normalizedToken);
+            console.warn("⚠️ Portal found but is not active:", normalizedToken);
             setPortal(null);
             setEvent(null);
             return;
@@ -72,7 +104,7 @@ export default function PublicFeedbackPage() {
           
           // If portal has expiration and it's expired, don't set it
           if (expiresAt && expiresAt < now) {
-            console.warn("Portal found but is expired:", normalizedToken);
+            console.warn("⚠️ Portal found but is expired:", normalizedToken, "Expires:", expiresAt);
             setPortal(null);
             setEvent(null);
             return;
@@ -82,26 +114,38 @@ export default function PublicFeedbackPage() {
           
           // Now fetch the event separately
           if (p.event_id) {
+            console.log("🔵 Fetching event:", p.event_id);
             const { data: eventData, error: eventError } = await supabase
               .from("events")
               .select("id,title,description,location,date")
               .eq("id", p.event_id)
               .maybeSingle();
             
+            console.log("🔵 Event query result:", { data: eventData, error: eventError });
+            
             if (eventError) {
-              console.error("Error fetching event:", eventError);
+              console.error("❌ Error fetching event:", eventError);
+              console.error("❌ Event error details:", {
+                message: eventError.message,
+                details: eventError.details,
+                hint: eventError.hint,
+                code: eventError.code
+              });
             }
             
             setEvent(eventData || null);
           } else {
+            console.warn("⚠️ Portal has no event_id");
             setEvent(null);
           }
         } else {
+          console.warn("❌ Portal not found for token:", normalizedToken);
           setPortal(null);
           setEvent(null);
         }
       } catch (err: any) {
-        console.error("Unexpected error:", err);
+        console.error("❌ Unexpected error:", err);
+        console.error("❌ Error stack:", err.stack);
         setPortal(null);
         setEvent(null);
       } finally {
@@ -148,6 +192,10 @@ export default function PublicFeedbackPage() {
       <div className="p-6 text-center text-red-400 space-y-2">
         <div className="font-semibold">This feedback link is invalid or expired.</div>
         <div className="text-sm text-slate-400">Please contact the event organizer for a new link.</div>
+        <div className="text-xs text-slate-500 mt-4">
+          <p>Please check the browser console (F12) for detailed error information.</p>
+          <p className="mt-2">Token received: {token || '(none)'}</p>
+        </div>
       </div>
     );
   }
