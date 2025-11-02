@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect, useRef, Suspense } from "react"; // Import hooks
 import { Metadata } from "next"; // Keep Metadata type import if needed elsewhere, but can't export from client component
+import dynamic from "next/dynamic"; // For code splitting
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -38,12 +39,25 @@ import {
 import { supabase } from "@/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Database } from "@/types/supabase";
-import { EventLimitsCard } from "@/components/ui/event-limits-card";
 import { useEventsPageFailsafe } from "@/hooks/useEventsPageFailsafe";
-import { EventsPageFailsafePopup } from "@/components/ui/events-page-failsafe-popup";
-import { LimitExceededWarningCard } from "@/components/ui/limit-exceeded-warning-card";
-import { LoadingPopup } from "@/components/ui/loading-popup";
 import { useAuth } from "@/context/auth-context";
+import { useDebounce } from "@/hooks/useDebounce";
+
+// Lazy load heavy components for code splitting
+const EventLimitsCard = dynamic(() => import("@/components/ui/event-limits-card").then(mod => ({ default: mod.EventLimitsCard })), {
+  ssr: false,
+  loading: () => <div className="w-full h-32 bg-muted animate-pulse rounded-lg" />,
+});
+const LimitExceededWarningCard = dynamic(() => import("@/components/ui/limit-exceeded-warning-card").then(mod => ({ default: mod.LimitExceededWarningCard })), {
+  ssr: false,
+  loading: () => <div className="w-full h-24 bg-muted animate-pulse rounded-lg" />,
+});
+const EventsPageFailsafePopup = dynamic(() => import("@/components/ui/events-page-failsafe-popup").then(mod => ({ default: mod.EventsPageFailsafePopup })), {
+  ssr: false,
+});
+const LoadingPopup = dynamic(() => import("@/components/ui/loading-popup").then(mod => ({ default: mod.LoadingPopup })), {
+  ssr: false,
+});
 
 type Event = Database["public"]["Tables"]["events"]["Row"];
 
@@ -59,6 +73,7 @@ function EventsPageContent() {
   const searchParams = useSearchParams();
   // State for search and filters
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearch = useDebounce(searchTerm, 300); // Debounce search for performance
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [showDone, setShowDone] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
@@ -269,11 +284,13 @@ function EventsPageContent() {
       const finalCollabRows = collabRows || fallbackCollabRows;
       
       // Fetch own events (include done and archived, we'll filter them client-side)
+      // Optimize: Only select needed columns instead of *
       const { data: ownEvents, error: ownError } = await supabase
         .from("events")
-        .select("*")
+        .select("id,title,description,date,location,category,image_url,created_at,updated_at,status,user_id,is_public,max_participants,price,role")
         .eq("user_id", user.id)
-        .not("status", "eq", "cancelled"); // Only exclude cancelled, include done and archived
+        .not("status", "eq", "cancelled") // Only exclude cancelled, include done and archived
+        .order("date", { ascending: true }); // Add ordering for consistency
 
       if (ownError) {
         console.error("Error fetching own events:", ownError);
@@ -290,11 +307,13 @@ function EventsPageContent() {
 
       let joinedEvents: Event[] = [];
       if (joinedEventIds.length > 0) {
+        // Optimize: Only select needed columns instead of *
         const { data: joinedData, error: joinedError } = await supabase
           .from("events")
-          .select("*")
+          .select("id,title,description,date,location,category,image_url,created_at,updated_at,status,user_id,is_public,max_participants,price,role")
           .in("id", joinedEventIds)
-          .not("status", "eq", "cancelled"); // Only exclude cancelled, include done and archived
+          .not("status", "eq", "cancelled") // Only exclude cancelled, include done and archived
+          .order("date", { ascending: true }); // Add ordering for consistency
         if (joinedError) {
           console.error("Error fetching joined events:", joinedError);
           throw joinedError;
@@ -344,13 +363,13 @@ function EventsPageContent() {
     }
   };
 
-  // Memoized filtering logic
+  // Memoized filtering logic - use debounced search for better performance
   const filteredEvents = useMemo(() => {
     return events.filter((event) => {
       const matchesSearch =
-        searchTerm === "" ||
-        event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        event.description.toLowerCase().includes(searchTerm.toLowerCase());
+        debouncedSearch === "" ||
+        event.title.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        event.description.toLowerCase().includes(debouncedSearch.toLowerCase());
 
       const matchesCategory =
         selectedCategories.length === 0 ||
@@ -367,7 +386,7 @@ function EventsPageContent() {
 
       return matchesSearch && matchesCategory && matchesStatus;
     });
-  }, [searchTerm, selectedCategories, events, showDone, showArchived]); // Recalculate when search, filters, status filters, or events change
+  }, [debouncedSearch, selectedCategories, events, showDone, showArchived]); // Use debouncedSearch instead of searchTerm
 
   // Reset to first page when filters/search change
   useEffect(() => {
@@ -909,13 +928,18 @@ function EventsPageContent() {
               key={event.id}
               href={`/event/${event.id}`} // Link to detail page
               className="block group relative overflow-hidden rounded-xl border bg-card transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
+              prefetch={true}
             >
               <div className="aspect-video relative">
                 <Image
                   src={event.image_url || getDefaultImage(event.category)}
                   alt={event.title}
-                  fill
-                  className="object-cover brightness-90 transition-transform duration-300 group-hover:scale-105"
+                  width={800}
+                  height={450}
+                  className="object-cover brightness-90 transition-transform duration-300 group-hover:scale-105 w-full h-full"
+                  loading="lazy"
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
+                  quality={85}
                 />
                 <div className="absolute right-2 top-2 flex flex-col items-end gap-2">
                   {/* Status Badge - Only show if status column exists */}

@@ -811,8 +811,10 @@ export default function HomeClient() {
                             getDefaultImage((event as any).category)
                           }
                           alt={event.title}
-                          fill
-                          className="object-cover brightness-75 transition-transform duration-300"
+                          width={800}
+                          height={450}
+                          className="w-full h-full object-cover brightness-75 transition-transform duration-300"
+                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                           priority={index < 4}
                         />
                       </div>

@@ -203,7 +203,7 @@ export function Header() {
       {/* Center Navigation (desktop) */}
       <nav className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 hidden md:block">
         <div className="flex items-center gap-8">
-          <Link
+          <Link prefetch={true}
             href="/"
             className={cn(
               "text-lg font-medium transition-colors hover:text-primary",
@@ -212,7 +212,7 @@ export function Header() {
           >
             Home
           </Link>
-          <Link
+          <Link prefetch={true}
             href="/events"
             className={cn(
               "text-lg font-medium transition-colors hover:text-primary",
@@ -221,7 +221,7 @@ export function Header() {
           >
             Events
           </Link>
-          <Link
+          <Link prefetch={true}
             href="/about"
             className={cn(
               "text-lg font-medium transition-colors hover:text-primary",
@@ -230,7 +230,7 @@ export function Header() {
           >
             About
           </Link>
-          <Link
+          <Link prefetch={true}
             href="/faqs"
             className={cn(
               "text-lg font-medium transition-colors hover:text-primary",
@@ -239,7 +239,7 @@ export function Header() {
           >
             FAQs
           </Link>
-          <Link
+          <Link prefetch={true}
             href="/pricing"
             className={cn(
               "text-lg font-medium transition-colors hover:text-primary",
@@ -309,7 +309,7 @@ export function Header() {
                 </div>
                 <div className="p-2">
                   <Button asChild variant="ghost" className="w-full">
-                    <Link href="/notifications">View all notifications</Link>
+                    <Link prefetch={true} href="/notifications">View all notifications</Link>
                   </Button>
                 </div>
               </PopoverContent>
@@ -323,7 +323,7 @@ export function Header() {
                 className="rounded-full hover:bg-muted/50 transition-colors"
                 asChild
               >
-                <Link href="/profile">
+                <Link prefetch={true} href="/profile">
                   <Avatar className="h-8 w-8">
                     <AvatarImage
                       src={profile?.avatar_url}
@@ -381,10 +381,10 @@ export function Header() {
             {/* Desktop buttons */}
             <div className="hidden sm:flex items-center gap-2">
               <Button asChild size="sm">
-                <Link href="/login">Log In</Link>
+                <Link prefetch={true} href="/login">Log In</Link>
               </Button>
               <Button asChild variant="outline" size="sm">
-                <Link href="/register">Sign Up</Link>
+                <Link prefetch={true} href="/register">Sign Up</Link>
               </Button>
             </div>
             
@@ -403,15 +403,15 @@ export function Header() {
       {mobileOpen && (
         <div className="md:hidden absolute top-16 left-0 right-0 border-b bg-background px-4 py-3 z-50">
           <div className="flex flex-col gap-3 items-center text-center">
-            <Link href="/" className={cn("text-base", pathname === "/" ? "text-primary" : "text-muted-foreground")} onClick={()=>setMobileOpen(false)}>Home</Link>
-            <Link href="/events" className={cn("text-base", pathname === "/events" ? "text-primary" : "text-muted-foreground")} onClick={()=>setMobileOpen(false)}>Events</Link>
-            <Link href="/about" className={cn("text-base", pathname === "/about" ? "text-primary" : "text-muted-foreground")} onClick={()=>setMobileOpen(false)}>About</Link>
-            <Link href="/faqs" className={cn("text-base", pathname === "/faqs" ? "text-primary" : "text-muted-foreground")} onClick={()=>setMobileOpen(false)}>FAQs</Link>
-            <Link href="/pricing" className={cn("text-base", pathname === "/pricing" ? "text-primary" : "text-muted-foreground")} onClick={()=>setMobileOpen(false)}>Pricing</Link>
+            <Link prefetch={true} href="/" className={cn("text-base", pathname === "/" ? "text-primary" : "text-muted-foreground")} onClick={()=>setMobileOpen(false)}>Home</Link>
+            <Link prefetch={true} href="/events" className={cn("text-base", pathname === "/events" ? "text-primary" : "text-muted-foreground")} onClick={()=>setMobileOpen(false)}>Events</Link>
+            <Link prefetch={true} href="/about" className={cn("text-base", pathname === "/about" ? "text-primary" : "text-muted-foreground")} onClick={()=>setMobileOpen(false)}>About</Link>
+            <Link prefetch={true} href="/faqs" className={cn("text-base", pathname === "/faqs" ? "text-primary" : "text-muted-foreground")} onClick={()=>setMobileOpen(false)}>FAQs</Link>
+            <Link prefetch={true} href="/pricing" className={cn("text-base", pathname === "/pricing" ? "text-primary" : "text-muted-foreground")} onClick={()=>setMobileOpen(false)}>Pricing</Link>
             
             {/* Show notifications only for authenticated users */}
             {user && (
-              <Link href="/notifications" className="flex items-center justify-center gap-2 text-base" onClick={()=>setMobileOpen(false)}>
+              <Link prefetch={true} href="/notifications" className="flex items-center justify-center gap-2 text-base" onClick={()=>setMobileOpen(false)}>
                 <span className={cn(pathname === "/notifications" ? "text-primary" : "text-muted-foreground")}>Notifications</span>
                 {unreadCount > 0 && (
                   <span className="min-w-[18px] h-5 px-1 rounded-full bg-primary text-[11px] font-medium text-primary-foreground inline-flex items-center justify-center">
@@ -426,10 +426,10 @@ export function Header() {
               <>
                 <div className="w-full border-t my-2"></div>
                 <Button asChild className="w-full" onClick={()=>setMobileOpen(false)}>
-                  <Link href="/login">Log In</Link>
+                  <Link prefetch={true} href="/login">Log In</Link>
                 </Button>
                 <Button asChild variant="outline" className="w-full" onClick={()=>setMobileOpen(false)}>
-                  <Link href="/register">Sign Up</Link>
+                  <Link prefetch={true} href="/register">Sign Up</Link>
                 </Button>
               </>
             )}

@@ -229,9 +229,19 @@ export default function PolicyPage() {
           </p>
         </div>
 
-        <h2 className="text-2xl font-semibold mt-10">22. Contact</h2>
+        <h2 className="text-2xl font-semibold mt-10">22. Accessibility</h2>
         <div className="rounded-lg p-6 space-y-4 text-sm text-muted-foreground bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
-          <p>Questions about pricing, purchases, or privacy can be sent via the support channel in your account.</p>
+          <p>
+            <strong>Accessibility Statement:</strong> The system is accessible to users with assistive needs. We are committed to ensuring that EventTria is usable by everyone, regardless of ability. Our platform is designed with accessibility in mind, following web accessibility best practices to provide an inclusive experience for all users.
+          </p>
+          <p>
+            If you encounter any accessibility barriers while using our service, or if you need assistance accessing any features, please contact us through the support channel in your account. We will work to address your needs and improve accessibility.
+          </p>
+        </div>
+
+        <h2 className="text-2xl font-semibold mt-10">23. Contact</h2>
+        <div className="rounded-lg p-6 space-y-4 text-sm text-muted-foreground bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
+          <p>Questions about pricing, purchases, privacy, or accessibility can be sent via the support channel in your account.</p>
         </div>
 
         <div className="mt-8 text-center">

@@ -6,6 +6,8 @@ import { Header } from "@/components/ui/header";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Footer } from "@/components/ui/footer";
 import { CompleteProfileHandler } from "@/components/ui/complete-profile-handler";
+import { WebVitals } from "./web-vitals";
+import { ServiceWorkerRegister } from "./service-worker-register";
 // Revert to simple layout without conditional wrapper
 
 const inter = Inter({ subsets: ["latin"] });
@@ -25,7 +27,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
+      <head>
+        {/* Preload critical resources */}
+        <link rel="dns-prefetch" href={process.env.NEXT_PUBLIC_SUPABASE_URL || ''} />
+      </head>
       <body className={`${inter.className} min-h-screen flex flex-col`}>
+        <WebVitals />
+        <ServiceWorkerRegister />
         <AuthProvider>
           <div className="flex flex-col min-h-screen">
             <Header />
