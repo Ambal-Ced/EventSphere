@@ -40,7 +40,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Database } from "@/types/supabase";
 import { useEventsPageFailsafe } from "@/hooks/useEventsPageFailsafe";
 import { useAuth } from "@/context/auth-context";
-import { useDebounce } from "@/hooks/useDebounce";
 
 import { EventLimitsCard } from "@/components/ui/event-limits-card";
 import { LimitExceededWarningCard } from "@/components/ui/limit-exceeded-warning-card";
@@ -61,7 +60,6 @@ function EventsPageContent() {
   const searchParams = useSearchParams();
   // State for search and filters
   const [searchTerm, setSearchTerm] = useState("");
-  const debouncedSearch = useDebounce(searchTerm, 300); // Debounce search for performance
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [showDone, setShowDone] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
@@ -259,12 +257,10 @@ function EventsPageContent() {
       // Approach 2: Try using RPC if direct query fails
       let fallbackCollabRows = [];
       if (collabError || !collabRows || collabRows.length === 0) {
-        console.log("Direct query failed or returned empty, trying RPC...");
         const { data: rpcData, error: rpcError } = await supabase
           .rpc('get_user_collaborations', { p_user_id: user.id });
         if (!rpcError && rpcData) {
           fallbackCollabRows = rpcData;
-          console.log("RPC returned:", fallbackCollabRows);
         }
       }
       
@@ -272,67 +268,46 @@ function EventsPageContent() {
       const finalCollabRows = collabRows || fallbackCollabRows;
       
       // Fetch own events (include done and archived, we'll filter them client-side)
-      // Optimize: Only select needed columns instead of *
       const { data: ownEvents, error: ownError } = await supabase
         .from("events")
-        .select("id,title,description,date,location,category,image_url,created_at,updated_at,status,user_id,is_public,price,role")
+        .select("*")
         .eq("user_id", user.id)
         .not("status", "eq", "cancelled") // Only exclude cancelled, include done and archived
-        .order("date", { ascending: true }); // Add ordering for consistency
+        .order("date", { ascending: true });
 
       if (ownError) {
         console.error("Error fetching own events:", ownError);
         throw ownError;
       }
 
-      console.log("User ID:", user.id);
-      console.log("Collaboration rows (direct):", collabRows);
-      console.log("Collaboration rows (final):", finalCollabRows);
-      console.log("Own events:", ownEvents);
-
       const joinedEventIds = (finalCollabRows || []).map((r: any) => r.event_id);
-      console.log("Joined event IDs:", joinedEventIds);
 
       let joinedEvents: Event[] = [];
       if (joinedEventIds.length > 0) {
-        // Optimize: Only select needed columns instead of *
         const { data: joinedData, error: joinedError } = await supabase
           .from("events")
-          .select("id,title,description,date,location,category,image_url,created_at,updated_at,status,user_id,is_public,price,role")
+          .select("*")
           .in("id", joinedEventIds)
           .not("status", "eq", "cancelled") // Only exclude cancelled, include done and archived
-          .order("date", { ascending: true }); // Add ordering for consistency
+          .order("date", { ascending: true });
         if (joinedError) {
           console.error("Error fetching joined events:", joinedError);
           throw joinedError;
         }
-        joinedEvents = (joinedData || []).map((event: any) => ({
-          ...event,
-          max_participants: null, // Column doesn't exist in database, set to null
-        }));
-        console.log("Joined events data:", joinedEvents);
+        joinedEvents = joinedData || [];
       }
 
       // Merge results, de-duplicate, and sort by date ascending
       const mapById = new Map<string, Event>();
-      [...(ownEvents || []).map((evt: any) => ({ ...evt, max_participants: null })), ...joinedEvents].forEach((evt) => {
+      [...(ownEvents || []), ...joinedEvents].forEach((evt) => {
         if (!mapById.has(evt.id)) mapById.set(evt.id, evt);
       });
       const merged = Array.from(mapById.values()).sort(
         (a, b) => new Date(a.date as any).getTime() - new Date(b.date as any).getTime()
       );
 
-      console.log("✅ Final merged events:", merged.length, merged);
       setEvents(merged);
       setError(null);
-      
-      // Log events statuses for debugging
-      const statusCounts = merged.reduce((acc, event) => {
-        const status = event.status || "coming_soon";
-        acc[status] = (acc[status] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
-      console.log("📈 Event status distribution:", statusCounts);
 
       // Extract unique categories from events
       const uniqueCategories = [
@@ -362,21 +337,13 @@ function EventsPageContent() {
     }
   };
 
-  // Memoized filtering logic - use debounced search for better performance
+  // Memoized filtering logic
   const filteredEvents = useMemo(() => {
-    console.log("🔍 Filtering events:", {
-      totalEvents: events.length,
-      debouncedSearch,
-      selectedCategories,
-      showDone,
-      showArchived,
-    });
-    
-    const filtered = events.filter((event) => {
+    return events.filter((event) => {
       const matchesSearch =
-        debouncedSearch === "" ||
-        event.title.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-        event.description.toLowerCase().includes(debouncedSearch.toLowerCase());
+        searchTerm === "" ||
+        event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        event.description.toLowerCase().includes(searchTerm.toLowerCase());
 
       const matchesCategory =
         selectedCategories.length === 0 ||
@@ -391,24 +358,9 @@ function EventsPageContent() {
         return true;
       })();
 
-      const matches = matchesSearch && matchesCategory && matchesStatus;
-      
-      if (!matches) {
-        console.log("❌ Event filtered out:", {
-          title: event.title,
-          matchesSearch,
-          matchesCategory,
-          matchesStatus,
-          status: event.status,
-        });
-      }
-
-      return matches;
+      return matchesSearch && matchesCategory && matchesStatus;
     });
-    
-    console.log("✅ Filtered events result:", filtered.length);
-    return filtered;
-  }, [debouncedSearch, selectedCategories, events, showDone, showArchived]); // Use debouncedSearch instead of searchTerm
+  }, [searchTerm, selectedCategories, events, showDone, showArchived]);
 
   // Reset to first page when filters/search change
   useEffect(() => {
@@ -763,20 +715,6 @@ function EventsPageContent() {
     );
   }
 
-  // Debug: Log events state
-  console.log("📊 Events Page State:", {
-    eventsCount: events.length,
-    filteredEventsCount: filteredEvents.length,
-    currentPageEventsCount: currentPageEvents.length,
-    isLoading,
-    isAuthenticated,
-    showDone,
-    showArchived,
-    searchTerm,
-    debouncedSearch,
-    selectedCategories,
-  });
-
   return (
     <div className="flex flex-col gap-8">
       {/* Header Section */}
@@ -964,17 +902,15 @@ function EventsPageContent() {
               key={event.id}
               href={`/event/${event.id}`} // Link to detail page
               className="block group relative overflow-hidden rounded-xl border bg-card transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
-              prefetch={true}
             >
               <div className="aspect-video relative">
                 <Image
                   src={event.image_url || getDefaultImage(event.category)}
                   alt={event.title}
-                  fill
-                  className="object-cover brightness-90 transition-transform duration-300 group-hover:scale-105"
+                  width={800}
+                  height={450}
+                  className="object-cover brightness-90 transition-transform duration-300 group-hover:scale-105 w-full h-full"
                   loading="lazy"
-                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
-                  quality={85}
                 />
                 <div className="absolute right-2 top-2 flex flex-col items-end gap-2">
                   {/* Status Badge - Only show if status column exists */}
