@@ -306,13 +306,16 @@ function EventsPageContent() {
           console.error("Error fetching joined events:", joinedError);
           throw joinedError;
         }
-        joinedEvents = joinedData || [];
+        joinedEvents = (joinedData || []).map((event: any) => ({
+          ...event,
+          max_participants: null, // Column doesn't exist in database, set to null
+        }));
         console.log("Joined events data:", joinedEvents);
       }
 
       // Merge results, de-duplicate, and sort by date ascending
       const mapById = new Map<string, Event>();
-      [...(ownEvents || []), ...joinedEvents].forEach((evt) => {
+      [...(ownEvents || []).map((evt: any) => ({ ...evt, max_participants: null })), ...joinedEvents].forEach((evt) => {
         if (!mapById.has(evt.id)) mapById.set(evt.id, evt);
       });
       const merged = Array.from(mapById.values()).sort(
