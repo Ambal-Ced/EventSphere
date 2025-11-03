@@ -143,6 +143,18 @@ export class AccountDeletionService {
 
       if (error) {
         console.error('❌ Error cancelling deletion request:', error);
+        console.error('❌ Error details:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        });
+        
+        // If it's an RLS error, provide helpful message
+        if (error.code === '42501' || error.message?.includes('row-level security')) {
+          console.error('⚠️ RLS Policy Error: Please run database/fix_account_deletion_rls.sql in Supabase SQL Editor');
+        }
+        
         throw error;
       }
 
