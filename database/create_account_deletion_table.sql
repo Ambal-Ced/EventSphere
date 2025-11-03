@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS account_deletion_requests (
   scheduled_deletion_date TIMESTAMP WITH TIME ZONE NOT NULL, -- 7+ business days from request
   cancelled_at TIMESTAMP WITH TIME ZONE NULL, -- If user cancels deletion
   deleted_at TIMESTAMP WITH TIME ZONE NULL, -- When account was actually deleted
-  status TEXT NOT NULL DEFAULT 'pending', -- 'pending', 'cancelled', 'completed'
+  status TEXT NOT NULL DEFAULT 'pending', -- 'pending', 'approved', 'cancelled', 'completed'
   deletion_reason TEXT, -- Optional reason from user
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

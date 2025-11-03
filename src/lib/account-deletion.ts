@@ -8,7 +8,7 @@ export interface AccountDeletionRequest {
   scheduled_deletion_date: string;
   cancelled_at: string | null;
   deleted_at: string | null;
-  status: 'pending' | 'cancelled' | 'completed';
+  status: 'pending' | 'approved' | 'cancelled' | 'completed';
   deletion_reason: string | null;
   created_at: string;
   updated_at: string;
@@ -84,28 +84,24 @@ export class AccountDeletionService {
   }
 
   /**
-   * Cancel account deletion
+   * Cancel account deletion - deletes the request from database
    */
   static async cancelDeletionRequest(userId: string): Promise<boolean> {
     try {
       console.log('🔄 Cancelling account deletion for user:', userId);
 
+      // Delete the request from database (not just update status)
       const { error } = await supabase
         .from('account_deletion_requests')
-        .update({
-          status: 'cancelled',
-          cancelled_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq('user_id', userId)
-        .eq('status', 'pending');
+        .delete()
+        .eq('user_id', userId);
 
       if (error) {
         console.error('❌ Error cancelling deletion request:', error);
         throw error;
       }
 
-      console.log('✅ Account deletion cancelled');
+      console.log('✅ Account deletion request removed from database');
       return true;
     } catch (error) {
       console.error('❌ Error in cancelDeletionRequest:', error);
