@@ -25,15 +25,31 @@ export async function GET(request: NextRequest) {
       }
     );
 
+    // Try cookies-based session first
     const {
       data: { session },
     } = await supabase.auth.getSession();
-    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    let userId: string | null = session?.user?.id ?? null;
+    // Fallback: accept Bearer token header
+    if (!userId) {
+      const authHeader = request.headers.get("authorization") || request.headers.get("Authorization");
+      const token = authHeader?.toLowerCase().startsWith("bearer ") ? authHeader.slice(7) : undefined;
+      if (token) {
+        const supabaseWithHeader = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        );
+        const { data: userData } = await supabaseWithHeader.auth.getUser(token);
+        userId = userData.user?.id ?? null;
+      }
+    }
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("account_type")
-      .eq("id", session.user.id)
+      .eq("id", userId)
       .single();
     if (profileError || profile?.account_type !== "admin") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });

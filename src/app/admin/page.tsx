@@ -11,7 +11,10 @@ export default function AdminPage() {
 
   const loadProfilesCount = async () => {
     try {
-      const res = await fetch("/api/admin/count/profiles");
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/admin/count/profiles", {
+        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
+      });
       const json = await res.json();
       if (res.ok) setProfilesCount(json.count ?? 0);
     } catch {}
