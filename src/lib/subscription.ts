@@ -178,14 +178,14 @@ export class SubscriptionService {
       stripeCustomerId
     });
 
-    // First, check if user already has a subscription (get the most recent active one)
+    // First, check if user already has ANY subscription (regardless of status)
+    // Always update existing subscription, only create if user has NO subscriptions
     console.log('🔍 Checking for existing subscription...');
     const { data: existingSubscriptions, error: existingError } = await supabase
       .from('user_subscriptions')
       .select('*')
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .order('created_at', { ascending: false });
+      .eq('user_id', userId) // Find ANY subscription for this user (no status filter)
+      .order('created_at', { ascending: false }); // Get most recent subscription
 
     if (existingError) {
       console.error('❌ Error checking existing subscription:', existingError);
@@ -198,7 +198,9 @@ export class SubscriptionService {
       found: !!existingSubscription,
       subscriptionId: existingSubscription?.id,
       currentPlanId: existingSubscription?.plan_id,
-      status: existingSubscription?.status
+      status: existingSubscription?.status,
+      isTrialing: existingSubscription?.status === 'trialing',
+      isActive: existingSubscription?.status === 'active'
     });
 
     // Get plan details - try by ID first, then by name
@@ -270,32 +272,72 @@ export class SubscriptionService {
       daysAdded: normalizedPlanName === 'free' ? 36500 : 30
     });
 
-    const subscriptionData = {
+    // Prepare subscription data - handle transition from trialing/cancelled to active
+    const subscriptionData: any = {
       user_id: userId,
-      plan_id: plan.id, // Use the actual plan ID from database
-      status: 'active',
+      plan_id: plan.id, // Use the actual plan ID from database (could be 111... or 222...)
+      status: 'active', // Always set to active when purchasing (even if was trialing/cancelled)
       current_period_start: now.toISOString(),
       current_period_end: periodEnd.toISOString(),
       stripe_subscription_id: stripeSubscriptionId,
-      stripe_customer_id: stripeCustomerId
+      stripe_customer_id: stripeCustomerId,
+      cancel_at_period_end: false, // Clear any cancellation flags
+      cancelled_at: null // Clear any cancellation timestamp
     };
 
+    // If updating from a trialing subscription, clear trial-related fields
+    if (existingSubscription && existingSubscription.status === 'trialing') {
+      console.log('🔄 Converting trialing subscription to paid subscription');
+      subscriptionData.is_trial = false;
+      subscriptionData.trial_start = null;
+      subscriptionData.trial_end = null;
+    } else if (existingSubscription && existingSubscription.status === 'cancelled') {
+      console.log('🔄 Reactivating cancelled subscription');
+      subscriptionData.is_trial = false; // Ensure not trial
+      subscriptionData.trial_start = null;
+      subscriptionData.trial_end = null;
+    }
+
     if (existingSubscription) {
-      // Update existing subscription
+      // Update existing subscription (could be Free, trialing, or active)
       console.log('🔄 Updating existing subscription:', {
         subscriptionId: existingSubscription.id,
         currentPlanId: existingSubscription.plan_id,
+        currentStatus: existingSubscription.status,
         newPlanId: plan.id,
         newPlanName: plan.name,
+        isTrialConversion: existingSubscription.status === 'trialing',
         subscriptionData: subscriptionData
       });
 
-      const { data, error } = await supabase
+      // Add timeout to update operation
+      const updatePromise = supabase
         .from('user_subscriptions')
         .update(subscriptionData)
         .eq('id', existingSubscription.id)
         .select()
         .single();
+
+      const updateTimeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Subscription update timeout after 30 seconds')), 30000)
+      );
+
+      let data, error;
+      try {
+        const result = await Promise.race([updatePromise, updateTimeoutPromise]) as any;
+        if (result instanceof Error && result.message.includes('timeout')) {
+          error = result;
+          console.error('❌ Subscription update timed out:', result);
+        } else if (result && typeof result === 'object') {
+          data = result.data;
+          error = result.error;
+        } else {
+          error = new Error('Unexpected result format from subscription update');
+        }
+      } catch (timeoutError: any) {
+        error = timeoutError instanceof Error ? timeoutError : new Error(String(timeoutError));
+        console.error('❌ Subscription update operation timed out:', timeoutError);
+      }
 
       if (error) {
         console.error('❌ Error updating subscription:', error);
@@ -307,17 +349,42 @@ export class SubscriptionService {
       }
 
       console.log('✅ Subscription updated successfully:', data);
+      
+      // Transaction recording is handled separately in the payment page
+      // The transaction is created first with subscription_id: null, then updated with the subscription_id
       return data;
     } else {
       // Create new subscription
       console.log('🆕 Creating new subscription...');
       console.log('💾 Inserting subscription data:', subscriptionData);
 
-      const { data, error } = await supabase
+      // Add timeout to insert operation
+      const insertPromise = supabase
         .from('user_subscriptions')
         .insert(subscriptionData)
         .select()
         .single();
+
+      const insertTimeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Subscription insert timeout after 30 seconds')), 30000)
+      );
+
+      let data, error;
+      try {
+        const result = await Promise.race([insertPromise, insertTimeoutPromise]) as any;
+        if (result instanceof Error && result.message.includes('timeout')) {
+          error = result;
+          console.error('❌ Subscription insert timed out:', result);
+        } else if (result && typeof result === 'object') {
+          data = result.data;
+          error = result.error;
+        } else {
+          error = new Error('Unexpected result format from subscription insert');
+        }
+      } catch (timeoutError: any) {
+        error = timeoutError instanceof Error ? timeoutError : new Error(String(timeoutError));
+        console.error('❌ Subscription insert operation timed out:', timeoutError);
+      }
 
       if (error) {
         console.error('❌ Error creating subscription:', error);
