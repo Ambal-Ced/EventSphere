@@ -181,11 +181,34 @@ export class SubscriptionService {
     // First, check if user already has ANY subscription (regardless of status)
     // Always update existing subscription, only create if user has NO subscriptions
     console.log('🔍 Checking for existing subscription...');
-    const { data: existingSubscriptions, error: existingError } = await supabase
+    
+    // Add timeout to subscription lookup query
+    const lookupPromise = supabase
       .from('user_subscriptions')
       .select('*')
       .eq('user_id', userId) // Find ANY subscription for this user (no status filter)
-      .order('created_at', { ascending: false }); // Get most recent subscription
+      .order('created_at', { ascending: false }) // Get most recent subscription
+      .limit(1); // Limit to 1 for faster query
+
+    const lookupTimeoutPromise = new Promise<never>((_, reject) => 
+      setTimeout(() => reject(new Error('Subscription lookup timeout after 10 seconds')), 10000)
+    );
+
+    let existingSubscriptions = null;
+    let existingError = null;
+    
+    try {
+      const result = await Promise.race([lookupPromise, lookupTimeoutPromise]);
+      if (result && typeof result === 'object' && 'data' in result && 'error' in result) {
+        existingSubscriptions = (result as any).data;
+        existingError = (result as any).error;
+      } else {
+        existingError = new Error('Unexpected result format from subscription lookup');
+      }
+    } catch (timeoutError: any) {
+      existingError = timeoutError instanceof Error ? timeoutError : new Error(String(timeoutError));
+      console.error('❌ Subscription lookup timed out:', timeoutError);
+    }
 
     if (existingError) {
       console.error('❌ Error checking existing subscription:', existingError);
@@ -591,9 +614,13 @@ export class SubscriptionService {
                           transactionData.planName.includes('Cancelled') ||
                           transactionData.planName.includes('Expired');
 
+    // Generate invoice number client-side to avoid slow database trigger
+    const invoiceNumber = generateInvoiceNumber();
+
     const transactionRecord = {
       user_id: transactionData.userId,
       subscription_id: transactionData.subscriptionId,
+      invoice_number: invoiceNumber, // Pre-generate to bypass slow trigger
       original_amount_cents: transactionData.originalAmountCents, // Plan price (₱159, ₱300)
       net_amount_cents: transactionData.originalAmountCents, // Use plan price for admin tracking (not PayMongo net)
       currency: 'PHP',
