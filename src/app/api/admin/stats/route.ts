@@ -44,11 +44,12 @@ export async function GET(request: NextRequest) {
     const start = searchParams.get("start");
     const end = searchParams.get("end");
 
-    // Use service role to bypass RLS for admin analytics
-    const admin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    // Prefer service role to bypass RLS for admin analytics; fall back to session client
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const admin = serviceKey
+      ? createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey)
+      : null as any;
+    const db: any = admin ?? supabase;
 
     // Build date filters
     const txFilter: any[] = [];
@@ -57,13 +58,13 @@ export async function GET(request: NextRequest) {
 
     // Counts
     const [profilesCount, eventsCount, collabCount] = await Promise.all([
-      admin.from("profiles").select("id", { count: "exact", head: true }),
-      admin.from("events").select("id", { count: "exact", head: true }),
-      admin.from("event_collaborators").select("id", { count: "exact", head: true }),
+      db.from("profiles").select("id", { count: "exact" }).limit(1),
+      db.from("events").select("id", { count: "exact" }).limit(1),
+      db.from("event_collaborators").select("id", { count: "exact" }).limit(1),
     ]);
 
     // Transactions metrics
-    let txQuery = admin
+    let txQuery = db
       .from("transactions")
       .select("id, net_amount_cents, created_at, transaction_type, status")
       .eq("status", "paid")
@@ -87,9 +88,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       totals: {
-        profiles: profilesCount.count ?? 0,
-        events: eventsCount.count ?? 0,
-        collaborations: collabCount.count ?? 0,
+        profiles: (profilesCount.count as number | null) ?? 0,
+        events: (eventsCount.count as number | null) ?? 0,
+        collaborations: (collabCount.count as number | null) ?? 0,
         transactions: totalTransactions,
         revenue_cents: totalRevenueCents,
         currency: "PHP",
@@ -97,6 +98,7 @@ export async function GET(request: NextRequest) {
       series: Object.entries(byDay)
         .sort((a, b) => a[0].localeCompare(b[0]))
         .map(([date, v]) => ({ date, revenue_cents: v.revenue_cents, transactions: v.count })),
+      debug: { usedServiceRole: !!serviceKey }
     });
   } catch (err: any) {
     console.error("/api/admin/stats error", err);
