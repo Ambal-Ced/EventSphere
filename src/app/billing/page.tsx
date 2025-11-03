@@ -9,6 +9,9 @@ import { Calendar, CreditCard, Download, AlertTriangle, CheckCircle } from "luci
 import Link from "next/link";
 import { useAuth } from "@/context/auth-context";
 import { SubscriptionService } from "@/lib/subscription";
+import { EventCountManager } from "@/lib/event-count-manager";
+import { DefaultSubscriptionManager } from "@/lib/default-subscription-manager";
+import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 
 // Mock data removed - now using real transaction data
@@ -23,6 +26,12 @@ export default function BillingPage() {
   const [loading, setLoading] = useState(true);
   const [billingHistory, setBillingHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
+  const [usageData, setUsageData] = useState<{
+    aiInsightsOverall: { current: number; limit: number };
+    aiChat: { current: number; limit: number };
+    events: { current: number; limit: number };
+  } | null>(null);
+  const [loadingUsage, setLoadingUsage] = useState(true);
 
   // Generate PDF invoice
   const generateInvoicePDF = (transaction: any) => {
@@ -251,6 +260,119 @@ export default function BillingPage() {
       window.removeEventListener('subscriptionUpdated', handleSubscriptionUpdate);
     };
   }, [user]);
+
+  // Fetch usage data
+  useEffect(() => {
+    const fetchUsageData = async () => {
+      if (!user) {
+        setLoadingUsage(false);
+        return;
+      }
+
+      try {
+        setLoadingUsage(true);
+        console.log('📊 Fetching usage data for user:', user.id);
+
+        // Get subscription to determine plan limits
+        const subscriptionData = await SubscriptionService.getUserSubscription(user.id);
+        
+        if (!subscriptionData || !subscriptionData.subscription_plans) {
+          console.warn('⚠️ No subscription found, using default limits');
+          setUsageData({
+            aiInsightsOverall: { current: 0, limit: 5 },
+            aiChat: { current: 0, limit: 5 },
+            events: { current: 0, limit: 10 }
+          });
+          setLoadingUsage(false);
+          return;
+        }
+
+        const planName = subscriptionData.subscription_plans.name || 'Free';
+        const planFeatures = DefaultSubscriptionManager.getSubscriptionFeatures(planName);
+
+        // Get AI Insights Overall usage (from analytics insights)
+        let aiInsightsOverallCurrent = 0;
+        try {
+          const { data: insightsData } = await supabase.rpc('get_or_create_analytics_insights_weekly_usage', {
+            p_user_id: user.id
+          });
+          if (insightsData && insightsData.length > 0) {
+            aiInsightsOverallCurrent = insightsData[0].insights_generated || 0;
+          }
+        } catch (error) {
+          console.error('❌ Error fetching AI insights overall usage:', error);
+        }
+
+        // Get AI Chat usage (sum of all chat usage records)
+        let aiChatCurrent = 0;
+        try {
+          const { data: chatUsage } = await supabase
+            .from('ai_chat_usage')
+            .select('questions_asked')
+            .eq('user_id', user.id);
+          
+          if (chatUsage && chatUsage.length > 0) {
+            aiChatCurrent = chatUsage.reduce((sum, record) => sum + (record.questions_asked || 0), 0);
+          }
+        } catch (error) {
+          console.error('❌ Error fetching AI chat usage:', error);
+        }
+
+        // Get Events count
+        const eventCounts = await EventCountManager.getEventCounts(user.id);
+        const eventsCurrent = eventCounts.eventsCreated;
+
+        // Set limits (handle unlimited as -1)
+        const aiInsightsLimit = planFeatures.max_ai_insights_overall === -1 ? 9999 : planFeatures.max_ai_insights_overall;
+        const aiChatLimit = planFeatures.max_ai_chat === -1 ? 9999 : planFeatures.max_ai_chat;
+        const eventsLimit = planFeatures.max_events_created === -1 ? 9999 : planFeatures.max_events_created;
+
+        setUsageData({
+          aiInsightsOverall: { 
+            current: aiInsightsOverallCurrent, 
+            limit: aiInsightsLimit 
+          },
+          aiChat: { 
+            current: aiChatCurrent, 
+            limit: aiChatLimit 
+          },
+          events: { 
+            current: eventsCurrent, 
+            limit: eventsLimit 
+          }
+        });
+
+        console.log('✅ Usage data fetched:', {
+          aiInsightsOverall: { current: aiInsightsOverallCurrent, limit: aiInsightsLimit },
+          aiChat: { current: aiChatCurrent, limit: aiChatLimit },
+          events: { current: eventsCurrent, limit: eventsLimit }
+        });
+      } catch (error) {
+        console.error('❌ Error fetching usage data:', error);
+        // Set default values on error
+        setUsageData({
+          aiInsightsOverall: { current: 0, limit: 5 },
+          aiChat: { current: 0, limit: 5 },
+          events: { current: 0, limit: 10 }
+        });
+      } finally {
+        setLoadingUsage(false);
+      }
+    };
+
+    fetchUsageData();
+
+    // Refresh usage data when subscription updates
+    const handleUsageUpdate = () => {
+      fetchUsageData();
+    };
+
+    window.addEventListener('subscriptionUpdated', handleUsageUpdate);
+    
+    return () => {
+      window.removeEventListener('subscriptionUpdated', handleUsageUpdate);
+    };
+  }, [user, subscription]);
 
   // Fetch billing history
   useEffect(() => {
@@ -664,35 +786,75 @@ export default function BillingPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>AI Insights Overall</span>
-                <span>12 / 40</span>
-              </div>
-              <div className="w-full bg-muted rounded-full h-2">
-                <div className="bg-primary h-2 rounded-full" style={{ width: '30%' }}></div>
+          {loadingUsage ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-muted-foreground">Loading usage data...</p>
               </div>
             </div>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>AI Chat</span>
-                <span>8 / 30</span>
+          ) : usageData ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>AI Insights Overall</span>
+                  <span>
+                    {usageData.aiInsightsOverall.current} / {usageData.aiInsightsOverall.limit === 9999 ? 'Unlimited' : usageData.aiInsightsOverall.limit}
+                  </span>
+                </div>
+                <div className="w-full bg-muted rounded-full h-2">
+                  <div 
+                    className="bg-primary h-2 rounded-full" 
+                    style={{ 
+                      width: usageData.aiInsightsOverall.limit === 9999 
+                        ? '0%' 
+                        : `${Math.min((usageData.aiInsightsOverall.current / usageData.aiInsightsOverall.limit) * 100, 100)}%` 
+                    }}
+                  ></div>
+                </div>
               </div>
-              <div className="w-full bg-muted rounded-full h-2">
-                <div className="bg-primary h-2 rounded-full" style={{ width: '27%' }}></div>
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>AI Chat</span>
+                  <span>
+                    {usageData.aiChat.current} / {usageData.aiChat.limit === 9999 ? 'Unlimited' : usageData.aiChat.limit}
+                  </span>
+                </div>
+                <div className="w-full bg-muted rounded-full h-2">
+                  <div 
+                    className="bg-primary h-2 rounded-full" 
+                    style={{ 
+                      width: usageData.aiChat.limit === 9999 
+                        ? '0%' 
+                        : `${Math.min((usageData.aiChat.current / usageData.aiChat.limit) * 100, 100)}%` 
+                    }}
+                  ></div>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Events</span>
+                  <span>
+                    {usageData.events.current} / {usageData.events.limit === 9999 ? 'Unlimited' : usageData.events.limit}
+                  </span>
+                </div>
+                <div className="w-full bg-muted rounded-full h-2">
+                  <div 
+                    className="bg-primary h-2 rounded-full" 
+                    style={{ 
+                      width: usageData.events.limit === 9999 
+                        ? '0%' 
+                        : `${Math.min((usageData.events.current / usageData.events.limit) * 100, 100)}%` 
+                    }}
+                  ></div>
+                </div>
               </div>
             </div>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Events</span>
-                <span>5 / 30</span>
-              </div>
-              <div className="w-full bg-muted rounded-full h-2">
-                <div className="bg-primary h-2 rounded-full" style={{ width: '17%' }}></div>
-              </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              No usage data available
             </div>
-          </div>
+          )}
         </CardContent>
       </Card>
 
