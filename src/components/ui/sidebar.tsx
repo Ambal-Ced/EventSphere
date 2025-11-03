@@ -12,9 +12,11 @@ import {
   MessageSquare,
   BarChart2,
   CreditCard,
+  Shield,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
+import { supabase } from "@/lib/supabase";
 
 // Memoized sidebar links configuration
 const sidebarLinksConfig = [
@@ -47,6 +49,14 @@ const sidebarLinksConfig = [
     href: "/settings",
     icon: Settings,
     authRequired: true,
+  },
+  // Admin link (filtered at render-time for admin users only)
+  {
+    title: "Admin",
+    href: "/admin",
+    icon: Shield,
+    authRequired: true,
+    adminOnly: true as const,
   },
   {
     title: "Feedback",
@@ -114,10 +124,41 @@ const SidebarContent = memo(({ isOpen }: { isOpen: boolean }) => {
   const pathname = usePathname();
   const router = useRouter();
   const { user, signOut } = useAuth();
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const isAuthenticated = useMemo(() => !!user, [user]);
   const activePath = useMemo(() => pathname, [pathname]);
   const isAllDisabled = useMemo(() => !isAuthenticated, [isAuthenticated]);
+
+  // Load account_type to determine admin
+  useEffect(() => {
+    let cancelled = false;
+    const loadRole = async () => {
+      try {
+        if (!user?.id) {
+          if (!cancelled) setIsAdmin(false);
+          return;
+        }
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("account_type")
+          .eq("id", user.id)
+          .single();
+        if (!cancelled) {
+          setIsAdmin((data?.account_type as string | undefined) === "admin");
+        }
+        if (error) {
+          console.warn("Failed to load account_type for sidebar:", error);
+        }
+      } catch (err) {
+        console.warn("Unexpected error loading account_type:", err);
+      }
+    };
+    loadRole();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   const handleLogout = useCallback(async () => {
     try {
@@ -142,7 +183,9 @@ const SidebarContent = memo(({ isOpen }: { isOpen: boolean }) => {
 
   const sidebarLinks = useMemo(
     () =>
-      sidebarLinksConfig.map((link) => {
+      sidebarLinksConfig
+        .filter((link: any) => !link.adminOnly || isAdmin)
+        .map((link) => {
         const isActive = activePath === link.href;
         const isDisabled =
           isAllDisabled || (link.authRequired && !isAuthenticated);
@@ -158,7 +201,7 @@ const SidebarContent = memo(({ isOpen }: { isOpen: boolean }) => {
           />
         );
       }),
-    [activePath, isAllDisabled, isAuthenticated, handleLinkClick, isOpen]
+    [activePath, isAllDisabled, isAuthenticated, handleLinkClick, isOpen, isAdmin]
   );
 
   const logoutButton = useMemo(() => {
