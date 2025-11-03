@@ -32,6 +32,23 @@ export class DefaultSubscriptionManager {
     try {
       console.log("🆕 Creating default free tier subscription for user:", userId);
 
+      // Double-check: Verify user doesn't already have a subscription
+      const { data: existingSubscriptions, error: checkError } = await supabase
+        .from("user_subscriptions")
+        .select("id")
+        .eq("user_id", userId)
+        .limit(1);
+
+      if (checkError) {
+        console.error("❌ Error checking for existing subscription:", checkError);
+        return false;
+      }
+
+      if (existingSubscriptions && existingSubscriptions.length > 0) {
+        console.log("⚠️ User already has subscription, skipping creation:", existingSubscriptions[0].id);
+        return true; // Already has subscription, consider it successful
+      }
+
       // Get the Free tier plan ID
       const { data: freePlan, error: planError } = await supabase
         .from("subscription_plans")
@@ -44,7 +61,7 @@ export class DefaultSubscriptionManager {
         return false;
       }
 
-      // Create default subscription
+      // Create default subscription (only if user has no existing subscriptions)
       const { data: subscription, error: subscriptionError } = await supabase
         .from("user_subscriptions")
         .insert({
@@ -118,23 +135,22 @@ export class DefaultSubscriptionManager {
     try {
       console.log("🔍 Checking if user has subscription:", userId);
 
-      // Check if user already has an active subscription
-      const { data: existingSubscription, error: checkError } = await supabase
+      // Check if user already has ANY subscription (regardless of status)
+      // Always update existing subscription, only create if user has NO subscriptions
+      const { data: existingSubscriptions, error: checkError } = await supabase
         .from("user_subscriptions")
         .select("id")
         .eq("user_id", userId)
-        .eq("status", "active")
         .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
+        .limit(1);
 
-      if (checkError && checkError.code !== 'PGRST116') { // PGRST116 means no rows found
+      if (checkError) {
         console.error("❌ Error checking existing subscription:", checkError);
         return false;
       }
 
-      if (existingSubscription) {
-        console.log("✅ User already has subscription:", existingSubscription.id);
+      if (existingSubscriptions && existingSubscriptions.length > 0) {
+        console.log("✅ User already has subscription:", existingSubscriptions[0].id);
         return true;
       }
 
@@ -170,21 +186,30 @@ export class DefaultSubscriptionManager {
       const trialEndDate = new Date();
       trialEndDate.setDate(trialEndDate.getDate() + 30);
 
-      // Check if user already has a subscription
-      const { data: existingSubscription, error: checkError } = await supabase
+      // Check if user already has ANY subscription (get most recent one)
+      // Always update existing subscription, only create if user has NO subscriptions
+      const { data: existingSubscriptions, error: checkError } = await supabase
         .from("user_subscriptions")
         .select("id, plan_id, status")
         .eq("user_id", userId)
-        .single();
+        .order("created_at", { ascending: false })
+        .limit(1);
 
-      if (checkError && checkError.code !== 'PGRST116') { // PGRST116 means no rows found
+      if (checkError) {
         console.error("❌ Error checking existing subscription:", checkError);
         return false;
       }
 
+      const existingSubscription = existingSubscriptions && existingSubscriptions.length > 0 ? existingSubscriptions[0] : null;
+
       if (existingSubscription) {
         // User has existing subscription - UPDATE it to Small Event Org trial
-        console.log("📝 User has existing subscription, updating to Small Event Org trial");
+        // Update by subscription ID, not user_id, to avoid updating multiple subscriptions
+        console.log("📝 User has existing subscription, updating to Small Event Org trial", {
+          subscriptionId: existingSubscription.id,
+          currentPlanId: existingSubscription.plan_id,
+          currentStatus: existingSubscription.status
+        });
         
         const { error: updateError } = await supabase
           .from("user_subscriptions")
@@ -197,9 +222,10 @@ export class DefaultSubscriptionManager {
             trial_start: new Date().toISOString(),
             trial_end: trialEndDate.toISOString(),
             cancel_at_period_end: true, // Security: Auto-cancel at trial end
+            cancelled_at: null, // Clear any cancellation
             updated_at: new Date().toISOString()
           })
-          .eq("user_id", userId);
+          .eq("id", existingSubscription.id); // Update by subscription ID, not user_id
 
         if (updateError) {
           console.error("❌ Error updating existing subscription:", updateError);
