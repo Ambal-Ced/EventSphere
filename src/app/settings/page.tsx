@@ -103,6 +103,35 @@ function SettingsContent() {
     };
   }, [emailChangeStep, user?.email]);
 
+  // Fetch deletion request status
+  const fetchDeletionRequest = async () => {
+    if (!user?.id) return;
+
+    try {
+      const request = await AccountDeletionService.getDeletionRequest(user.id);
+      setDeletionRequest(request);
+    } catch (error) {
+      console.error('❌ Error fetching deletion request:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchDeletionRequest();
+    }
+  }, [user]);
+
+  // Refresh deletion request status after operations
+  const refreshDeletionRequest = async () => {
+    if (!user?.id) return;
+    try {
+      const request = await AccountDeletionService.getDeletionRequest(user.id);
+      setDeletionRequest(request);
+    } catch (error) {
+      console.error('❌ Error refreshing deletion request:', error);
+    }
+  };
+
   // --- Handlers for Password Change ---
   const handlePasswordInputChange = (
     e: React.ChangeEvent<HTMLInputElement>
