@@ -302,7 +302,8 @@ function SettingsContent() {
       );
 
       if (request) {
-        setDeletionRequest(request);
+        // Refresh to ensure state is in sync with database
+        await refreshDeletionRequest();
         setShowDeleteDialog(false);
         setDeletionReason("");
         setShowSuccessDialog(true);
@@ -328,7 +329,8 @@ function SettingsContent() {
       const success = await AccountDeletionService.cancelDeletionRequest(user.id);
 
       if (success) {
-        setDeletionRequest(null);
+        // Refresh to ensure state is in sync with database
+        await refreshDeletionRequest();
         setShowCancelSuccessDialog(true);
       } else {
         toast.error('Failed to cancel deletion. Please try again.');

@@ -26,6 +26,32 @@ export class AccountDeletionService {
     try {
       console.log('🗑️ Requesting account deletion for user:', userId);
 
+      // First check if there's an existing request
+      const { data: existingRequest, error: checkError } = await supabase
+        .from('account_deletion_requests')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = no rows returned
+        console.error('❌ Error checking existing request:', checkError);
+        throw checkError;
+      }
+
+      // If existing request exists, delete it first (cleanup any orphaned records)
+      if (existingRequest) {
+        console.log('⚠️ Existing deletion request found, deleting it first:', existingRequest.id);
+        const { error: deleteError } = await supabase
+          .from('account_deletion_requests')
+          .delete()
+          .eq('user_id', userId);
+
+        if (deleteError) {
+          console.error('❌ Error deleting existing request:', deleteError);
+          throw deleteError;
+        }
+      }
+
       // Calculate scheduled deletion date (7+ business days)
       const scheduledDate = await this.calculateScheduledDeletionDate();
 
@@ -90,18 +116,37 @@ export class AccountDeletionService {
     try {
       console.log('🔄 Cancelling account deletion for user:', userId);
 
+      // First check if request exists
+      const { data: existingRequest, error: checkError } = await supabase
+        .from('account_deletion_requests')
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = no rows returned
+        console.error('❌ Error checking existing request:', checkError);
+        throw checkError;
+      }
+
+      // If no request exists, consider it already cancelled
+      if (!existingRequest) {
+        console.log('ℹ️ No deletion request found, already cancelled');
+        return true;
+      }
+
       // Delete the request from database (not just update status)
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('account_deletion_requests')
         .delete()
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .select();
 
       if (error) {
         console.error('❌ Error cancelling deletion request:', error);
         throw error;
       }
 
-      console.log('✅ Account deletion request removed from database');
+      console.log('✅ Account deletion request removed from database:', data);
       return true;
     } catch (error) {
       console.error('❌ Error in cancelDeletionRequest:', error);
