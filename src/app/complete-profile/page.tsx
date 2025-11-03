@@ -152,6 +152,7 @@ export default function CompleteProfilePage() {
         interests: formData.interests.length > 0 ? formData.interests : null,
         role: formData.role === "none" ? null : formData.role || null,
         avatar_url: avatarUrl || "/images/template/default_profile.svg",
+        account_type: 'user', // Set account_type to 'user' when profile is completed
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
