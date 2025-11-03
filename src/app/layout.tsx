@@ -25,10 +25,6 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
-      <head>
-        {/* Preload critical resources */}
-        <link rel="dns-prefetch" href={process.env.NEXT_PUBLIC_SUPABASE_URL || ''} />
-      </head>
       <body className={`${inter.className} min-h-screen flex flex-col`}>
         <AuthProvider>
           <div className="flex flex-col min-h-screen">

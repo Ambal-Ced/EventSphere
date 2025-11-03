@@ -30,6 +30,30 @@ export interface SubscriptionFeatures {
   high_priority_ai?: boolean;
 }
 
+/**
+ * Generate invoice number client-side to avoid slow database trigger
+ * Format: INV-YYYYMMDD-HHMMSS-XXX
+ * This uses timestamp to ensure uniqueness without database lookups
+ * The database trigger will skip if invoice_number is already provided
+ */
+function generateInvoiceNumber(): string {
+  // Use timestamp-based approach for uniqueness
+  // Format: INV-YYYYMMDD-HHMMSS-XXX
+  // This ensures uniqueness without database lookup
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+  
+  // Format: INV-YYYYMMDD-HHMMSS-XXX
+  // This format ensures uniqueness and bypasses the slow database trigger
+  return `INV-${year}${month}${day}-${hours}${minutes}${seconds}-${random}`;
+}
+
 export class SubscriptionService {
   /**
    * Get user's current active subscription
@@ -365,9 +389,13 @@ export class SubscriptionService {
                           transactionData.planName.includes('Cancelled') ||
                           transactionData.planName.includes('Expired');
 
+    // Generate invoice number client-side to avoid slow database trigger
+    const invoiceNumber = generateInvoiceNumber();
+    
     const transactionRecord = {
       user_id: transactionData.userId,
       subscription_id: transactionData.subscriptionId || null,
+      invoice_number: invoiceNumber, // Pre-generate to bypass slow trigger
       original_amount_cents: transactionData.originalAmountCents,
       net_amount_cents: transactionData.originalAmountCents, // Use plan price for admin tracking
       currency: 'PHP',
@@ -393,7 +421,7 @@ export class SubscriptionService {
     console.log('💾 Inserting transaction record directly:', transactionRecord);
     console.log('🔍 About to call Supabase insert...');
     
-    // Add a timeout wrapper around the Supabase operation
+    // Increase timeout to 20 seconds for better reliability
     const insertPromise = supabase
       .from('transactions')
       .insert(transactionRecord)
@@ -401,11 +429,31 @@ export class SubscriptionService {
       .single();
 
     const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Supabase insert timeout after 10 seconds')), 10000)
+      setTimeout(() => reject(new Error('Supabase insert timeout after 20 seconds')), 20000)
     );
 
     console.log('🔍 Starting Supabase insert with timeout...');
-    const { data, error } = await Promise.race([insertPromise, timeoutPromise]) as any;
+    let data, error;
+    try {
+      const result = await Promise.race([insertPromise, timeoutPromise]) as any;
+      // Check if result is a timeout error (string message)
+      if (result instanceof Error && result.message.includes('timeout')) {
+        error = result;
+        console.error('❌ Insert operation timed out:', result);
+      } else if (result && typeof result === 'object') {
+        // Normal Supabase response
+        data = result.data;
+        error = result.error;
+      } else {
+        // Unexpected result format
+        error = new Error('Unexpected result format from Supabase insert');
+        console.error('❌ Unexpected result format:', result);
+      }
+    } catch (timeoutError: any) {
+      // Handle timeout specifically
+      error = timeoutError instanceof Error ? timeoutError : new Error(String(timeoutError));
+      console.error('❌ Insert operation timed out:', timeoutError);
+    }
 
     console.log('🔍 Supabase insert result:', { data, error });
 

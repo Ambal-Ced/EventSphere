@@ -296,8 +296,9 @@ function PaymentForm() {
               transactionDetails
             );
 
+            // Increase timeout to 45 seconds to allow for database operations
             const timeoutPromise = new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Subscription creation timeout after 30 seconds')), 30000)
+              setTimeout(() => reject(new Error('Subscription creation timeout after 45 seconds')), 45000)
             );
 
             const subscription = await Promise.race([subscriptionPromise, timeoutPromise]);
