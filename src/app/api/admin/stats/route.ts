@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
     const { data: txRows, error: txError } = await txQuery;
     if (txError) throw txError;
 
-    const totalRevenueCents = (txRows ?? []).reduce((sum, r: any) => sum + (r.net_amount_cents ?? 0), 0);
+    const totalRevenueCents = ((txRows ?? []) as any[]).reduce((sum: number, r: any) => sum + (r.net_amount_cents ?? 0), 0);
     const totalTransactions = txRows?.length ?? 0;
 
     // Group by day for simple timeseries
