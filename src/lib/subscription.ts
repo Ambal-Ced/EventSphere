@@ -186,25 +186,28 @@ export class SubscriptionService {
     // Use minimal fields for faster query
     console.log('🔍 Looking up subscription for user:', userId);
     
-    const lookupPromise = supabase
-      .from('user_subscriptions')
-      .select('id, user_id, plan_id, status, current_period_start, current_period_end, is_trial, cancel_at_period_end, cancelled_at') // Only select needed fields
-      .eq('user_id', userId) // Find ANY subscription for this user (no status filter)
-      .order('created_at', { ascending: false }) // Get most recent subscription
-      .limit(1) // Limit to 1 for faster query
-      .then((response) => {
+    const lookupPromise = (async () => {
+      try {
+        const response = await supabase
+          .from('user_subscriptions')
+          .select('id, user_id, plan_id, status, current_period_start, current_period_end, is_trial, cancel_at_period_end, cancelled_at') // Only select needed fields
+          .eq('user_id', userId) // Find ANY subscription for this user (no status filter)
+          .order('created_at', { ascending: false }) // Get most recent subscription
+          .limit(1); // Limit to 1 for faster query
+        
         console.log('🔍 Subscription lookup response:', { 
           hasData: !!response.data, 
           hasError: !!response.error,
           errorCode: response.error?.code,
           errorMessage: response.error?.message 
         });
+        
         return response;
-      })
-      .catch((error) => {
+      } catch (error) {
         console.error('❌ Subscription lookup error:', error);
         throw error;
-      });
+      }
+    })();
 
     const lookupTimeoutPromise = new Promise<never>((_, reject) => 
       setTimeout(() => reject(new Error('Subscription lookup timeout after 8 seconds. This usually means RLS policies are blocking the query or the database is slow. Please check: 1) RLS policies exist and allow SELECT, 2) Database connection is stable, 3) Run database/verify_and_fix_rls.sql to fix RLS policies.')), 8000)
@@ -554,27 +557,30 @@ export class SubscriptionService {
       
       // Execute insert with timeout
       // Use a more aggressive timeout approach
-      const insertPromise = supabase
-        .from('transactions')
-        .insert(transactionRecord)
-        .select()
-        .single()
-        .then((response) => {
+      const insertPromise = (async () => {
+        try {
+          const response = await supabase
+            .from('transactions')
+            .insert(transactionRecord)
+            .select()
+            .single();
+          
           // Clear timeout on success
           if (timeoutId) {
             clearTimeout(timeoutId);
             timeoutId = null;
           }
+          
           return response;
-        })
-        .catch((error) => {
+        } catch (error) {
           // Clear timeout on error
           if (timeoutId) {
             clearTimeout(timeoutId);
             timeoutId = null;
           }
           throw error;
-        });
+        }
+      })();
 
       const timeoutPromise = new Promise<never>((_, reject) => {
         const timeout = setTimeout(() => {
