@@ -26,6 +26,14 @@ const sidebarLinksConfig = [
     icon: UserIcon,
     authRequired: true,
   },
+  // Admin should appear right after Profile
+  {
+    title: "Admin",
+    href: "/admin",
+    icon: Shield,
+    authRequired: true,
+    adminOnly: true as const,
+  },
   {
     title: "My Events",
     href: "/my-events",
@@ -49,14 +57,6 @@ const sidebarLinksConfig = [
     href: "/settings",
     icon: Settings,
     authRequired: true,
-  },
-  // Admin link (filtered at render-time for admin users only)
-  {
-    title: "Admin",
-    href: "/admin",
-    icon: Shield,
-    authRequired: true,
-    adminOnly: true as const,
   },
   {
     title: "Feedback",

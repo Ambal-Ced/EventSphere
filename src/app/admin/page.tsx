@@ -1,46 +1,62 @@
-import { cookies } from "next/headers";
-import { notFound } from "next/navigation";
-import { createServerClient } from "@supabase/ssr";
+"use client";
 
-export default async function AdminPage() {
-  const cookieStore = cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
-          } catch {
-            // NOOP: middleware will refresh session cookies when needed
-          }
-        },
-      },
-    }
-  );
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+export default function AdminPage() {
+  const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
 
-  if (!session?.user) {
-    notFound();
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      setLoading(true);
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session?.user) {
+          if (!cancelled) setIsAdmin(false);
+          return;
+        }
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("account_type")
+          .eq("id", session.user.id)
+          .single();
+        if (!cancelled) {
+          setIsAdmin((data?.account_type as string | undefined) === "admin");
+        }
+        if (error) {
+          console.warn("Admin page: failed to fetch account_type:", error);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center text-sm text-muted-foreground">
+        Loading...
+      </div>
+    );
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("account_type")
-    .eq("id", session.user.id)
-    .single();
-
-  if ((profile?.account_type as string | undefined) !== "admin") {
-    notFound();
+  if (!isAdmin) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center">
+        <div className="text-center">
+          <div className="text-3xl font-semibold">404</div>
+          <div className="text-muted-foreground">This page could not be found.</div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -70,5 +86,4 @@ export default async function AdminPage() {
     </div>
   );
 }
-
 
