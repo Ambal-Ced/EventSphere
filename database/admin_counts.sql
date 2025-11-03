@@ -38,4 +38,28 @@ $$;
 
 grant execute on function public.admin_count_events() to authenticated;
 
+-- Count all transactions
+create or replace function public.admin_count_transactions()
+returns bigint
+language sql
+security definer
+set search_path = public
+as $$
+  select count(*)::bigint from public.transactions;
+$$;
+
+grant execute on function public.admin_count_transactions() to authenticated;
+
+-- Count all user_subscriptions
+create or replace function public.admin_count_user_subscriptions()
+returns bigint
+language sql
+security definer
+set search_path = public
+as $$
+  select count(*)::bigint from public.user_subscriptions;
+$$;
+
+grant execute on function public.admin_count_user_subscriptions() to authenticated;
+
 

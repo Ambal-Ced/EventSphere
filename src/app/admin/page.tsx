@@ -9,6 +9,8 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<"eventtria" | "feedback" | "account_review">("eventtria");
   const [profilesCount, setProfilesCount] = useState<number>(0);
   const [eventsCount, setEventsCount] = useState<number>(0);
+  const [transactionsCount, setTransactionsCount] = useState<number>(0);
+  const [subscriptionsCount, setSubscriptionsCount] = useState<number>(0);
 
   const loadProfilesCount = async () => {
     try {
@@ -67,6 +69,26 @@ export default function AdminPage() {
           if (res.ok) setEventsCount(json.count ?? 0);
         } catch {}
       })();
+      (async () => {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const res = await fetch("/api/admin/count/user-subscriptions", {
+            headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
+          });
+          const json = await res.json();
+          if (res.ok) setSubscriptionsCount(json.count ?? 0);
+        } catch {}
+      })();
+      (async () => {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const res = await fetch("/api/admin/count/transactions", {
+            headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
+          });
+          const json = await res.json();
+          if (res.ok) setTransactionsCount(json.count ?? 0);
+        } catch {}
+      })();
     }
   }, [isAdmin]);
 
@@ -111,7 +133,7 @@ export default function AdminPage() {
       </div>
       {activeTab === "eventtria" && (
         <div className="rounded-lg border p-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="rounded-lg border p-4">
               <div className="text-sm text-muted-foreground mb-2">Total Users (profiles)</div>
               <div className="text-3xl font-semibold">{profilesCount.toLocaleString()}</div>
@@ -134,6 +156,50 @@ export default function AdminPage() {
                       });
                       const json = await res.json();
                       if (res.ok) setEventsCount(json.count ?? 0);
+                    } catch {}
+                  }}
+                  className="ml-3 inline-flex items-center rounded-md border px-2 py-1 hover:bg-muted"
+                >
+                  Refresh
+                </button>
+              </div>
+            </div>
+            <div className="rounded-lg border p-4">
+              <div className="text-sm text-muted-foreground mb-2">Total Transactions (transactions)</div>
+              <div className="text-3xl font-semibold">{transactionsCount.toLocaleString()}</div>
+              <div className="mt-4 text-xs text-muted-foreground">
+                This shows the total count of rows in the `transactions` table.
+                <button
+                  onClick={async () => {
+                    try {
+                      const { data: { session } } = await supabase.auth.getSession();
+                      const res = await fetch("/api/admin/count/transactions", {
+                        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
+                      });
+                      const json = await res.json();
+                      if (res.ok) setTransactionsCount(json.count ?? 0);
+                    } catch {}
+                  }}
+                  className="ml-3 inline-flex items-center rounded-md border px-2 py-1 hover:bg-muted"
+                >
+                  Refresh
+                </button>
+              </div>
+            </div>
+            <div className="rounded-lg border p-4">
+              <div className="text-sm text-muted-foreground mb-2">Total Subscriptions (user_subscriptions)</div>
+              <div className="text-3xl font-semibold">{subscriptionsCount.toLocaleString()}</div>
+              <div className="mt-4 text-xs text-muted-foreground">
+                This shows the total count of rows in the `user_subscriptions` table.
+                <button
+                  onClick={async () => {
+                    try {
+                      const { data: { session } } = await supabase.auth.getSession();
+                      const res = await fetch("/api/admin/count/user-subscriptions", {
+                        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
+                      });
+                      const json = await res.json();
+                      if (res.ok) setSubscriptionsCount(json.count ?? 0);
                     } catch {}
                   }}
                   className="ml-3 inline-flex items-center rounded-md border px-2 py-1 hover:bg-muted"
