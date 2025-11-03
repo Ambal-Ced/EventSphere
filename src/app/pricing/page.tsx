@@ -104,11 +104,22 @@ export default function PricingPage() {
   }, [user]);
 
   const handleActivateTrial = async () => {
-    if (!user) return;
+    if (!user || !user.email) return;
 
     setIsActivating(true);
     try {
       console.log("🚀 Activating new account trial...");
+      
+      // Check if email was previously deleted (prevents free trial abuse)
+      const { AccountDeletionService } = await import('@/lib/account-deletion');
+      const wasDeleted = await AccountDeletionService.wasEmailPreviouslyDeleted(user.email);
+      
+      if (wasDeleted) {
+        console.warn("⚠️ Email was previously deleted, preventing free trial activation");
+        toast.error("This email was previously associated with a deleted account. Free trial is not available for previously deleted accounts.");
+        return;
+      }
+      
       // First, ensure user has a subscription (create default if not)
       console.log("🔍 Ensuring user has subscription...");
       const subscriptionEnsured = await DefaultSubscriptionManager.ensureUserHasSubscription(user.id);

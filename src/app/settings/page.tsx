@@ -7,7 +7,9 @@ import { User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, AlertTriangle, Trash2, X } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AccountDeletionService } from "@/lib/account-deletion";
 import { toast } from "sonner";
 
 function SettingsContent() {
@@ -39,6 +41,13 @@ function SettingsContent() {
   const [newEmail, setNewEmail] = useState("");
   const [isChangingEmail, setIsChangingEmail] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
+
+  // State for account deletion
+  const [deletionRequest, setDeletionRequest] = useState<any>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isRequestingDeletion, setIsRequestingDeletion] = useState(false);
+  const [isCancellingDeletion, setIsCancellingDeletion] = useState(false);
+  const [deletionReason, setDeletionReason] = useState("");
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -273,6 +282,63 @@ function SettingsContent() {
     setEmailChangeStep('form');
     setNewEmail("");
     setEmailError(null);
+  };
+
+  // --- Handlers for Account Deletion ---
+  const handleRequestDeletion = async () => {
+    if (!user?.id || !user?.email) {
+      toast.error('Unable to delete account. Please try again.');
+      return;
+    }
+
+    setIsRequestingDeletion(true);
+    try {
+      const request = await AccountDeletionService.requestAccountDeletion(
+        user.id,
+        user.email,
+        deletionReason || undefined
+      );
+
+      if (request) {
+        setDeletionRequest(request);
+        setShowDeleteDialog(false);
+        setDeletionReason("");
+        toast.success(
+          `Account deletion requested. Your account will be scheduled for deletion on ${AccountDeletionService.formatScheduledDate(request.scheduled_deletion_date)}. You can cancel this deletion anytime before then.`
+        );
+      } else {
+        toast.error('Failed to request account deletion. Please try again.');
+      }
+    } catch (error) {
+      console.error('❌ Error requesting account deletion:', error);
+      toast.error('An error occurred. Please try again.');
+    } finally {
+      setIsRequestingDeletion(false);
+    }
+  };
+
+  const handleCancelDeletion = async () => {
+    if (!user?.id) {
+      toast.error('Unable to cancel deletion. Please try again.');
+      return;
+    }
+
+    setIsCancellingDeletion(true);
+    try {
+      const success = await AccountDeletionService.cancelDeletionRequest(user.id);
+
+      if (success) {
+        setDeletionRequest(null);
+        toast.success('Account deletion cancelled successfully. Your account is safe.');
+      } else {
+        toast.error('Failed to cancel deletion. Please try again.');
+      }
+    } catch (error) {
+      console.error('❌ Error cancelling deletion:', error);
+      toast.error('An error occurred. Please try again.');
+    } finally {
+      setIsCancellingDeletion(false);
+    }
   };
 
   // --- Render Logic ---
@@ -513,6 +579,163 @@ function SettingsContent() {
               </div>
             </div>
           )}
+        </section>
+
+        {/* Account Deletion Section */}
+        <section className="space-y-4 rounded-lg border border-red-200 bg-red-50 p-6">
+          <div className="flex items-start justify-between">
+            <div className="space-y-1">
+              <h3 className="text-lg font-semibold text-red-900">Delete Account</h3>
+              <p className="text-sm text-red-700">
+                Request to permanently delete your account and all associated data
+              </p>
+            </div>
+          </div>
+
+          {!deletionRequest || deletionRequest.status === 'cancelled' ? (
+            <div className="space-y-4">
+              <div className="rounded-lg border border-red-300 bg-white p-4">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+                  <div className="space-y-2 text-sm text-red-800">
+                    <p className="font-medium">Warning: This action cannot be undone</p>
+                    <ul className="space-y-1 text-xs list-disc list-inside text-red-700">
+                      <li>All your events will be permanently deleted</li>
+                      <li>All your subscriptions and transactions will be deleted</li>
+                      <li>All your usage data will be deleted</li>
+                      <li>Your profile information will be deleted</li>
+                      <li>Your account deletion request will be processed by an administrator after 7+ business days</li>
+                      <li>You can cancel deletion anytime before the scheduled date</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <Button
+                variant="destructive"
+                onClick={() => setShowDeleteDialog(true)}
+                className="w-full sm:w-auto"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Request Account Deletion
+              </Button>
+            </div>
+          ) : deletionRequest.status === 'pending' ? (
+            <div className="space-y-4">
+              <div className="rounded-lg border border-orange-300 bg-orange-50 p-4">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="h-5 w-5 text-orange-600 mt-0.5 flex-shrink-0" />
+                  <div className="space-y-2 flex-1">
+                    <p className="font-medium text-orange-900">
+                      Account Deletion Requested
+                    </p>
+                    <p className="text-sm text-orange-800">
+                      Your account deletion request is scheduled for{' '}
+                      <strong>{AccountDeletionService.formatScheduledDate(deletionRequest.scheduled_deletion_date)}</strong>
+                    </p>
+                    <p className="text-sm text-orange-700">
+                      ({AccountDeletionService.getDaysUntilDeletion(deletionRequest.scheduled_deletion_date)} days remaining until admin processes deletion)
+                    </p>
+                    <p className="text-xs text-orange-600 mt-2">
+                      You can cancel this deletion anytime before the scheduled date. An administrator will process the deletion after the grace period.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <Button
+                variant="outline"
+                onClick={handleCancelDeletion}
+                disabled={isCancellingDeletion}
+                className="w-full sm:w-auto"
+              >
+                {isCancellingDeletion ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                    Cancelling...
+                  </>
+                ) : (
+                  <>
+                    <X className="h-4 w-4 mr-2" />
+                    Cancel Account Deletion
+                  </>
+                )}
+              </Button>
+            </div>
+          ) : null}
+
+          {/* Delete Confirmation Dialog */}
+          <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-red-600">
+                  <AlertTriangle className="h-5 w-5" />
+                  Request Account Deletion
+                </DialogTitle>
+                <DialogDescription className="space-y-3 pt-2">
+                  <p className="font-medium text-red-900">
+                    Are you sure you want to request account deletion?
+                  </p>
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 space-y-2">
+                    <p className="text-sm text-red-800 font-medium">
+                      Your account deletion will be scheduled for 7+ business days from now. Until then, you can cancel this deletion.
+                    </p>
+                    <ul className="text-xs text-red-700 space-y-1 list-disc list-inside">
+                      <li>All events will be permanently deleted</li>
+                      <li>All subscriptions and transactions will be deleted</li>
+                      <li>All usage data will be deleted</li>
+                      <li>Your profile will be deleted</li>
+                      <li>An administrator will process the deletion after the grace period</li>
+                      <li>You can cancel deletion before the scheduled date</li>
+                    </ul>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="deletion-reason" className="text-sm font-medium">
+                      Reason for deletion (optional)
+                    </Label>
+                    <Input
+                      id="deletion-reason"
+                      placeholder="Help us improve by sharing why..."
+                      value={deletionReason}
+                      onChange={(e) => setDeletionReason(e.target.value)}
+                      className="max-w-full"
+                    />
+                  </div>
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="flex-col sm:flex-row gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowDeleteDialog(false);
+                    setDeletionReason("");
+                  }}
+                  disabled={isRequestingDeletion}
+                  className="w-full sm:w-auto"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleRequestDeletion}
+                  disabled={isRequestingDeletion}
+                  className="w-full sm:w-auto"
+                >
+                  {isRequestingDeletion ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Confirm Deletion Request
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </section>
 
         {/* Removed Profile Information Section */}
