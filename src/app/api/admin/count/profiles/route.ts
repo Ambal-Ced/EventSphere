@@ -46,14 +46,9 @@ export async function GET(request: NextRequest) {
     }
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("account_type")
-      .eq("id", userId)
-      .single();
-    if (profileError || profile?.account_type !== "admin") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    // Admin check using SECURITY DEFINER RPC to avoid RLS issues
+    const { data: isAdmin, error: isAdminError } = await supabase.rpc("admin_is_admin", { p_user_id: userId });
+    if (isAdminError || !isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (serviceKey) {
