@@ -184,15 +184,30 @@ export class SubscriptionService {
     
     // Add timeout to subscription lookup query
     // Use minimal fields for faster query
+    console.log('🔍 Looking up subscription for user:', userId);
+    
     const lookupPromise = supabase
       .from('user_subscriptions')
       .select('id, user_id, plan_id, status, current_period_start, current_period_end, is_trial, cancel_at_period_end, cancelled_at') // Only select needed fields
       .eq('user_id', userId) // Find ANY subscription for this user (no status filter)
       .order('created_at', { ascending: false }) // Get most recent subscription
-      .limit(1); // Limit to 1 for faster query
+      .limit(1) // Limit to 1 for faster query
+      .then((response) => {
+        console.log('🔍 Subscription lookup response:', { 
+          hasData: !!response.data, 
+          hasError: !!response.error,
+          errorCode: response.error?.code,
+          errorMessage: response.error?.message 
+        });
+        return response;
+      })
+      .catch((error) => {
+        console.error('❌ Subscription lookup error:', error);
+        throw error;
+      });
 
     const lookupTimeoutPromise = new Promise<never>((_, reject) => 
-      setTimeout(() => reject(new Error('Subscription lookup timeout after 8 seconds. This usually means RLS policies are blocking the query. Please run database/fix_rls_policies.sql in Supabase SQL Editor.')), 8000)
+      setTimeout(() => reject(new Error('Subscription lookup timeout after 8 seconds. This usually means RLS policies are blocking the query or the database is slow. Please check: 1) RLS policies exist and allow SELECT, 2) Database connection is stable, 3) Run database/verify_and_fix_rls.sql to fix RLS policies.')), 8000)
     );
 
     let existingSubscriptions = null;
@@ -534,17 +549,41 @@ export class SubscriptionService {
       }, 15000); // 15 second timeout
       
       console.log('🔍 Starting Supabase insert with timeout...');
+      console.log('🔍 User ID being used:', transactionRecord.user_id);
+      console.log('🔍 Transaction record keys:', Object.keys(transactionRecord));
       
       // Execute insert with timeout
+      // Use a more aggressive timeout approach
       const insertPromise = supabase
         .from('transactions')
         .insert(transactionRecord)
         .select()
-        .single();
+        .single()
+        .then((response) => {
+          // Clear timeout on success
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+            timeoutId = null;
+          }
+          return response;
+        })
+        .catch((error) => {
+          // Clear timeout on error
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+            timeoutId = null;
+          }
+          throw error;
+        });
 
-      const timeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('Transaction insert timeout after 15 seconds. This usually means RLS policies are blocking the insert. Please run database/fix_rls_policies.sql in Supabase SQL Editor.')), 15000)
-      );
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('Transaction insert timeout after 15 seconds. This usually means RLS policies are blocking the insert or the database is slow. Please check: 1) RLS policies exist and allow INSERT, 2) Database connection is stable, 3) Run database/verify_and_fix_rls.sql to fix RLS policies.'));
+        }, 15000);
+        
+        // Store timeout ID globally so we can clear it
+        (globalThis as any).__transactionTimeoutId = timeout;
+      });
 
       const result = await Promise.race([insertPromise, timeoutPromise]);
       

@@ -310,24 +310,43 @@ export default function BillingPage() {
           toast.success('Subscription cancelled successfully. You will retain access until the end of your billing period.');
         }
         
-        // Refresh subscription data
-        const updatedSubscription = await SubscriptionService.getUserSubscription(user.id);
-        setSubscription(updatedSubscription);
-        
-        // Dispatch event to refresh other components
-        window.dispatchEvent(new CustomEvent('subscriptionUpdated'));
-        
+        // ALWAYS close the cancel dialog first, regardless of subscription state
         setShowCancelDialog(false);
-        setShowCancelSuccessDialog(true);
+        
+        // Small delay to ensure dialog closes properly before showing success
+        setTimeout(() => {
+          // Refresh subscription data
+          SubscriptionService.getUserSubscription(user.id).then((updatedSubscription) => {
+            setSubscription(updatedSubscription);
+            
+            // Dispatch event to refresh other components
+            window.dispatchEvent(new CustomEvent('subscriptionUpdated'));
+            
+            // Show success dialog after subscription is refreshed
+            setShowCancelSuccessDialog(true);
+          }).catch((error) => {
+            console.error('❌ Error fetching updated subscription:', error);
+            // Still show success dialog even if fetching subscription fails
+            setShowCancelSuccessDialog(true);
+          });
+        }, 100);
       } else {
         console.error('❌ Failed to cancel subscription');
         toast.error('Failed to cancel subscription. Please try again or contact support.');
+        // Close dialog on failure too
+        setShowCancelDialog(false);
       }
     } catch (error) {
       console.error('❌ Error cancelling subscription:', error);
       toast.error('An error occurred while cancelling your subscription. Please contact support.');
+      // ALWAYS close dialog on error
+      setShowCancelDialog(false);
     } finally {
       setIsCancelling(false);
+      // Ensure dialog is closed in finally block as well (defensive)
+      if (showCancelDialog) {
+        setShowCancelDialog(false);
+      }
     }
   };
 
@@ -480,7 +499,16 @@ export default function BillingPage() {
                 Upgrade Plan
               </Link>
             </Button>
-            <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+            <Dialog 
+              open={showCancelDialog} 
+              onOpenChange={(open) => {
+                setShowCancelDialog(open);
+                // If dialog is closed (e.g., by clicking outside or ESC), reset canceling state
+                if (!open) {
+                  setIsCancelling(false);
+                }
+              }}
+            >
               <DialogTrigger asChild>
                 <Button variant="destructive" className="w-full">
                   Cancel Subscription
@@ -669,7 +697,16 @@ export default function BillingPage() {
       </Card>
 
       {/* Cancel Success Dialog */}
-      <Dialog open={showCancelSuccessDialog} onOpenChange={setShowCancelSuccessDialog}>
+      <Dialog 
+        open={showCancelSuccessDialog} 
+        onOpenChange={(open) => {
+          setShowCancelSuccessDialog(open);
+          // If success dialog closes, ensure cancel dialog is also closed
+          if (!open) {
+            setShowCancelDialog(false);
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-green-600">
