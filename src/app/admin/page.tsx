@@ -8,6 +8,7 @@ export default function AdminPage() {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [activeTab, setActiveTab] = useState<"eventtria" | "feedback" | "account_review">("eventtria");
   const [profilesCount, setProfilesCount] = useState<number>(0);
+  const [eventsCount, setEventsCount] = useState<number>(0);
 
   const loadProfilesCount = async () => {
     try {
@@ -56,6 +57,16 @@ export default function AdminPage() {
   useEffect(() => {
     if (isAdmin) {
       loadProfilesCount();
+      (async () => {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const res = await fetch("/api/admin/count/events", {
+            headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
+          });
+          const json = await res.json();
+          if (res.ok) setEventsCount(json.count ?? 0);
+        } catch {}
+      })();
     }
   }, [isAdmin]);
 
@@ -100,16 +111,37 @@ export default function AdminPage() {
       </div>
       {activeTab === "eventtria" && (
         <div className="rounded-lg border p-6">
-          <div className="text-sm text-muted-foreground mb-2">Total Users (profiles)</div>
-          <div className="text-3xl font-semibold">{profilesCount.toLocaleString()}</div>
-          <div className="mt-4 text-xs text-muted-foreground">
-            This shows the total count of rows in the `profiles` table.
-            <button
-              onClick={loadProfilesCount}
-              className="ml-3 inline-flex items-center rounded-md border px-2 py-1 hover:bg-muted"
-            >
-              Refresh
-            </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="rounded-lg border p-4">
+              <div className="text-sm text-muted-foreground mb-2">Total Users (profiles)</div>
+              <div className="text-3xl font-semibold">{profilesCount.toLocaleString()}</div>
+              <div className="mt-4 text-xs text-muted-foreground">
+                This shows the total count of rows in the `profiles` table.
+                <button onClick={loadProfilesCount} className="ml-3 inline-flex items-center rounded-md border px-2 py-1 hover:bg-muted">Refresh</button>
+              </div>
+            </div>
+            <div className="rounded-lg border p-4">
+              <div className="text-sm text-muted-foreground mb-2">Total Events (events)</div>
+              <div className="text-3xl font-semibold">{eventsCount.toLocaleString()}</div>
+              <div className="mt-4 text-xs text-muted-foreground">
+                This shows the total count of rows in the `events` table.
+                <button
+                  onClick={async () => {
+                    try {
+                      const { data: { session } } = await supabase.auth.getSession();
+                      const res = await fetch("/api/admin/count/events", {
+                        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
+                      });
+                      const json = await res.json();
+                      if (res.ok) setEventsCount(json.count ?? 0);
+                    } catch {}
+                  }}
+                  className="ml-3 inline-flex items-center rounded-md border px-2 py-1 hover:bg-muted"
+                >
+                  Refresh
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

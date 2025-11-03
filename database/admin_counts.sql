@@ -26,4 +26,16 @@ $$;
 
 grant execute on function public.admin_is_admin(uuid) to authenticated;
 
+-- Count all events
+create or replace function public.admin_count_events()
+returns bigint
+language sql
+security definer
+set search_path = public
+as $$
+  select count(*)::bigint from public.events;
+$$;
+
+grant execute on function public.admin_count_events() to authenticated;
+
 
