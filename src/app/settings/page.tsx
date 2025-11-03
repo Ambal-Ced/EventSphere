@@ -581,25 +581,21 @@ function SettingsContent() {
           )}
         </section>
 
-        {/* Account Deletion Section */}
-        <section className="space-y-4 rounded-lg border border-red-200 bg-red-50 p-6">
-          <div className="flex items-start justify-between">
-            <div className="space-y-1">
-              <h3 className="text-lg font-semibold text-red-900">Delete Account</h3>
-              <p className="text-sm text-red-700">
-                Request to permanently delete your account and all associated data
-              </p>
-            </div>
-          </div>
+        {/* Section 3: Delete Account */}
+        <section>
+          <h2 className="mb-1 text-xl font-semibold">Delete Account</h2>
+          <p className="mb-6 text-sm text-muted-foreground">
+            Request to permanently delete your account and all associated data
+          </p>
 
           {!deletionRequest || deletionRequest.status === 'cancelled' ? (
-            <div className="space-y-4">
-              <div className="rounded-lg border border-red-300 bg-white p-4">
+            <div className="space-y-6 rounded-lg border bg-card p-4 sm:p-6">
+              <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-4">
                 <div className="flex items-start gap-3">
-                  <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
-                  <div className="space-y-2 text-sm text-red-800">
-                    <p className="font-medium">Warning: This action cannot be undone</p>
-                    <ul className="space-y-1 text-xs list-disc list-inside text-red-700">
+                  <AlertTriangle className="h-5 w-5 text-destructive mt-0.5 flex-shrink-0" />
+                  <div className="space-y-2 text-sm">
+                    <p className="font-medium text-destructive">Warning: This action cannot be undone</p>
+                    <ul className="space-y-1 text-xs list-disc list-inside text-muted-foreground">
                       <li>All your events will be permanently deleted</li>
                       <li>All your subscriptions and transactions will be deleted</li>
                       <li>All your usage data will be deleted</li>
@@ -611,17 +607,19 @@ function SettingsContent() {
                 </div>
               </div>
 
-              <Button
-                variant="destructive"
-                onClick={() => setShowDeleteDialog(true)}
-                className="w-full sm:w-auto"
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Request Account Deletion
-              </Button>
+              <div className="flex justify-end">
+                <Button
+                  variant="destructive"
+                  onClick={() => setShowDeleteDialog(true)}
+                  className="w-full sm:w-auto"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Request Account Deletion
+                </Button>
+              </div>
             </div>
           ) : deletionRequest.status === 'pending' ? (
-            <div className="space-y-4">
+            <div className="space-y-6 rounded-lg border bg-card p-4 sm:p-6">
               <div className="rounded-lg border border-orange-300 bg-orange-50 p-4">
                 <div className="flex items-start gap-3">
                   <AlertTriangle className="h-5 w-5 text-orange-600 mt-0.5 flex-shrink-0" />
@@ -643,24 +641,26 @@ function SettingsContent() {
                 </div>
               </div>
 
-              <Button
-                variant="outline"
-                onClick={handleCancelDeletion}
-                disabled={isCancellingDeletion}
-                className="w-full sm:w-auto"
-              >
-                {isCancellingDeletion ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
-                    Cancelling...
-                  </>
-                ) : (
-                  <>
-                    <X className="h-4 w-4 mr-2" />
-                    Cancel Account Deletion
-                  </>
-                )}
-              </Button>
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  onClick={handleCancelDeletion}
+                  disabled={isCancellingDeletion}
+                  className="w-full sm:w-auto"
+                >
+                  {isCancellingDeletion ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                      Cancelling...
+                    </>
+                  ) : (
+                    <>
+                      <X className="h-4 w-4 mr-2" />
+                      Cancel Account Deletion
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           ) : null}
 
