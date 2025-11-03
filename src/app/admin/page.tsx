@@ -7,7 +7,15 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [activeTab, setActiveTab] = useState<"eventtria" | "feedback" | "account_review">("eventtria");
-  const [profilesCount, setProfilesCount] = useState<number | null>(null);
+  const [profilesCount, setProfilesCount] = useState<number>(0);
+
+  const loadProfilesCount = async () => {
+    try {
+      const res = await fetch("/api/admin/count/profiles");
+      const json = await res.json();
+      if (res.ok) setProfilesCount(json.count ?? 0);
+    } catch {}
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -41,6 +49,12 @@ export default function AdminPage() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (isAdmin) {
+      loadProfilesCount();
+    }
+  }, [isAdmin]);
 
   if (loading) {
     return (
@@ -84,17 +98,11 @@ export default function AdminPage() {
       {activeTab === "eventtria" && (
         <div className="rounded-lg border p-6">
           <div className="text-sm text-muted-foreground mb-2">Total Users (profiles)</div>
-          <div className="text-3xl font-semibold">{profilesCount === null ? "…" : profilesCount.toLocaleString()}</div>
+          <div className="text-3xl font-semibold">{profilesCount.toLocaleString()}</div>
           <div className="mt-4 text-xs text-muted-foreground">
             This shows the total count of rows in the `profiles` table.
             <button
-              onClick={async () => {
-                try {
-                  const res = await fetch("/api/admin/count/profiles");
-                  const json = await res.json();
-                  if (res.ok) setProfilesCount(json.count ?? 0);
-                } catch {}
-              }}
+              onClick={loadProfilesCount}
               className="ml-3 inline-flex items-center rounded-md border px-2 py-1 hover:bg-muted"
             >
               Refresh
