@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
     const [profilesCount, eventsCount, collabCount] = await Promise.all([
       admin.from("profiles").select("id", { count: "exact", head: true }),
       admin.from("events").select("id", { count: "exact", head: true }),
-      admin.from("event_collaborator").select("id", { count: "exact", head: true }),
+      admin.from("event_collaborators").select("id", { count: "exact", head: true }),
     ]);
 
     // Transactions metrics

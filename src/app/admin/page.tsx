@@ -47,6 +47,24 @@ export default function AdminPage() {
     };
   }, []);
 
+  // Auto-load stats when range changes and when page opens
+  useEffect(() => {
+    if (!isAdmin) return;
+    (async () => {
+      setStatsLoading(true);
+      try {
+        const params = new URLSearchParams();
+        if (range.start) params.set("start", range.start);
+        if (range.end) params.set("end", range.end);
+        const res = await fetch(`/api/admin/stats?${params.toString()}`);
+        const json = await res.json();
+        setStats(json);
+      } finally {
+        setStatsLoading(false);
+      }
+    })();
+  }, [isAdmin, range.start, range.end]);
+
   if (loading) {
     return (
       <div className="flex h-[60vh] items-center justify-center text-sm text-muted-foreground">
@@ -155,7 +173,7 @@ export default function AdminPage() {
                     ₱{((stats.totals?.revenue_cents ?? 0) / 100).toLocaleString()}
                   </div>
                   <div className="mt-4 text-xs text-muted-foreground">Daily revenue over selected range</div>
-                  <div className="mt-2 h-32 w-full rounded bg-muted" />
+                  <Sparkline data={(stats.series || []).map((d: any) => d.revenue_cents)} />
                 </div>
                 <div className="rounded-lg border p-4">
                   <div className="mb-2 text-sm font-medium">Ask AI about analytics</div>
@@ -218,6 +236,44 @@ function StatCard({ title, value }: { title: string; value: number }) {
     <div className="rounded-lg border p-4">
       <div className="text-sm text-muted-foreground">{title}</div>
       <div className="mt-1 text-2xl font-semibold">{value.toLocaleString()}</div>
+    </div>
+  );
+}
+
+function Sparkline({ data }: { data: number[] }) {
+  const width = 600;
+  const height = 130;
+  const padding = 8;
+  const points = data && data.length > 0 ? data : [0];
+  const maxVal = Math.max(...points, 1);
+  const minVal = 0;
+  const stepX = points.length > 1 ? (width - padding * 2) / (points.length - 1) : (width - padding * 2);
+
+  const toY = (v: number) => {
+    const norm = (v - minVal) / (maxVal - minVal);
+    return height - padding - norm * (height - padding * 2);
+  };
+
+  const path = points
+    .map((v, i) => `${i === 0 ? "M" : "L"}${padding + i * stepX},${toY(v)}`)
+    .join(" ");
+
+  const bars = points.map((v, i) => {
+    const x = padding + i * stepX;
+    const y = toY(v);
+    const barWidth = Math.max(2, stepX * 0.6);
+    const barHeight = height - padding - y;
+    return <rect key={i} x={x - barWidth / 2} y={y} width={barWidth} height={barHeight} rx={2} className="fill-primary/30" />;
+  });
+
+  return (
+    <div className="mt-2 w-full overflow-hidden rounded bg-muted/40">
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-32">
+        <g>
+          {bars}
+          <path d={path} className="stroke-primary" fill="none" strokeWidth={2} />
+        </g>
+      </svg>
     </div>
   );
 }
