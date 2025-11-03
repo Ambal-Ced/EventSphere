@@ -56,17 +56,20 @@ export async function GET(request: NextRequest) {
     }
 
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const admin = serviceKey
-      ? createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey)
-      : null as any;
-    const db: any = admin ?? supabase;
+    if (serviceKey) {
+      // Fast path: use service role to count directly
+      const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey);
+      const { count, error } = await admin
+        .from("profiles")
+        .select("id", { count: "exact", head: true });
+      if (error) throw error;
+      return NextResponse.json({ count: (count as number | null) ?? 0, usedServiceRole: true });
+    }
 
-    const { count, error } = await db
-      .from("profiles")
-      .select("id", { count: "exact", head: true });
-    if (error) throw error;
-
-    return NextResponse.json({ count: (count as number | null) ?? 0, usedServiceRole: !!serviceKey });
+    // Fallback path: use SECURITY DEFINER RPC that bypasses RLS
+    const { data: rpcCount, error: rpcError } = await supabase.rpc("admin_count_profiles");
+    if (rpcError) throw rpcError;
+    return NextResponse.json({ count: Number(rpcCount) || 0, usedServiceRole: false, usedRpc: true });
   } catch (err: any) {
     console.error("/api/admin/count/profiles error", err);
     return NextResponse.json({ error: err.message ?? "Server error" }, { status: 500 });
