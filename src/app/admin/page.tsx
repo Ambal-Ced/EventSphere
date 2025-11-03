@@ -1,18 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [activeTab, setActiveTab] = useState<"eventtria" | "feedback" | "account_review">("eventtria");
-  const [range, setRange] = useState<{ label: string; start?: string; end?: string }>({ label: "Last 30 days" });
-  const [statsLoading, setStatsLoading] = useState(false);
-  const [stats, setStats] = useState<any>(null);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiPrompt, setAiPrompt] = useState("");
-  const [aiText, setAiText] = useState("");
+  const [profilesCount, setProfilesCount] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -46,24 +41,6 @@ export default function AdminPage() {
       cancelled = true;
     };
   }, []);
-
-  // Auto-load stats when range changes and when page opens
-  useEffect(() => {
-    if (!isAdmin) return;
-    (async () => {
-      setStatsLoading(true);
-      try {
-        const params = new URLSearchParams();
-        if (range.start) params.set("start", range.start);
-        if (range.end) params.set("end", range.end);
-        const res = await fetch(`/api/admin/stats?${params.toString()}`);
-        const json = await res.json();
-        setStats(json);
-      } finally {
-        setStatsLoading(false);
-      }
-    })();
-  }, [isAdmin, range.start, range.end]);
 
   if (loading) {
     return (
@@ -104,120 +81,25 @@ export default function AdminPage() {
           </button>
         </div>
       </div>
-
       {activeTab === "eventtria" && (
-        <div className="space-y-6">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="text-sm text-muted-foreground">Range:</span>
-            {(
-              [
-                { label: "Last 7 days", days: 7 },
-                { label: "Last 30 days", days: 30 },
-                { label: "Last 90 days", days: 90 },
-                { label: "All time" },
-              ] as const
-            ).map((opt) => (
-              <button
-                key={opt.label}
-                onClick={() => {
-                  if ("days" in opt) {
-                    const end = new Date();
-                    const start = new Date();
-                    start.setDate(end.getDate() - opt.days);
-                    setRange({ label: opt.label, start: start.toISOString(), end: end.toISOString() });
-                  } else {
-                    setRange({ label: opt.label });
-                  }
-                }}
-                className={`px-3 py-1.5 text-xs rounded-md border ${range.label === opt.label ? "bg-primary text-primary-foreground border-primary" : "hover:bg-muted"}`}
-              >
-                {opt.label}
-              </button>
-            ))}
+        <div className="rounded-lg border p-6">
+          <div className="text-sm text-muted-foreground mb-2">Total Users (profiles)</div>
+          <div className="text-3xl font-semibold">{profilesCount === null ? "…" : profilesCount.toLocaleString()}</div>
+          <div className="mt-4 text-xs text-muted-foreground">
+            This shows the total count of rows in the `profiles` table.
             <button
               onClick={async () => {
-                setStatsLoading(true);
                 try {
-                  const params = new URLSearchParams();
-                  if (range.start) params.set("start", range.start);
-                  if (range.end) params.set("end", range.end);
-                  const res = await fetch(`/api/admin/stats?${params.toString()}`);
+                  const res = await fetch("/api/admin/count/profiles");
                   const json = await res.json();
-                  setStats(json);
-                } finally {
-                  setStatsLoading(false);
-                }
+                  if (res.ok) setProfilesCount(json.count ?? 0);
+                } catch {}
               }}
-              className="ml-auto px-3 py-1.5 text-xs rounded-md border hover:bg-muted"
+              className="ml-3 inline-flex items-center rounded-md border px-2 py-1 hover:bg-muted"
             >
               Refresh
             </button>
           </div>
-
-          {statsLoading && (
-            <div className="rounded-md border p-4 text-sm text-muted-foreground">Loading stats…</div>
-          )}
-
-          {stats && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <StatCard title="Users" value={stats.totals?.profiles ?? 0} />
-                <StatCard title="Events" value={stats.totals?.events ?? 0} />
-                <StatCard title="Collaborations" value={stats.totals?.collaborations ?? 0} />
-                <StatCard title="Transactions" value={stats.totals?.transactions ?? 0} />
-              </div>
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <div className="lg:col-span-2 rounded-lg border p-4">
-                  <div className="mb-2 text-sm font-medium">Revenue ({stats.totals?.currency})</div>
-                  <div className="text-2xl font-semibold">
-                    ₱{((stats.totals?.revenue_cents ?? 0) / 100).toLocaleString()}
-                  </div>
-                  <div className="mt-4 text-xs text-muted-foreground">Daily revenue over selected range</div>
-                  <Sparkline data={(stats.series || []).map((d: any) => d.revenue_cents)} />
-                </div>
-                <div className="rounded-lg border p-4">
-                  <div className="mb-2 text-sm font-medium">Ask AI about analytics</div>
-                  <textarea
-                    className="w-full min-h-[100px] rounded-md border bg-background p-2 text-sm"
-                    placeholder="Ask anything about revenue, users, events…"
-                    value={aiPrompt}
-                    onChange={(e) => setAiPrompt(e.target.value)}
-                  />
-                  <div className="mt-2 flex items-center gap-2">
-                    <button
-                      disabled={!aiPrompt}
-                      onClick={async () => {
-                        setAiLoading(true);
-                        setAiText("");
-                        try {
-                          const res = await fetch("/api/admin/insights", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ prompt: aiPrompt, context: stats }),
-                          });
-                          const json = await res.json();
-                          setAiText(json.text || json.error || "");
-                        } finally {
-                          setAiLoading(false);
-                        }
-                      }}
-                      className="px-3 py-1.5 text-xs rounded-md border hover:bg-muted"
-                    >
-                      Generate insight
-                    </button>
-                  </div>
-                  <div className="mt-3 text-sm whitespace-pre-wrap">{aiLoading ? "Generating…" : aiText}</div>
-                  <div className="mt-2 text-xs text-muted-foreground">Admins have no rate limit.</div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {!stats && !statsLoading && (
-            <div className="rounded-md border p-4 text-sm text-muted-foreground">
-              Choose a range and click Refresh to load analytics.
-            </div>
-          )}
         </div>
       )}
 
@@ -227,53 +109,6 @@ export default function AdminPage() {
       {activeTab === "account_review" && (
         <div className="rounded-lg border p-6 text-sm text-muted-foreground">Empty</div>
       )}
-    </div>
-  );
-}
-
-function StatCard({ title, value }: { title: string; value: number }) {
-  return (
-    <div className="rounded-lg border p-4">
-      <div className="text-sm text-muted-foreground">{title}</div>
-      <div className="mt-1 text-2xl font-semibold">{value.toLocaleString()}</div>
-    </div>
-  );
-}
-
-function Sparkline({ data }: { data: number[] }) {
-  const width = 600;
-  const height = 130;
-  const padding = 8;
-  const points = data && data.length > 0 ? data : [0];
-  const maxVal = Math.max(...points, 1);
-  const minVal = 0;
-  const stepX = points.length > 1 ? (width - padding * 2) / (points.length - 1) : (width - padding * 2);
-
-  const toY = (v: number) => {
-    const norm = (v - minVal) / (maxVal - minVal);
-    return height - padding - norm * (height - padding * 2);
-  };
-
-  const path = points
-    .map((v, i) => `${i === 0 ? "M" : "L"}${padding + i * stepX},${toY(v)}`)
-    .join(" ");
-
-  const bars = points.map((v, i) => {
-    const x = padding + i * stepX;
-    const y = toY(v);
-    const barWidth = Math.max(2, stepX * 0.6);
-    const barHeight = height - padding - y;
-    return <rect key={i} x={x - barWidth / 2} y={y} width={barWidth} height={barHeight} rx={2} className="fill-primary/30" />;
-  });
-
-  return (
-    <div className="mt-2 w-full overflow-hidden rounded bg-muted/40">
-      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-32">
-        <g>
-          {bars}
-          <path d={path} className="stroke-primary" fill="none" strokeWidth={2} />
-        </g>
-      </svg>
     </div>
   );
 }
