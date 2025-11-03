@@ -102,7 +102,7 @@ export default function AdminPage() {
               <button
                 key={opt.label}
                 onClick={() => {
-                  if (opt.days) {
+                  if ("days" in opt) {
                     const end = new Date();
                     const start = new Date();
                     start.setDate(end.getDate() - opt.days);
