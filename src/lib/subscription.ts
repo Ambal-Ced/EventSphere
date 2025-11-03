@@ -488,45 +488,70 @@ export class SubscriptionService {
     console.log('💾 Inserting transaction record directly:', transactionRecord);
     console.log('🔍 About to call Supabase insert...');
     
-    // Increase timeout to 20 seconds for better reliability
-    const insertPromise = supabase
-      .from('transactions')
-      .insert(transactionRecord)
-      .select()
-      .single();
-
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Supabase insert timeout after 20 seconds')), 20000)
-    );
-
-    console.log('🔍 Starting Supabase insert with timeout...');
-    let data, error;
+    // Simplified insert with better timeout handling
+    // Use Promise.race with proper timeout cancellation
+    let insertController: AbortController | null = null;
+    let timeoutId: NodeJS.Timeout | null = null;
+    
     try {
-      const result = await Promise.race([insertPromise, timeoutPromise]) as any;
-      // Check if result is a timeout error (string message)
-      if (result instanceof Error && result.message.includes('timeout')) {
-        error = result;
-        console.error('❌ Insert operation timed out:', result);
-      } else if (result && typeof result === 'object') {
-        // Normal Supabase response
-        data = result.data;
-        error = result.error;
-      } else {
-        // Unexpected result format
-        error = new Error('Unexpected result format from Supabase insert');
-        console.error('❌ Unexpected result format:', result);
+      // Create abort controller for request cancellation
+      insertController = new AbortController();
+      
+      // Set timeout
+      timeoutId = setTimeout(() => {
+        insertController?.abort();
+      }, 15000); // 15 second timeout
+      
+      console.log('🔍 Starting Supabase insert with timeout...');
+      
+      // Execute insert with timeout
+      const insertPromise = supabase
+        .from('transactions')
+        .insert(transactionRecord)
+        .select()
+        .single();
+
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('Supabase insert timeout after 15 seconds')), 15000)
+      );
+
+      const result = await Promise.race([insertPromise, timeoutPromise]);
+      
+      // Clear timeout if successful
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
       }
+      
+      // Normal Supabase response
+      const { data, error } = result as any;
+      
+      if (error) {
+        console.error('❌ Supabase insert error:', error);
+        throw error;
+      }
+      
+      console.log('✅ Transaction record created successfully:', data);
+      return data;
+      
     } catch (timeoutError: any) {
-      // Handle timeout specifically
-      error = timeoutError instanceof Error ? timeoutError : new Error(String(timeoutError));
-      console.error('❌ Insert operation timed out:', timeoutError);
-    }
-
-    console.log('🔍 Supabase insert result:', { data, error });
-
-    if (error) {
-      console.error('❌ Error creating transaction record directly:', error);
-      console.error('❌ Transaction record that failed:', transactionRecord);
+      // Clear timeout
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+      
+      // Abort the request
+      insertController?.abort();
+      
+      const error = timeoutError instanceof Error ? timeoutError : new Error(String(timeoutError));
+      
+      // Check if it's a timeout error
+      if (error.message && error.message.includes('timeout')) {
+        console.error('❌ Insert operation timed out after 15 seconds');
+        console.error('❌ Transaction record that failed:', transactionRecord);
+        throw new Error('Transaction creation timed out. Please try again or contact support.');
+      }
       
       // Check if it's a table doesn't exist error
       if (error.message && error.message.includes('relation "transactions" does not exist')) {
@@ -534,11 +559,15 @@ export class SubscriptionService {
         throw new Error('Transactions table does not exist. Please run the database creation script first.');
       }
       
+      console.error('❌ Error creating transaction record directly:', error);
+      console.error('❌ Transaction record that failed:', transactionRecord);
       throw error;
+    } finally {
+      // Cleanup
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
     }
-
-    console.log('✅ Transaction record created successfully:', data);
-    return data;
   }
 
   /**

@@ -262,7 +262,7 @@ function PaymentForm() {
               });
 
               const transactionTimeoutPromise = new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Transaction creation timeout after 15 seconds')), 15000)
+                setTimeout(() => reject(new Error('Transaction creation timeout after 20 seconds')), 20000)
               );
 
               transactionRecord = await Promise.race([transactionPromise, transactionTimeoutPromise]);
