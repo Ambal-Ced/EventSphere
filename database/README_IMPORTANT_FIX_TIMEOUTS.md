@@ -1,8 +1,17 @@
-# 🔧 CRITICAL: Fix Timeout Issues
+# 🔧 CRITICAL: Fix Timeout Issues - ACTION REQUIRED
+
+## ⚠️ YOU MUST RUN THESE SQL SCRIPTS TO FIX TIMEOUTS
+
+**If you're seeing timeout errors like:**
+- "Transaction insert timeout after 15 seconds"
+- "Subscription lookup timeout after 8 seconds"
+- "Subscription creation timeout after 45 seconds"
+
+**This means RLS policies are blocking database operations. You MUST run the SQL scripts below.**
 
 ## Problem
 Both transaction inserts and subscription operations are timing out. This is caused by:
-1. **RLS policies blocking inserts/updates**
+1. **RLS policies blocking inserts/updates** ⚠️ MOST LIKELY CAUSE
 2. **Missing database indexes** causing slow queries
 3. **Slow database triggers** for invoice number generation
 

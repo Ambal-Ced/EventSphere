@@ -183,15 +183,16 @@ export class SubscriptionService {
     console.log('🔍 Checking for existing subscription...');
     
     // Add timeout to subscription lookup query
+    // Use minimal fields for faster query
     const lookupPromise = supabase
       .from('user_subscriptions')
-      .select('*')
+      .select('id, user_id, plan_id, status, current_period_start, current_period_end, is_trial, cancel_at_period_end, cancelled_at') // Only select needed fields
       .eq('user_id', userId) // Find ANY subscription for this user (no status filter)
       .order('created_at', { ascending: false }) // Get most recent subscription
       .limit(1); // Limit to 1 for faster query
 
     const lookupTimeoutPromise = new Promise<never>((_, reject) => 
-      setTimeout(() => reject(new Error('Subscription lookup timeout after 10 seconds')), 10000)
+      setTimeout(() => reject(new Error('Subscription lookup timeout after 8 seconds. This usually means RLS policies are blocking the query. Please run database/fix_rls_policies.sql in Supabase SQL Editor.')), 8000)
     );
 
     let existingSubscriptions = null;
@@ -208,10 +209,17 @@ export class SubscriptionService {
     } catch (timeoutError: any) {
       existingError = timeoutError instanceof Error ? timeoutError : new Error(String(timeoutError));
       console.error('❌ Subscription lookup timed out:', timeoutError);
+      console.error('⚠️ CRITICAL: This timeout indicates RLS policies are blocking the query.');
+      console.error('⚠️ ACTION REQUIRED: Run database/fix_rls_policies.sql in Supabase SQL Editor to fix this issue.');
+      // Return null so the function fails gracefully, but don't throw to avoid breaking the payment flow
+      return null;
     }
 
     if (existingError) {
       console.error('❌ Error checking existing subscription:', existingError);
+      if (existingError.message && existingError.message.includes('RLS') || existingError.message.includes('permission')) {
+        console.error('⚠️ CRITICAL: RLS policy error detected. Please run database/fix_rls_policies.sql in Supabase SQL Editor.');
+      }
       return null;
     }
 
@@ -535,7 +543,7 @@ export class SubscriptionService {
         .single();
 
       const timeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('Supabase insert timeout after 15 seconds')), 15000)
+        setTimeout(() => reject(new Error('Transaction insert timeout after 15 seconds. This usually means RLS policies are blocking the insert. Please run database/fix_rls_policies.sql in Supabase SQL Editor.')), 15000)
       );
 
       const result = await Promise.race([insertPromise, timeoutPromise]);

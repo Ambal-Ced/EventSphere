@@ -334,8 +334,14 @@ function PaymentForm() {
             addDebugLog(`❌ Error details: ${JSON.stringify(subError)}`);
             
             if (subError instanceof Error && subError.message.includes('timeout')) {
-              toast.error('Payment successful but subscription creation timed out. Please contact support.');
-              setErrorMessage('Subscription creation timed out. Please contact support.');
+              const isRLSTimeout = subError.message.includes('RLS policies');
+              if (isRLSTimeout) {
+                toast.error('Payment successful but database query timed out. RLS policies may be blocking operations. Please contact support immediately.');
+                setErrorMessage('Payment successful but subscription creation timed out. Database access is blocked. Please contact support immediately with this error code: RLS_TIMEOUT');
+              } else {
+                toast.error('Payment successful but subscription creation timed out. Please contact support.');
+                setErrorMessage('Subscription creation timed out. Please contact support.');
+              }
             } else {
               toast.error('Payment successful but failed to create subscription. Please contact support.');
               setErrorMessage('Payment successful but subscription creation failed. Please contact support.');
