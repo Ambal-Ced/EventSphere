@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,18 +25,42 @@ export async function POST(request: NextRequest) {
       }
     );
 
+    // Try cookie session; fallback to Bearer token
     const {
       data: { session },
     } = await supabase.auth.getSession();
-    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("account_type")
-      .eq("id", session.user.id)
-      .single();
-    if (profileError || profile?.account_type !== "admin") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    let userId: string | null = session?.user?.id ?? null;
+
+    if (!userId) {
+      const authHeader = request.headers.get("authorization") || request.headers.get("Authorization");
+      const token = authHeader?.toLowerCase().startsWith("bearer ") ? authHeader.slice(7) : undefined;
+      if (token) {
+        const anon = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        );
+        const { data: u } = await anon.auth.getUser(token);
+        userId = u.user?.id ?? null;
+      }
+    }
+
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    // Admin check via SECURITY DEFINER function (bypasses RLS)
+    try {
+      const { data: isAdmin } = await supabase.rpc("admin_is_admin", { p_user_id: userId });
+      if (!isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    } catch (e) {
+      // Fallback to direct check if RPC is unavailable
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("account_type")
+        .eq("id", userId)
+        .single();
+      if (profileError || profile?.account_type !== "admin") {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
     }
 
     const body = await request.json();
@@ -71,11 +96,16 @@ export async function POST(request: NextRequest) {
     const data = await resp.json();
     const text = data?.text || data?.message?.content?.[0]?.text || "";
 
-    // Save generated insight
+    // Save generated insight using service role (avoids cookie auth dependence)
     try {
-      const { data: insertRes, error: insertErr } = await supabase
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      const saver = serviceKey
+        ? createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey)
+        : supabase;
+
+      const { data: insertRes, error: insertErr } = await saver
         .from("admin_insights")
-        .insert({ user_id: session.user.id, content: text, context })
+        .insert({ user_id: userId, content: text, context })
         .select("id, created_at")
         .single();
       if (insertErr) {
