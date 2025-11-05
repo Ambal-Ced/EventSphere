@@ -1,3 +1,5 @@
+export const revalidate = 120;
+
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
@@ -46,12 +48,18 @@ export async function GET(request: NextRequest) {
       const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey);
       const { count, error } = await admin.from("user_subscriptions").select("id", { count: "exact", head: true });
       if (error) throw error;
-      return NextResponse.json({ count: (count as number | null) ?? 0, usedServiceRole: true });
+      const res = NextResponse.json({ count: (count as number | null) ?? 0, usedServiceRole: true });
+      res.headers.set("Cache-Control", "public, s-maxage=120, stale-while-revalidate=600");
+      return res;
     }
 
     const { data: rpcCount, error: rpcError } = await supabase.rpc("admin_count_user_subscriptions");
     if (rpcError) throw rpcError;
-    return NextResponse.json({ count: Number(rpcCount) || 0, usedServiceRole: false, usedRpc: true });
+    {
+      const res = NextResponse.json({ count: Number(rpcCount) || 0, usedServiceRole: false, usedRpc: true });
+      res.headers.set("Cache-Control", "public, s-maxage=120, stale-while-revalidate=600");
+      return res;
+    }
   } catch (err: any) {
     console.error("/api/admin/count/user-subscriptions error", err);
     return NextResponse.json({ error: err.message ?? "Server error" }, { status: 500 });

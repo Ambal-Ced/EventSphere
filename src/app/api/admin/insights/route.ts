@@ -111,14 +111,20 @@ export async function POST(request: NextRequest) {
         console.warn("Failed to save admin insight:", insertErr);
         return NextResponse.json({ text, saved: false });
       }
-      return NextResponse.json({ text, saved: true, id: insertRes.id, created_at: insertRes.created_at });
+      const res = NextResponse.json({ text, saved: true, id: insertRes.id, created_at: insertRes.created_at });
+      res.headers.set("Cache-Control", "no-store");
+      return res;
     } catch (saveErr: any) {
       console.warn("Save admin insight exception:", saveErr);
-      return NextResponse.json({ text, saved: false });
+      const res = NextResponse.json({ text, saved: false });
+      res.headers.set("Cache-Control", "no-store");
+      return res;
     }
   } catch (err: any) {
     console.error("/api/admin/insights error", err);
-    return NextResponse.json({ error: err.message ?? "Server error" }, { status: 500 });
+    const res = NextResponse.json({ error: err.message ?? "Server error" }, { status: 500 });
+    res.headers.set("Cache-Control", "no-store");
+    return res;
   }
 }
 

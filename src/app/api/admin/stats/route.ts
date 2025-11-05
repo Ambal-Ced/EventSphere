@@ -1,3 +1,5 @@
+export const revalidate = 120; // cache for 2 minutes
+
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
@@ -86,7 +88,7 @@ export async function GET(request: NextRequest) {
       byDay[day].count += 1;
     }
 
-    return NextResponse.json({
+    const payload = {
       totals: {
         profiles: (profilesCount.count as number | null) ?? 0,
         events: (eventsCount.count as number | null) ?? 0,
@@ -99,7 +101,10 @@ export async function GET(request: NextRequest) {
         .sort((a, b) => a[0].localeCompare(b[0]))
         .map(([date, v]) => ({ date, revenue_cents: v.revenue_cents, transactions: v.count })),
       debug: { usedServiceRole: !!serviceKey }
-    });
+    };
+    const res = NextResponse.json(payload);
+    res.headers.set("Cache-Control", "public, s-maxage=120, stale-while-revalidate=600");
+    return res;
   } catch (err: any) {
     console.error("/api/admin/stats error", err);
     return NextResponse.json({ error: err.message ?? "Server error" }, { status: 500 });

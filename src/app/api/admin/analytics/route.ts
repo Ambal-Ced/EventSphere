@@ -1,3 +1,5 @@
+export const revalidate = 120; // cache API response for 2 minutes (ISR-style)
+
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
@@ -303,7 +305,7 @@ export async function GET(request: NextRequest) {
     const paidRate = totalTransactionsForRate > 0 ? (paidTransactions / totalTransactionsForRate) * 100 : 0;
     const cancelledRate = totalTransactionsForRate > 0 ? (cancelledTransactions / totalTransactionsForRate) * 100 : 0;
 
-    return NextResponse.json({
+    const payload = {
       totals: {
         users: totalUsers,
         events: (eventsRows ?? []).length,
@@ -351,7 +353,11 @@ export async function GET(request: NextRequest) {
         cancelled_rate: cancelledRate,
       },
       debug: { usedServiceRole: !!serviceKey },
-    });
+    };
+
+    const res = NextResponse.json(payload);
+    res.headers.set("Cache-Control", "public, s-maxage=120, stale-while-revalidate=600");
+    return res;
   } catch (err: any) {
     console.error("/api/admin/analytics error", err);
     return NextResponse.json({ error: err.message ?? "Server error" }, { status: 500 });
