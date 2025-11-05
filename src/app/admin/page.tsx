@@ -17,7 +17,7 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
-import { TrendingUp, Users, Calendar, DollarSign, Package, Activity, RefreshCw, X } from "lucide-react";
+import { TrendingUp, Users, Calendar, DollarSign, Package, Activity, RefreshCw, X, Lightbulb, AlertCircle, CheckCircle, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -34,6 +34,8 @@ export default function AdminPage() {
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>();
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>();
   const [showCustomDatePicker, setShowCustomDatePicker] = useState(false);
+  const [aiGeneratedInsight, setAiGeneratedInsight] = useState<string | null>(null);
+  const [isGeneratingInsight, setIsGeneratingInsight] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -144,6 +146,233 @@ export default function AdminPage() {
 
   const formatNumber = (num: number) => {
     return num.toLocaleString();
+  };
+
+  const generateInsights = (data: any) => {
+    const insights: Array<{ type: "success" | "warning" | "info" | "neutral"; title: string; description: string }> = [];
+
+    if (!data) return insights;
+
+    const totals = data.totals || {};
+    const metrics = data.additional_metrics || {};
+    const revenueStats = data.revenue_stats || {};
+    const transactionRates = data.transaction_rates || {};
+
+    // User Growth Insight
+    if (metrics.user_growth_rate !== undefined) {
+      if (metrics.user_growth_rate > 10) {
+        insights.push({
+          type: "success",
+          title: "Strong User Growth",
+          description: `Your platform is experiencing excellent growth with a ${metrics.user_growth_rate.toFixed(1)}% increase in new users over the past week. This is a positive sign of platform adoption.`,
+        });
+      } else if (metrics.user_growth_rate < 0) {
+        insights.push({
+          type: "warning",
+          title: "Declining User Growth",
+          description: `User growth has decreased by ${Math.abs(metrics.user_growth_rate).toFixed(1)}% in the past week. Consider reviewing your marketing strategies or user acquisition channels.`,
+        });
+      } else {
+        insights.push({
+          type: "info",
+          title: "Stable User Base",
+          description: `User growth remains stable with ${metrics.user_growth_rate.toFixed(1)}% growth. Your platform maintains consistent user acquisition.`,
+        });
+      }
+    }
+
+    // Conversion Rate Insight
+    if (metrics.conversion_rate !== undefined) {
+      if (metrics.conversion_rate >= 50) {
+        insights.push({
+          type: "success",
+          title: "Excellent Conversion Rate",
+          description: `${metrics.conversion_rate.toFixed(1)}% of your users have active paid subscriptions. This indicates strong product-market fit and effective monetization.`,
+        });
+      } else if (metrics.conversion_rate >= 20) {
+        insights.push({
+          type: "info",
+          title: "Moderate Conversion Rate",
+          description: `${metrics.conversion_rate.toFixed(1)}% of users have active subscriptions. There's room for improvement through targeted marketing or subscription incentives.`,
+        });
+      } else {
+        insights.push({
+          type: "warning",
+          title: "Low Conversion Rate",
+          description: `Only ${metrics.conversion_rate.toFixed(1)}% of users have active subscriptions. Consider improving your value proposition or offering free trial periods to increase conversions.`,
+        });
+      }
+    }
+
+    // Revenue Insight
+    if (totals.revenue_cents > 0) {
+      const revenueInPesos = totals.revenue_cents / 100;
+      const avgRevenue = metrics.avg_revenue_per_transaction || 0;
+      
+      insights.push({
+        type: "success",
+        title: "Revenue Performance",
+        description: `Your platform has generated ${formatCurrency(totals.revenue_cents)} in total revenue with an average transaction value of ${formatCurrency(avgRevenue)}. This shows healthy monetization.`,
+      });
+
+      // Revenue consistency
+      if (revenueStats.median && revenueStats.mean) {
+        const variation = Math.abs(revenueStats.mean - revenueStats.median) / revenueStats.mean;
+        if (variation < 0.2) {
+          insights.push({
+            type: "info",
+            title: "Consistent Revenue Patterns",
+            description: `Your revenue shows consistent transaction values (median: ${formatCurrency(revenueStats.median)}, mean: ${formatCurrency(revenueStats.mean)}), indicating stable pricing and customer behavior.`,
+          });
+        }
+      }
+    }
+
+    // Event Creation Rate Insight
+    if (metrics.event_creation_rate !== undefined) {
+      if (metrics.event_creation_rate >= 70) {
+        insights.push({
+          type: "success",
+          title: "High Event Activity",
+          description: `Events are being created on ${metrics.event_creation_rate.toFixed(1)}% of days in the selected period, showing strong user engagement and platform utilization.`,
+        });
+      } else if (metrics.event_creation_rate < 30) {
+        insights.push({
+          type: "warning",
+          title: "Low Event Activity",
+          description: `Events are only created on ${metrics.event_creation_rate.toFixed(1)}% of days. Consider promoting event creation features or offering incentives to increase activity.`,
+        });
+      } else {
+        insights.push({
+          type: "info",
+          title: "Moderate Event Activity",
+          description: `Events are created on ${metrics.event_creation_rate.toFixed(1)}% of days, indicating regular but not constant platform usage.`,
+        });
+      }
+    }
+
+    // Transaction Success Rate Insight
+    if (transactionRates.paid_rate !== undefined && transactionRates.cancelled_rate !== undefined) {
+      if (transactionRates.paid_rate >= 80) {
+        insights.push({
+          type: "success",
+          title: "High Transaction Success Rate",
+          description: `${transactionRates.paid_rate.toFixed(1)}% of transactions are successful (paid), with only ${transactionRates.cancelled_rate.toFixed(1)}% being cancelled. This indicates strong customer satisfaction and retention.`,
+        });
+      } else if (transactionRates.cancelled_rate > 30) {
+        insights.push({
+          type: "warning",
+          title: "High Cancellation Rate",
+          description: `${transactionRates.cancelled_rate.toFixed(1)}% of transactions are being cancelled. Consider reviewing your payment process, pricing strategy, or customer support to reduce cancellations.`,
+        });
+      }
+    }
+
+    // Most Popular Category Insight
+    if (metrics.most_popular_category && metrics.most_popular_category !== "None") {
+      insights.push({
+        type: "info",
+        title: "Category Preference",
+        description: `"${metrics.most_popular_category}" is the most popular event category. Consider highlighting this category or creating targeted marketing campaigns around it.`,
+      });
+    }
+
+    // Active Subscriptions Insight
+    if (totals.active_subscriptions !== undefined && totals.users !== undefined) {
+      const subscriptionPenetration = totals.users > 0 ? (totals.active_subscriptions / totals.users) * 100 : 0;
+      if (subscriptionPenetration >= 50) {
+        insights.push({
+          type: "success",
+          title: "Strong Subscription Adoption",
+          description: `${totals.active_subscriptions} out of ${totals.users} users (${subscriptionPenetration.toFixed(1)}%) have active paid subscriptions. This demonstrates strong platform value.`,
+        });
+      } else if (subscriptionPenetration < 20) {
+        insights.push({
+          type: "warning",
+          title: "Low Subscription Adoption",
+          description: `Only ${totals.active_subscriptions} out of ${totals.users} users (${subscriptionPenetration.toFixed(1)}%) have active subscriptions. Focus on converting free users to paid plans.`,
+        });
+      }
+    }
+
+    // Transaction Volume Insight
+    if (totals.transactions !== undefined && totals.users !== undefined) {
+      const transactionsPerUser = totals.users > 0 ? totals.transactions / totals.users : 0;
+      if (transactionsPerUser >= 2) {
+        insights.push({
+          type: "success",
+          title: "High Transaction Frequency",
+          description: `On average, each user makes ${transactionsPerUser.toFixed(1)} transactions, indicating strong customer loyalty and repeat business.`,
+        });
+      } else if (transactionsPerUser < 1) {
+        insights.push({
+          type: "info",
+          title: "Transaction Opportunity",
+          description: `Currently, there are ${totals.transactions} transactions across ${totals.users} users. Consider strategies to encourage repeat purchases or subscriptions.`,
+        });
+      }
+    }
+
+    return insights;
+  };
+
+  const generateAIInsight = async () => {
+    if (!analyticsData || isGeneratingInsight) return;
+
+    setIsGeneratingInsight(true);
+    setAiGeneratedInsight(null);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error("Not authenticated");
+      }
+
+      // Prepare analytics context for AI
+      const context = {
+        totals: analyticsData.totals,
+        revenue_stats: analyticsData.revenue_stats,
+        additional_metrics: analyticsData.additional_metrics,
+        transaction_rates: analyticsData.transaction_rates,
+        most_popular_category: analyticsData.additional_metrics?.most_popular_category,
+        sales_by_category: analyticsData.sales_by_category?.slice(0, 5), // Top 5 categories
+        subscription_breakdown: analyticsData.subscription_breakdown,
+      };
+
+      const prompt = `Based on the analytics data provided, generate a comprehensive business insight summary. Focus on:
+1. Overall platform performance and health
+2. Revenue trends and opportunities
+3. User engagement and growth patterns
+4. Subscription performance
+5. Actionable recommendations for improvement
+
+Be specific with numbers and percentages. Write in a clear, executive-friendly style.`;
+
+      const response = await fetch("/api/admin/insights", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          prompt,
+          context,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to generate insight");
+      }
+
+      const data = await response.json();
+      setAiGeneratedInsight(data.text || "No insight generated.");
+    } catch (error: any) {
+      console.error("Error generating AI insight:", error);
+      setAiGeneratedInsight(`Error: ${error.message || "Failed to generate insight. Please try again."}`);
+    } finally {
+      setIsGeneratingInsight(false);
+    }
   };
 
   return (
@@ -626,6 +855,90 @@ export default function AdminPage() {
                   </ResponsiveContainer>
                 </div>
               )}
+
+              {/* Insights Section */}
+              <div className="rounded-lg border p-6 bg-card">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-2">
+                    <Lightbulb className="h-5 w-5 text-primary" />
+                    <h3 className="text-lg font-semibold">Key Insights & Recommendations</h3>
+                  </div>
+                  <Button
+                    onClick={generateAIInsight}
+                    disabled={isGeneratingInsight || !analyticsData}
+                    variant="outline"
+                    size="sm"
+                    className="border-input bg-background text-foreground"
+                  >
+                    {isGeneratingInsight ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Lightbulb className="h-4 w-4 mr-2" />
+                        Generate AI Insight
+                      </>
+                    )}
+                  </Button>
+                </div>
+                <div className="space-y-4">
+                  {generateInsights(analyticsData).length > 0 ? (
+                    generateInsights(analyticsData).map((insight, index) => {
+                      const IconComponent = 
+                        insight.type === "success" ? CheckCircle :
+                        insight.type === "warning" ? AlertCircle :
+                        Info;
+                      const iconColor =
+                        insight.type === "success" ? "text-green-500" :
+                        insight.type === "warning" ? "text-yellow-500" :
+                        "text-blue-500";
+                      const borderColor =
+                        insight.type === "success" ? "border-green-500/30 bg-green-500/5" :
+                        insight.type === "warning" ? "border-yellow-500/30 bg-yellow-500/5" :
+                        "border-blue-500/30 bg-blue-500/5";
+
+                      return (
+                        <div
+                          key={index}
+                          className={`rounded-lg border p-4 ${borderColor}`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <IconComponent className={`h-5 w-5 ${iconColor} flex-shrink-0 mt-0.5`} />
+                            <div className="flex-1">
+                              <h4 className="font-semibold mb-1">{insight.title}</h4>
+                              <p className="text-sm text-muted-foreground leading-relaxed">
+                                {insight.description}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Info className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p>No insights available. More data is needed to generate meaningful insights.</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* AI Generated Insight */}
+                {aiGeneratedInsight && (
+                  <div className="mt-6 pt-6 border-t">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Lightbulb className="h-5 w-5 text-primary" />
+                      <h4 className="font-semibold">AI-Generated Comprehensive Insight</h4>
+                    </div>
+                    <div className="rounded-lg border p-4 bg-muted/50">
+                      <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+                        {aiGeneratedInsight}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
             <div className="flex h-[60vh] items-center justify-center text-sm text-muted-foreground">
