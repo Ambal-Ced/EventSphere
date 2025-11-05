@@ -62,4 +62,28 @@ $$;
 
 grant execute on function public.admin_count_user_subscriptions() to authenticated;
 
+-- Count all ai_insights_usage
+create or replace function public.admin_count_ai_insights_usage()
+returns bigint
+language sql
+security definer
+set search_path = public
+as $$
+  select count(*)::bigint from public.ai_insights_usage;
+$$;
+
+grant execute on function public.admin_count_ai_insights_usage() to authenticated;
+
+-- Count all ai_chat_usage
+create or replace function public.admin_count_ai_chat_usage()
+returns bigint
+language sql
+security definer
+set search_path = public
+as $$
+  select count(*)::bigint from public.ai_chat_usage;
+$$;
+
+grant execute on function public.admin_count_ai_chat_usage() to authenticated;
+
 
