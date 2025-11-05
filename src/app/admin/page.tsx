@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import {
   ResponsiveContainer,
@@ -66,7 +66,7 @@ export default function AdminPage() {
     };
   }, []);
 
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = useCallback(async () => {
     setLoadingAnalytics(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -107,14 +107,17 @@ export default function AdminPage() {
     } finally {
       setLoadingAnalytics(false);
     }
-  };
+  }, [dateRange, customStartDate, customEndDate]);
 
   useEffect(() => {
     if (isAdmin) {
-      fetchAnalytics();
+      // Small delay to debounce rapid changes
+      const timeoutId = setTimeout(() => {
+        fetchAnalytics();
+      }, 300);
+      return () => clearTimeout(timeoutId);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAdmin, dateRange]);
+  }, [isAdmin, dateRange, customStartDate, customEndDate, fetchAnalytics]);
 
   if (loading) {
     return (
@@ -198,8 +201,8 @@ export default function AdminPage() {
                     <Button
                       onClick={() => {
                         if (customStartDate && customEndDate) {
-                          fetchAnalytics();
                           setShowCustomDatePicker(false);
+                          // fetchAnalytics will be called by useEffect when customStartDate/customEndDate changes
                         }
                       }}
                       size="sm"
@@ -267,12 +270,15 @@ export default function AdminPage() {
 
       {activeTab === "eventtria" && (
         <div className="space-y-6">
-          {loadingAnalytics ? (
+          {loadingAnalytics && !analyticsData ? (
             <div className="flex h-[60vh] items-center justify-center text-sm text-muted-foreground">
-              Loading analytics...
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                <div>Loading analytics...</div>
+              </div>
             </div>
           ) : analyticsData ? (
-            <>
+            <div className={loadingAnalytics ? "opacity-50 pointer-events-none" : ""}>
               {/* Key Metrics Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="rounded-lg border p-6 bg-card">
@@ -620,7 +626,7 @@ export default function AdminPage() {
                   </ResponsiveContainer>
                 </div>
               )}
-            </>
+            </div>
           ) : (
             <div className="flex h-[60vh] items-center justify-center text-sm text-muted-foreground">
               No analytics data available
