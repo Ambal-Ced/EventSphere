@@ -49,19 +49,13 @@ export default function AnalyticsPage() {
   useEffect(() => { setMounted(true); }, []);
   const [scope, setScope] = useState<"owned" | "joined" | "both">("owned");
   const [loading, setLoading] = useState(false);
+  const [refreshNonce, setRefreshNonce] = useState(0);
+  const [showStuckRefresh, setShowStuckRefresh] = useState(false);
   const [events, setEvents] = useState<EventRow[]>([]);
   const [items, setItems] = useState<EventItem[]>([]);
   const [attStats, setAttStats] = useState<{ event_id: string; expected_attendees: number; event_attendees: number }[]>([]);
   const [feedback, setFeedback] = useState<{ event_id: string; rating: number; sentiment?: string }[]>([]);
   const [error, setError] = useState<string | null>(null);
-
-  // Watchdog: refresh if loading is stuck for >30s
-  useEffect(() => {
-    if (loading) {
-      const id = setTimeout(() => { try { window.location.reload(); } catch {} }, 30000);
-      return () => clearTimeout(id);
-    }
-  }, [loading]);
 
   // Filters
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -154,7 +148,17 @@ export default function AnalyticsPage() {
         setLoading(false);
       }
     })();
-  }, [scope]);
+  }, [scope, refreshNonce]);
+
+  // Show a retry button if still loading after 120s (soft refresh only)
+  useEffect(() => {
+    if (!loading) {
+      setShowStuckRefresh(false);
+      return;
+    }
+    const id = setTimeout(() => setShowStuckRefresh(true), 120000);
+    return () => clearTimeout(id);
+  }, [loading, scope, refreshNonce]);
 
   // Apply filters
   const visible = useMemo(() => {
@@ -534,14 +538,26 @@ export default function AnalyticsPage() {
         <div className="bg-slate-800/60 border border-slate-600 rounded-lg p-4">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-white">Filters</h2>
-            <Button 
-              onClick={resetAllFilters}
-              variant="outline"
-              size="sm"
-              className="border-red-500/30 text-red-400 hover:bg-red-500/20 hover:text-red-300"
-            >
-              Reset All
-            </Button>
+            <div className="flex items-center gap-2">
+              {loading && showStuckRefresh && (
+                <Button
+                  onClick={() => { setShowStuckRefresh(false); setRefreshNonce((n) => n + 1); }}
+                  variant="outline"
+                  size="sm"
+                  className="border-amber-400/30 text-amber-300 hover:bg-amber-400/20 hover:text-amber-200"
+                >
+                  Retry Load
+                </Button>
+              )}
+              <Button 
+                onClick={resetAllFilters}
+                variant="outline"
+                size="sm"
+                className="border-red-500/30 text-red-400 hover:bg-red-500/20 hover:text-red-300"
+              >
+                Reset All
+              </Button>
+            </div>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
