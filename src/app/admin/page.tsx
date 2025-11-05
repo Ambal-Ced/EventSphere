@@ -355,46 +355,44 @@ export default function AdminPage() {
     setAiGeneratedInsight(null);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error("Not authenticated");
+      // Build a concise, executive-style paragraph locally using available metrics
+      const totals = analyticsData.totals || {};
+      const metrics = analyticsData.additional_metrics || {};
+      const revenueStats = analyticsData.revenue_stats || {};
+      const txRates = analyticsData.transaction_rates || {};
+      const topCategory = metrics.most_popular_category && metrics.most_popular_category !== "None"
+        ? metrics.most_popular_category
+        : null;
+
+      const users = Number(totals.users || 0);
+      const events = Number(totals.events || 0);
+      const transactions = Number(totals.transactions || 0);
+      const revenueCents = Number(totals.revenue_cents || 0);
+      const revenuePeso = `₱${(revenueCents / 100).toFixed(2)}`;
+      const growth = typeof metrics.user_growth_rate === "number" ? `${metrics.user_growth_rate.toFixed(1)}%` : "0%";
+      const conv = typeof metrics.conversion_rate === "number" ? `${metrics.conversion_rate.toFixed(1)}%` : "0%`";
+      const avgTx = typeof metrics.avg_revenue_per_transaction === "number" ? `₱${(metrics.avg_revenue_per_transaction / 100).toFixed(2)}` : "₱0.00";
+      const mean = typeof revenueStats.mean === "number" ? `₱${(revenueStats.mean / 100).toFixed(2)}` : null;
+      const paidRate = typeof txRates.paid_rate === "number" ? `${txRates.paid_rate.toFixed(1)}%` : null;
+      const cancelledRate = typeof txRates.cancelled_rate === "number" ? `${txRates.cancelled_rate.toFixed(1)}%` : null;
+
+      const parts: string[] = [];
+      parts.push(`The platform shows ${users.toLocaleString()} users and ${events.toLocaleString()} events with ${transactions.toLocaleString()} total transactions.`);
+      parts.push(`Cumulative revenue reached ${revenuePeso}, with an average transaction value around ${avgTx}${mean ? ` (mean ${mean})` : ""}.`);
+      parts.push(`User growth is ${growth} and subscription conversion is ${conv}, indicating current engagement and monetization levels.`);
+      if (paidRate || cancelledRate) {
+        parts.push(`Transaction outcomes are ${paidRate ? `${paidRate} paid` : ""}${paidRate && cancelledRate ? ", " : ""}${cancelledRate ? `${cancelledRate} cancelled` : ""}.`);
       }
-
-      // Prepare analytics context for AI
-      const context = {
-        totals: analyticsData.totals,
-        revenue_stats: analyticsData.revenue_stats,
-        additional_metrics: analyticsData.additional_metrics,
-        transaction_rates: analyticsData.transaction_rates,
-        most_popular_category: analyticsData.additional_metrics?.most_popular_category,
-        sales_by_category: analyticsData.sales_by_category?.slice(0, 5), // Top 5 categories
-        subscription_breakdown: analyticsData.subscription_breakdown,
-      };
-
-      const prompt = `Write one concise paragraph (4-7 sentences) that synthesizes the platform's performance using the provided analytics. Emphasize: overall health, revenue and monetization, engagement and growth, subscriptions, and any notable risks or opportunities. Use specific numbers/percentages found in context. Keep it executive-friendly and avoid bullet points.`;
-
-      const response = await fetch("/api/admin/insights", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          prompt: String(prompt || "Analytics insight"),
-          context: Object.keys(context || {}).length ? context : { note: "no context" },
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to generate insight");
+      if (topCategory) {
+        parts.push(`"${topCategory}" leads as the most popular category, which can be highlighted in marketing and curation.`);
       }
+      parts.push(`Focus next on sustaining growth and improving conversion while monitoring cancellation patterns for potential friction points.`);
 
-      const data = await response.json();
-      setAiGeneratedInsight(data.text || "No insight generated.");
+      const paragraph = parts.join(" ");
+      setAiGeneratedInsight(paragraph);
     } catch (error: any) {
       console.error("Error generating AI insight:", error);
-      setAiGeneratedInsight(`Error: ${error.message || "Failed to generate insight. Please try again."}`);
+      setAiGeneratedInsight("Failed to generate insight locally.");
     } finally {
       setIsGeneratingInsight(false);
     }
