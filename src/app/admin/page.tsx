@@ -2,21 +2,22 @@
 
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import {
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-} from "recharts";
+import dynamic from "next/dynamic";
+// Lazy-load heavy Recharts components (client-only)
+const loadingBox = (h:number=300) => <div style={{height:h}} className="w-full animate-pulse rounded bg-muted/20"/>;
+const ResponsiveContainer: any = dynamic(() => import("recharts").then(m => m.ResponsiveContainer as any), { ssr: false, loading: () => loadingBox() }) as any;
+const LineChart: any = dynamic(() => import("recharts").then(m => m.LineChart as any), { ssr: false, loading: () => null }) as any;
+const Line: any = dynamic(() => import("recharts").then(m => m.Line as any), { ssr: false, loading: () => null }) as any;
+const BarChart: any = dynamic(() => import("recharts").then(m => m.BarChart as any), { ssr: false, loading: () => null }) as any;
+const Bar: any = dynamic(() => import("recharts").then(m => m.Bar as any), { ssr: false, loading: () => null }) as any;
+const PieChart: any = dynamic(() => import("recharts").then(m => m.PieChart as any), { ssr: false, loading: () => loadingBox() }) as any;
+const Pie: any = dynamic(() => import("recharts").then(m => m.Pie as any), { ssr: false, loading: () => null }) as any;
+const Cell: any = dynamic(() => import("recharts").then(m => m.Cell as any), { ssr: false, loading: () => null }) as any;
+const XAxis: any = dynamic(() => import("recharts").then(m => m.XAxis as any), { ssr: false, loading: () => null }) as any;
+const YAxis: any = dynamic(() => import("recharts").then(m => m.YAxis as any), { ssr: false, loading: () => null }) as any;
+const CartesianGrid: any = dynamic(() => import("recharts").then(m => m.CartesianGrid as any), { ssr: false, loading: () => null }) as any;
+const Tooltip: any = dynamic(() => import("recharts").then(m => m.Tooltip as any), { ssr: false, loading: () => null }) as any;
+const Legend: any = dynamic(() => import("recharts").then(m => m.Legend as any), { ssr: false, loading: () => null }) as any;
 import { TrendingUp, Users, Calendar, DollarSign, Package, Activity, RefreshCw, Lightbulb } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -25,6 +26,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
 
 export default function AdminPage() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [activeTab, setActiveTab] = useState<"eventtria" | "feedback" | "account_review">("eventtria");
@@ -77,6 +80,14 @@ export default function AdminPage() {
     return parts.join(" ");
   }, [analyticsData]);
   const [isGeneratingInsight, setIsGeneratingInsight] = useState(false);
+
+  // Watchdog: auto-refresh if analytics load is stuck too long
+  useEffect(() => {
+    if (loadingAnalytics && !analyticsData) {
+      const id = setTimeout(() => { try { window.location.reload(); } catch {} }, 30000);
+      return () => clearTimeout(id);
+    }
+  }, [loadingAnalytics, analyticsData]);
 
   useEffect(() => {
     let cancelled = false;
@@ -702,8 +713,8 @@ export default function AdminPage() {
                     <LineChart data={analyticsData.time_series || []}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis dataKey="date" className="text-xs" />
-                      <YAxis className="text-xs" tickFormatter={(value) => `₱${(value / 100).toFixed(0)}`} />
-                      <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                      <YAxis className="text-xs" tickFormatter={(value: unknown) => `₱${(Number(value as number) / 100).toFixed(0)}`} />
+                      <Tooltip formatter={(value: any) => formatCurrency(Number(value))} />
                       <Legend />
                       <Line type="monotone" dataKey="revenue_cents" stroke="#f59e0b" strokeWidth={2} name="Revenue" />
                     </LineChart>
@@ -751,8 +762,8 @@ export default function AdminPage() {
                     <BarChart data={analyticsData.subscription_breakdown || []}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis dataKey="name" className="text-xs" />
-                      <YAxis className="text-xs" tickFormatter={(value) => `₱${(value / 100).toFixed(0)}`} />
-                      <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                      <YAxis className="text-xs" tickFormatter={(value: unknown) => `₱${(Number(value as number) / 100).toFixed(0)}`} />
+                      <Tooltip formatter={(value: any) => formatCurrency(Number(value))} />
                       <Legend />
                       <Bar dataKey="revenue_cents" fill="#10b981" name="Revenue" />
                     </BarChart>

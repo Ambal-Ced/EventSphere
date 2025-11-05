@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { SubscriptionService } from '@/lib/subscription';
 
+export const runtime = 'edge';
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
 

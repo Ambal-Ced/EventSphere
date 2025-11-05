@@ -1,4 +1,5 @@
 export const revalidate = 120; // cache API response for 2 minutes (ISR-style)
+export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -61,13 +62,21 @@ export async function GET(request: NextRequest) {
       return query;
     };
 
-    // Prepare queries
-    const allTxQuery = buildDateFilter(
+    // Prepare queries (narrowed columns to reduce transfer)
+    const paidTxQuery = buildDateFilter(
       db
         .from("transactions")
-        .select("id, net_amount_cents, created_at, transaction_type, status, plan_name")
-        .in("status", ["paid", "cancelled"])
-        .in("transaction_type", ["purchase", "cancellation"])
+        .select("id, net_amount_cents, created_at, plan_name")
+        .eq("status", "paid")
+        .eq("transaction_type", "purchase")
+    );
+
+    const cancelledTxQuery = buildDateFilter(
+      db
+        .from("transactions")
+        .select("id, net_amount_cents, created_at, plan_name")
+        .eq("status", "cancelled")
+        .eq("transaction_type", "cancellation")
     );
 
     const eventsQuery = buildDateFilter(
@@ -98,16 +107,19 @@ export async function GET(request: NextRequest) {
     );
 
     // Fetch all data in parallel for better performance
-    const [allTxResult, eventsResult, profilesResult, subsResult, plansResult] = await Promise.all([
-      allTxQuery,
+    const [paidTxResult, cancelledTxResult, eventsResult, profilesResult, subsResult, plansResult] = await Promise.all([
+      paidTxQuery,
+      cancelledTxQuery,
       eventsQuery,
       profilesQuery,
       subsQuery,
       db.from("subscription_plans").select("id, name, price_cents").eq("is_active", true),
     ]);
 
-    const { data: allTxRows, error: allTxError } = await allTxResult;
-    if (allTxError) throw allTxError;
+    const { data: paidTxRows, error: paidErr } = await paidTxResult;
+    if (paidErr) throw paidErr;
+    const { data: cancelledTxRows, error: cancelledErr } = await cancelledTxResult;
+    if (cancelledErr) throw cancelledErr;
     
     const { data: eventsRows, error: eventsError } = await eventsResult;
     if (eventsError) throw eventsError;
@@ -121,12 +133,8 @@ export async function GET(request: NextRequest) {
     const { data: plansRows, error: plansError } = await plansResult;
     if (plansError) throw plansError;
 
-    // Separate paid and cancelled transactions
-    const paidTxRows = (allTxRows ?? []).filter((t: any) => t.status === "paid" && t.transaction_type === "purchase");
-    const cancelledTxRows = (allTxRows ?? []).filter((t: any) => t.status === "cancelled" && t.transaction_type === "cancellation");
-
     // Calculate revenue: Sum of all net_amount (paid + cancelled) - Sum of cancelled net_amount
-    const totalAllRevenue = (allTxRows ?? []).reduce((sum: number, tx: any) => sum + (tx.net_amount_cents ?? 0), 0);
+    const totalAllRevenue = (paidTxRows ?? []).reduce((sum: number, tx: any) => sum + (tx.net_amount_cents ?? 0), 0);
     const totalCancelledRevenue = (cancelledTxRows ?? []).reduce((sum: number, tx: any) => sum + (tx.net_amount_cents ?? 0), 0);
     const totalRevenue = Math.max(0, totalAllRevenue - totalCancelledRevenue);
 
@@ -276,7 +284,7 @@ export async function GET(request: NextRequest) {
     const startDate = start ? new Date(start) : null;
     const endDate = end ? new Date(end) : new Date();
     const eventDates = (eventsRows ?? []).map((e: any) => new Date(e.created_at).getTime());
-    const txDates = (allTxRows ?? []).map((t: any) => new Date(t.created_at).getTime());
+    const txDates = (paidTxRows ?? []).map((t: any) => new Date(t.created_at).getTime());
     const allDates = [...eventDates, ...txDates, Date.now()];
     const actualStartDate = startDate || (allDates.length > 0 ? new Date(Math.min(...allDates)) : new Date(endDate.getTime() - 7 * 24 * 60 * 60 * 1000));
     const totalDays = Math.max(1, Math.ceil((endDate.getTime() - actualStartDate.getTime()) / (1000 * 60 * 60 * 24)) + 1);
@@ -299,8 +307,8 @@ export async function GET(request: NextRequest) {
     const mostPopularCategory = salesByCategory.length > 0 ? salesByCategory[0].category : "None";
 
     // Transaction rate (paid vs cancelled)
-    const paidTransactions = paidTxRows.length;
-    const cancelledTransactions = cancelledTxRows.length;
+    const paidTransactions = (paidTxRows ?? []).length;
+    const cancelledTransactions = (cancelledTxRows ?? []).length;
     const totalTransactionsForRate = paidTransactions + cancelledTransactions;
     const paidRate = totalTransactionsForRate > 0 ? (paidTransactions / totalTransactionsForRate) * 100 : 0;
     const cancelledRate = totalTransactionsForRate > 0 ? (cancelledTransactions / totalTransactionsForRate) * 100 : 0;

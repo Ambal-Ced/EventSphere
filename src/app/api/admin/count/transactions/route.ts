@@ -1,4 +1,5 @@
 export const revalidate = 120;
+export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";

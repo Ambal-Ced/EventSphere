@@ -4,7 +4,24 @@ import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, LineChart, Line, ScatterChart, Scatter, ZAxis, Legend } from "recharts";
+import dynamic from "next/dynamic";
+// Lazy-load Recharts bits client-side only
+const loadingBox = (h:number=300) => <div style={{height:h}} className="w-full animate-pulse rounded bg-slate-700/40"/>;
+const ResponsiveContainer: any = dynamic(() => import("recharts").then(m => m.ResponsiveContainer as any), { ssr: false, loading: () => loadingBox() }) as any;
+const BarChart: any = dynamic(() => import("recharts").then(m => m.BarChart as any), { ssr: false }) as any;
+const Bar: any = dynamic(() => import("recharts").then(m => m.Bar as any), { ssr: false }) as any;
+const XAxis: any = dynamic(() => import("recharts").then(m => m.XAxis as any), { ssr: false }) as any;
+const YAxis: any = dynamic(() => import("recharts").then(m => m.YAxis as any), { ssr: false }) as any;
+const CartesianGrid: any = dynamic(() => import("recharts").then(m => m.CartesianGrid as any), { ssr: false }) as any;
+const Tooltip: any = dynamic(() => import("recharts").then(m => m.Tooltip as any), { ssr: false }) as any;
+const PieChart: any = dynamic(() => import("recharts").then(m => m.PieChart as any), { ssr: false }) as any;
+const Pie: any = dynamic(() => import("recharts").then(m => m.Pie as any), { ssr: false }) as any;
+const Cell: any = dynamic(() => import("recharts").then(m => m.Cell as any), { ssr: false }) as any;
+const LineChart: any = dynamic(() => import("recharts").then(m => m.LineChart as any), { ssr: false }) as any;
+const Line: any = dynamic(() => import("recharts").then(m => m.Line as any), { ssr: false }) as any;
+const ScatterChart: any = dynamic(() => import("recharts").then(m => m.ScatterChart as any), { ssr: false }) as any;
+const Scatter: any = dynamic(() => import("recharts").then(m => m.Scatter as any), { ssr: false }) as any;
+const ZAxis: any = dynamic(() => import("recharts").then(m => m.ZAxis as any), { ssr: false }) as any;
 import { DefaultSubscriptionManager } from "@/lib/default-subscription-manager";
 
 // Note: Metadata must be exported from a server component. This page is client-only.
@@ -28,6 +45,8 @@ type EventItem = {
 };
 
 export default function AnalyticsPage() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
   const [scope, setScope] = useState<"owned" | "joined" | "both">("owned");
   const [loading, setLoading] = useState(false);
   const [events, setEvents] = useState<EventRow[]>([]);
@@ -35,6 +54,14 @@ export default function AnalyticsPage() {
   const [attStats, setAttStats] = useState<{ event_id: string; expected_attendees: number; event_attendees: number }[]>([]);
   const [feedback, setFeedback] = useState<{ event_id: string; rating: number; sentiment?: string }[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  // Watchdog: refresh if loading is stuck for >30s
+  useEffect(() => {
+    if (loading) {
+      const id = setTimeout(() => { try { window.location.reload(); } catch {} }, 30000);
+      return () => clearTimeout(id);
+    }
+  }, [loading]);
 
   // Filters
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -675,7 +702,6 @@ export default function AnalyticsPage() {
                       ))}
                     </Pie>
                     <Tooltip />
-                    <Legend />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
