@@ -530,11 +530,28 @@ export default function AdminPage() {
                       </div>
                     </div>
                   </div>
-                  {analyticsData.additional_metrics?.most_popular_category && (
+                  {analyticsData.sales_by_category && analyticsData.sales_by_category.length > 0 && (
                     <div className="mt-4 pt-4 border-t">
-                      <div className="text-sm text-muted-foreground">Most Popular Category</div>
-                      <div className="text-xl font-semibold mt-1">
-                        {analyticsData.additional_metrics.most_popular_category}
+                      <div className="text-sm font-medium mb-3">Category Rankings</div>
+                      <div className="max-h-[300px] overflow-y-auto space-y-2">
+                        {analyticsData.sales_by_category.map((item: any, index: number) => (
+                          <div
+                            key={item.category}
+                            className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50 transition-colors"
+                          >
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-xs font-semibold text-primary">
+                                {index + 1}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium truncate">{item.category}</div>
+                              </div>
+                            </div>
+                            <div className="flex-shrink-0 text-sm font-semibold ml-2">
+                              {item.count}
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )}
