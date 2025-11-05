@@ -70,7 +70,23 @@ export async function POST(request: NextRequest) {
     }
     const data = await resp.json();
     const text = data?.text || data?.message?.content?.[0]?.text || "";
-    return NextResponse.json({ text });
+
+    // Save generated insight
+    try {
+      const { data: insertRes, error: insertErr } = await supabase
+        .from("admin_insights")
+        .insert({ user_id: session.user.id, content: text, context })
+        .select("id, created_at")
+        .single();
+      if (insertErr) {
+        console.warn("Failed to save admin insight:", insertErr);
+        return NextResponse.json({ text, saved: false });
+      }
+      return NextResponse.json({ text, saved: true, id: insertRes.id, created_at: insertRes.created_at });
+    } catch (saveErr: any) {
+      console.warn("Save admin insight exception:", saveErr);
+      return NextResponse.json({ text, saved: false });
+    }
   } catch (err: any) {
     console.error("/api/admin/insights error", err);
     return NextResponse.json({ error: err.message ?? "Server error" }, { status: 500 });
