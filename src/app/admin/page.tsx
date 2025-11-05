@@ -373,26 +373,41 @@ export default function AdminPage() {
       const revenueCents = Number(totals.revenue_cents || 0);
       const revenuePeso = `₱${(revenueCents / 100).toFixed(2)}`;
       const growth = typeof metrics.user_growth_rate === "number" ? `${metrics.user_growth_rate.toFixed(1)}%` : "0%";
-      const conv = typeof metrics.conversion_rate === "number" ? `${metrics.conversion_rate.toFixed(1)}%` : "0%`";
+      const conv = typeof metrics.conversion_rate === "number" ? `${metrics.conversion_rate.toFixed(1)}%` : "0%";
       const avgTx = typeof metrics.avg_revenue_per_transaction === "number" ? `₱${(metrics.avg_revenue_per_transaction / 100).toFixed(2)}` : "₱0.00";
       const mean = typeof revenueStats.mean === "number" ? `₱${(revenueStats.mean / 100).toFixed(2)}` : null;
       const paidRate = typeof txRates.paid_rate === "number" ? `${txRates.paid_rate.toFixed(1)}%` : null;
       const cancelledRate = typeof txRates.cancelled_rate === "number" ? `${txRates.cancelled_rate.toFixed(1)}%` : null;
 
+      // Professional, explanatory narrative
       const parts: string[] = [];
-      parts.push(`The platform shows ${users.toLocaleString()} users and ${events.toLocaleString()} events with ${transactions.toLocaleString()} total transactions.`);
-      parts.push(`Cumulative revenue reached ${revenuePeso}, with an average transaction value around ${avgTx}${mean ? ` (mean ${mean})` : ""}.`);
-      parts.push(`User growth is ${growth} and subscription conversion is ${conv}, indicating current engagement and monetization levels.`);
+      parts.push(`Your platform currently has ${users.toLocaleString()} users across ${events.toLocaleString()} events, generating ${transactions.toLocaleString()} total transactions.`);
+      parts.push(`Revenue totals ${revenuePeso}; the typical purchase is around ${avgTx}${mean ? `, closely aligned with a mean of ${mean}` : ""}, suggesting pricing consistency.`);
+      parts.push(`User growth over the most recent period is ${growth}, while subscription conversion is ${conv}. Together, these indicate the present balance between acquisition and monetization.`);
       if (paidRate || cancelledRate) {
-        parts.push(`Transaction outcomes are ${paidRate ? `${paidRate} paid` : ""}${paidRate && cancelledRate ? ", " : ""}${cancelledRate ? `${cancelledRate} cancelled` : ""}.`);
+        parts.push(`Of recent transactions, ${paidRate ? `${paidRate} were paid` : ""}${paidRate && cancelledRate ? ", and " : paidRate ? "." : ""}${cancelledRate ? `${cancelledRate} were cancelled` : ""}${!cancelledRate ? "." : "."}`);
       }
       if (topCategory) {
-        parts.push(`"${topCategory}" leads as the most popular category, which can be highlighted in marketing and curation.`);
+        parts.push(`"${topCategory}" is the most engaged category; highlighting it in discovery and campaigns can compound performance.`);
       }
-      parts.push(`Focus next on sustaining growth and improving conversion while monitoring cancellation patterns for potential friction points.`);
+      parts.push(`Operationally, focus on sustaining user growth, improving conversion through onboarding and offers, and reducing cancellations by addressing any checkout or value-perception friction.`);
 
       const paragraph = parts.join(" ");
       setAiGeneratedInsight(paragraph);
+
+      // Persist the generated insight for auditability
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user?.id) {
+        try {
+          await supabase.from("admin_insights").insert({
+            user_id: session.user.id,
+            content: paragraph,
+            context: analyticsData,
+          });
+        } catch (e) {
+          console.warn("Failed to save admin insight:", e);
+        }
+      }
     } catch (error: any) {
       console.error("Error generating AI insight:", error);
       setAiGeneratedInsight("Failed to generate insight locally.");

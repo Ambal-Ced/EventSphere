@@ -250,16 +250,24 @@ export async function GET(request: NextRequest) {
       cumulativeUsers[day] = cumUsers;
     });
 
-    // User growth rate (compare last 7 days vs previous 7 days)
+    // User growth rate: default to relative growth vs users 7 days ago (handles prev=0 better)
     const sortedDays = Object.keys(byDay).sort();
     const last7Days = sortedDays.slice(-7);
-    const prev7Days = sortedDays.slice(-14, -7);
     const last7Users = last7Days.reduce((sum, day) => sum + byDay[day].users, 0);
-    const prev7Users = prev7Days.reduce((sum, day) => sum + byDay[day].users, 0);
-    const userGrowthRate = prev7Users > 0 ? ((last7Users - prev7Users) / prev7Users) * 100 : 0;
+    // cumulative users up to 7 days ago
+    let usersSevenDaysAgo = 0;
+    if (sortedDays.length > 0) {
+      const cutoffIndex = Math.max(0, sortedDays.length - 7 - 1);
+      const cutoffDay = sortedDays[cutoffIndex];
+      usersSevenDaysAgo = cumulativeUsers[cutoffDay] || 0;
+    }
+    const totalUsers = (profilesRows ?? []).length;
+    const deltaUsers = Math.max(0, totalUsers - usersSevenDaysAgo);
+    const userGrowthRate = usersSevenDaysAgo > 0
+      ? (deltaUsers / usersSevenDaysAgo) * 100
+      : (deltaUsers > 0 ? 100 : 0);
 
     // Conversion rate (active paid subscriptions / total users)
-    const totalUsers = (profilesRows ?? []).length;
     const conversionRate = totalUsers > 0 ? (activeSubscriptions / totalUsers) * 100 : 0;
 
     // Calculate date range for rate calculations
