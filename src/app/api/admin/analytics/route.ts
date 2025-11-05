@@ -123,23 +123,20 @@ export async function GET(request: NextRequest) {
     const paidTxRows = (allTxRows ?? []).filter((t: any) => t.status === "paid" && t.transaction_type === "purchase");
     const cancelledTxRows = (allTxRows ?? []).filter((t: any) => t.status === "cancelled" && t.transaction_type === "cancellation");
 
-    // Calculate revenue statistics (paid - cancelled)
+    // Calculate revenue: Total paid revenue minus total cancelled revenue
+    const totalPaidRevenue = (paidTxRows ?? []).reduce((sum: number, tx: any) => sum + (tx.net_amount_cents ?? 0), 0);
+    const totalCancelledRevenue = (cancelledTxRows ?? []).reduce((sum: number, tx: any) => sum + (tx.net_amount_cents ?? 0), 0);
+    const totalRevenue = Math.max(0, totalPaidRevenue - totalCancelledRevenue);
+
+    // Calculate revenue statistics from paid transactions (before subtracting cancelled)
     const paidRevenueValues = (paidTxRows ?? [])
       .map((r: any) => r.net_amount_cents ?? 0)
       .filter((v: number) => v > 0)
       .sort((a: number, b: number) => a - b);
-    
-    const cancelledRevenueValues = (cancelledTxRows ?? [])
-      .map((r: any) => r.net_amount_cents ?? 0)
-      .filter((v: number) => v > 0);
 
-    const totalPaidRevenue = paidRevenueValues.reduce((sum: number, v: number) => sum + v, 0);
-    const totalCancelledRevenue = cancelledRevenueValues.reduce((sum: number, v: number) => sum + v, 0);
-    const totalRevenue = totalPaidRevenue - totalCancelledRevenue;
-    
     const revenueMean = paidRevenueValues.length > 0 ? totalRevenue / paidRevenueValues.length : 0;
     
-    // Median (using paid transactions only)
+    // Median (using paid transactions)
     let revenueMedian = 0;
     if (paidRevenueValues.length > 0) {
       const mid = Math.floor(paidRevenueValues.length / 2);
@@ -261,10 +258,9 @@ export async function GET(request: NextRequest) {
     const prev7Users = prev7Days.reduce((sum, day) => sum + byDay[day].users, 0);
     const userGrowthRate = prev7Users > 0 ? ((last7Users - prev7Users) / prev7Users) * 100 : 0;
 
-    // Conversion rate (users with subscriptions / total users)
+    // Conversion rate (active paid subscriptions / total users)
     const totalUsers = (profilesRows ?? []).length;
-    const usersWithSubscriptions = new Set((subsRows ?? []).map((s: any) => s.user_id)).size;
-    const conversionRate = totalUsers > 0 ? (usersWithSubscriptions / totalUsers) * 100 : 0;
+    const conversionRate = totalUsers > 0 ? (activeSubscriptions / totalUsers) * 100 : 0;
 
     // Calculate date range for rate calculations
     const startDate = start ? new Date(start) : null;
