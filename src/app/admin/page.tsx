@@ -35,6 +35,15 @@ export default function AdminPage() {
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>();
   const [showCustomDatePicker, setShowCustomDatePicker] = useState(false);
   const [aiGeneratedInsight, setAiGeneratedInsight] = useState<string | null>(null);
+
+  // Helpers are declared before usage to avoid temporal dead zone issues in hooks
+  function formatCurrency(cents: number) {
+    return `₱${(cents / 100).toFixed(2)}`;
+  }
+  function formatNumber(num: number) {
+    return num.toLocaleString();
+  }
+
   const descriptiveSummary = useMemo(() => {
     if (!analyticsData) return "";
     const totals = analyticsData.totals || {};
@@ -172,13 +181,7 @@ export default function AdminPage() {
     );
   }
 
-  const formatCurrency = (cents: number) => {
-    return `₱${(cents / 100).toFixed(2)}`;
-  };
-
-  const formatNumber = (num: number) => {
-    return num.toLocaleString();
-  };
+  
 
   const generateInsights = (data: any) => {
     const insights: Array<{ type: "success" | "warning" | "info" | "neutral"; title: string; description: string }> = [];
