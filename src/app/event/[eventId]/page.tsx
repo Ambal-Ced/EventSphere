@@ -273,6 +273,8 @@ export default function SingleEventPage() {
   ];
   const [isTypeMenuOpen, setIsTypeMenuOpen] = useState(false);
 
+  // (Sidebar sticky behavior is handled via CSS)
+
   useEffect(() => {
     if (eventId) {
       fetchEvent();
@@ -2254,6 +2256,7 @@ RECOMMENDATIONS:
   }
 
   return (
+    <>
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Header with Back Button */}
       <div className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700">
@@ -3071,7 +3074,7 @@ RECOMMENDATIONS:
           {/* Right Sidebar - Green Rectangle Concept (hidden when chat open) */}
           <div className="lg:col-span-1">
             {!showChat && (
-            <div className="lg:sticky lg:top-8 lg:max-h-[calc(100vh-2rem)] lg:overflow-auto h-fit space-y-6 z-20 self-start">
+            <div className="sticky top-24 h-fit space-y-6 z-10 self-start">
               {/* Event Actions */}
               <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-6 flex flex-col">
                 <h3 className="text-xl font-semibold text-green-400 mb-6">
@@ -4769,5 +4772,6 @@ RECOMMENDATIONS:
         isEnabled={aiChatEnabled}
       />
     </div>
+    </>
   );
 }

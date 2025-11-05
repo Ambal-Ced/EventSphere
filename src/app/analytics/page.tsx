@@ -717,7 +717,7 @@ export default function AnalyticsPage() {
                         <Cell key={idx} fill={idx === 0 ? '#6366f1' : '#22c55e'} />
                       ))}
                     </Pie>
-                    <Tooltip />
+                    <Tooltip contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} labelStyle={{ color: '#cbd5e1' }} itemStyle={{ color: '#22c55e' }} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
@@ -735,7 +735,7 @@ export default function AnalyticsPage() {
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                     <XAxis dataKey="name" tick={{ fill: '#cbd5e1' }} hide={lineData.length > 6} />
                     <YAxis tick={{ fill: '#cbd5e1' }} />
-                    <Tooltip />
+                    <Tooltip contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} labelStyle={{ color: '#cbd5e1' }} itemStyle={{ color: '#22c55e' }} />
                     <Line type="monotone" dataKey="cost" stroke="#f59e0b" strokeWidth={2} dot={{ r: 2 }} />
                   </LineChart>
                 </ResponsiveContainer>
@@ -753,7 +753,7 @@ export default function AnalyticsPage() {
                   <XAxis dataKey="x" name="Total Cost" tick={{ fill: '#cbd5e1' }} />
                   <YAxis dataKey="y" name="Expected" tick={{ fill: '#cbd5e1' }} />
                   <ZAxis range={[60, 120]} />
-                  <Tooltip cursor={{ strokeDasharray: '3 3' }} />
+                  <Tooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} labelStyle={{ color: '#cbd5e1' }} itemStyle={{ color: '#22c55e' }} />
                   <Scatter data={scatterData} fill="#06b6d4" />
                 </ScatterChart>
               </ResponsiveContainer>
@@ -769,7 +769,7 @@ export default function AnalyticsPage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                   <XAxis dataKey="name" tick={{ fill: '#cbd5e1' }} hide={costChartData.length > 6} />
                   <YAxis tick={{ fill: '#cbd5e1' }} />
-                  <Tooltip cursor={{ fill: 'rgba(148,163,184,0.08)' }} />
+                  <Tooltip cursor={{ fill: 'rgba(148,163,184,0.08)' }} contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} labelStyle={{ color: '#cbd5e1' }} itemStyle={{ color: '#22c55e' }} />
                   <Bar dataKey="cost" fill="#10b981" />
                 </BarChart>
               </ResponsiveContainer>

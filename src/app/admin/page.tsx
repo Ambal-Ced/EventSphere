@@ -684,7 +684,7 @@ export default function AdminPage() {
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis dataKey="date" className="text-xs" />
                       <YAxis className="text-xs" />
-                      <Tooltip />
+                      <Tooltip contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} labelStyle={{ color: '#cbd5e1' }} itemStyle={{ color: '#22c55e' }} />
                       <Legend />
                       <Line type="monotone" dataKey="events" stroke="#3b82f6" strokeWidth={2} name="Events" />
                     </LineChart>
@@ -699,7 +699,7 @@ export default function AdminPage() {
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis dataKey="date" className="text-xs" />
                       <YAxis className="text-xs" />
-                      <Tooltip />
+                      <Tooltip contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} labelStyle={{ color: '#cbd5e1' }} itemStyle={{ color: '#22c55e' }} />
                       <Legend />
                       <Line type="monotone" dataKey="transactions" stroke="#10b981" strokeWidth={2} name="Transactions" />
                     </LineChart>
@@ -714,7 +714,7 @@ export default function AdminPage() {
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis dataKey="date" className="text-xs" />
                       <YAxis className="text-xs" tickFormatter={(value: unknown) => `₱${(Number(value as number) / 100).toFixed(0)}`} />
-                      <Tooltip formatter={(value: any) => formatCurrency(Number(value))} />
+                      <Tooltip formatter={(value: any) => formatCurrency(Number(value))} contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} labelStyle={{ color: '#cbd5e1' }} itemStyle={{ color: '#22c55e' }} />
                       <Legend />
                       <Line type="monotone" dataKey="revenue_cents" stroke="#f59e0b" strokeWidth={2} name="Revenue" />
                     </LineChart>
@@ -729,7 +729,7 @@ export default function AdminPage() {
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis dataKey="date" className="text-xs" />
                       <YAxis className="text-xs" />
-                      <Tooltip />
+                      <Tooltip contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} labelStyle={{ color: '#cbd5e1' }} itemStyle={{ color: '#22c55e' }} />
                       <Legend />
                       <Line type="monotone" dataKey="cumulative_users" stroke="#8b5cf6" strokeWidth={2} name="Total Users" />
                       <Line type="monotone" dataKey="users" stroke="#ec4899" strokeWidth={2} name="New Users" />
@@ -748,7 +748,7 @@ export default function AdminPage() {
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis dataKey="name" className="text-xs" />
                       <YAxis className="text-xs" />
-                      <Tooltip />
+                      <Tooltip contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} labelStyle={{ color: '#cbd5e1' }} itemStyle={{ color: '#22c55e' }} />
                       <Legend />
                       <Bar dataKey="count" fill="#3b82f6" name="Subscribers" />
                     </BarChart>
@@ -763,7 +763,7 @@ export default function AdminPage() {
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis dataKey="name" className="text-xs" />
                       <YAxis className="text-xs" tickFormatter={(value: unknown) => `₱${(Number(value as number) / 100).toFixed(0)}`} />
-                      <Tooltip formatter={(value: any) => formatCurrency(Number(value))} />
+                      <Tooltip formatter={(value: any) => formatCurrency(Number(value))} contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} labelStyle={{ color: '#cbd5e1' }} itemStyle={{ color: '#22c55e' }} />
                       <Legend />
                       <Bar dataKey="revenue_cents" fill="#10b981" name="Revenue" />
                     </BarChart>
@@ -794,7 +794,7 @@ export default function AdminPage() {
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip />
+                      <Tooltip contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} labelStyle={{ color: '#cbd5e1' }} itemStyle={{ color: '#22c55e' }} />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>

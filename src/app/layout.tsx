@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/auth-context";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Header } from "@/components/ui/header";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Footer } from "@/components/ui/footer";
@@ -38,7 +39,7 @@ export default function RootLayout({
                 {/* Minimal, symmetric horizontal padding so pages are near full-width.
                     Sidebar controls overall left offset; we avoid extra margins here. */}
                 {/* Fixed right gutter to mirror the left spacer */}
-                <div className="pr-3 flex-1 overflow-y-auto">
+                <div className="pr-3 flex-1">
                   {children}
                 </div>
                 <Footer />
@@ -48,6 +49,7 @@ export default function RootLayout({
             <CompleteProfileHandler />
           </div>
         </AuthProvider>
+        <SpeedInsights />
       </body>
     </html>
   );
