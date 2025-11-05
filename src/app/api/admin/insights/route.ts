@@ -81,10 +81,9 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify({
         model: "command-r-plus",
-        messages: [
-          { role: "system", content: "You are an analytics assistant for an events platform. Be concise and specific with numbers. Currency is PHP unless stated." },
-          { role: "user", content: `Context: ${JSON.stringify(context)}\n\nQuestion: ${prompt}` },
-        ],
+        // Cohere v1/chat expects a single 'message' plus optional 'preamble' or 'chat_history'
+        preamble: "You are an analytics assistant for an events platform. Be concise and specific with numbers. Currency is PHP unless stated.",
+        message: `Context: ${JSON.stringify(context)}\n\nQuestion: ${prompt}`,
         temperature: 0.2,
       }),
     });

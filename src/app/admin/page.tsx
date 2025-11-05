@@ -17,7 +17,7 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
-import { TrendingUp, Users, Calendar, DollarSign, Package, Activity, RefreshCw, X, Lightbulb, AlertCircle, CheckCircle, Info } from "lucide-react";
+import { TrendingUp, Users, Calendar, DollarSign, Package, Activity, RefreshCw, Lightbulb } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -35,6 +35,38 @@ export default function AdminPage() {
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>();
   const [showCustomDatePicker, setShowCustomDatePicker] = useState(false);
   const [aiGeneratedInsight, setAiGeneratedInsight] = useState<string | null>(null);
+  const descriptiveSummary = useMemo(() => {
+    if (!analyticsData) return "";
+    const totals = analyticsData.totals || {};
+    const metrics = analyticsData.additional_metrics || {};
+    const transactionRates = analyticsData.transaction_rates || {};
+    const parts: string[] = [];
+    parts.push(
+      `Users: ${Number(totals.users || 0).toLocaleString()}. ` +
+      `Events: ${Number(totals.events || 0).toLocaleString()}. ` +
+      `Transactions: ${Number(totals.transactions || 0).toLocaleString()}. ` +
+      `Revenue: ${formatCurrency(totals.revenue_cents || 0)}.`
+    );
+    if (typeof metrics.conversion_rate === "number") {
+      parts.push(`Conversion rate: ${metrics.conversion_rate.toFixed(1)}%.`);
+    }
+    if (typeof metrics.avg_revenue_per_transaction === "number") {
+      parts.push(`Avg transaction: ${formatCurrency(metrics.avg_revenue_per_transaction)}.`);
+    }
+    if (typeof metrics.user_growth_rate === "number") {
+      parts.push(`User growth: ${metrics.user_growth_rate.toFixed(1)}%.`);
+    }
+    if (typeof metrics.event_creation_rate === "number") {
+      parts.push(`Event creation days: ${metrics.event_creation_rate.toFixed(1)}%.`);
+    }
+    if (typeof transactionRates.paid_rate === "number" && typeof transactionRates.cancelled_rate === "number") {
+      parts.push(`Transactions paid: ${transactionRates.paid_rate.toFixed(1)}%; cancelled: ${transactionRates.cancelled_rate.toFixed(1)}%.`);
+    }
+    if (metrics.most_popular_category && metrics.most_popular_category !== "None") {
+      parts.push(`Top category: ${metrics.most_popular_category}.`);
+    }
+    return parts.join(" ");
+  }, [analyticsData]);
   const [isGeneratingInsight, setIsGeneratingInsight] = useState(false);
 
   useEffect(() => {
@@ -339,14 +371,7 @@ export default function AdminPage() {
         subscription_breakdown: analyticsData.subscription_breakdown,
       };
 
-      const prompt = `Based on the analytics data provided, generate a comprehensive business insight summary. Focus on:
-1. Overall platform performance and health
-2. Revenue trends and opportunities
-3. User engagement and growth patterns
-4. Subscription performance
-5. Actionable recommendations for improvement
-
-Be specific with numbers and percentages. Write in a clear, executive-friendly style.`;
+      const prompt = `Write one concise paragraph (4-7 sentences) that synthesizes the platform's performance using the provided analytics. Emphasize: overall health, revenue and monetization, engagement and growth, subscriptions, and any notable risks or opportunities. Use specific numbers/percentages found in context. Keep it executive-friendly and avoid bullet points.`;
 
       const response = await fetch("/api/admin/insights", {
         method: "POST",
@@ -355,8 +380,8 @@ Be specific with numbers and percentages. Write in a clear, executive-friendly s
           Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
-          prompt,
-          context,
+          prompt: String(prompt || "Analytics insight"),
+          context: Object.keys(context || {}).length ? context : { note: "no context" },
         }),
       });
 
@@ -856,12 +881,12 @@ Be specific with numbers and percentages. Write in a clear, executive-friendly s
                 </div>
               )}
 
-              {/* Insights Section */}
+              {/* AI Insight + Descriptive Summary */}
               <div className="rounded-lg border p-6 bg-card">
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <Lightbulb className="h-5 w-5 text-primary" />
-                    <h3 className="text-lg font-semibold">Key Insights & Recommendations</h3>
+                    <h3 className="text-lg font-semibold">AI Insight</h3>
                   </div>
                   <Button
                     onClick={generateAIInsight}
@@ -883,59 +908,19 @@ Be specific with numbers and percentages. Write in a clear, executive-friendly s
                     )}
                   </Button>
                 </div>
-                <div className="space-y-4">
-                  {generateInsights(analyticsData).length > 0 ? (
-                    generateInsights(analyticsData).map((insight, index) => {
-                      const IconComponent = 
-                        insight.type === "success" ? CheckCircle :
-                        insight.type === "warning" ? AlertCircle :
-                        Info;
-                      const iconColor =
-                        insight.type === "success" ? "text-green-500" :
-                        insight.type === "warning" ? "text-yellow-500" :
-                        "text-blue-500";
-                      const borderColor =
-                        insight.type === "success" ? "border-green-500/30 bg-green-500/5" :
-                        insight.type === "warning" ? "border-yellow-500/30 bg-yellow-500/5" :
-                        "border-blue-500/30 bg-blue-500/5";
+                {aiGeneratedInsight ? (
+                  <div className="rounded-lg border p-4 bg-muted/50">
+                    <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{aiGeneratedInsight}</p>
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground">Click Generate to produce an AI-written insight paragraph.</div>
+                )}
 
-                      return (
-                        <div
-                          key={index}
-                          className={`rounded-lg border p-4 ${borderColor}`}
-                        >
-                          <div className="flex items-start gap-3">
-                            <IconComponent className={`h-5 w-5 ${iconColor} flex-shrink-0 mt-0.5`} />
-                            <div className="flex-1">
-                              <h4 className="font-semibold mb-1">{insight.title}</h4>
-                              <p className="text-sm text-muted-foreground leading-relaxed">
-                                {insight.description}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <Info className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p>No insights available. More data is needed to generate meaningful insights.</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* AI Generated Insight */}
-                {aiGeneratedInsight && (
+                {/* Descriptive analytics summary */}
+                {descriptiveSummary && (
                   <div className="mt-6 pt-6 border-t">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Lightbulb className="h-5 w-5 text-primary" />
-                      <h4 className="font-semibold">AI-Generated Comprehensive Insight</h4>
-                    </div>
-                    <div className="rounded-lg border p-4 bg-muted/50">
-                      <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
-                        {aiGeneratedInsight}
-                      </p>
-                    </div>
+                    <h4 className="font-semibold mb-2">Descriptive Analytics Summary</h4>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{descriptiveSummary}</p>
                   </div>
                 )}
               </div>
