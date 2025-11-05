@@ -123,10 +123,10 @@ export async function GET(request: NextRequest) {
     const paidTxRows = (allTxRows ?? []).filter((t: any) => t.status === "paid" && t.transaction_type === "purchase");
     const cancelledTxRows = (allTxRows ?? []).filter((t: any) => t.status === "cancelled" && t.transaction_type === "cancellation");
 
-    // Calculate revenue: Total paid revenue minus total cancelled revenue
-    const totalPaidRevenue = (paidTxRows ?? []).reduce((sum: number, tx: any) => sum + (tx.net_amount_cents ?? 0), 0);
+    // Calculate revenue: Sum of all net_amount (paid + cancelled) - Sum of cancelled net_amount
+    const totalAllRevenue = (allTxRows ?? []).reduce((sum: number, tx: any) => sum + (tx.net_amount_cents ?? 0), 0);
     const totalCancelledRevenue = (cancelledTxRows ?? []).reduce((sum: number, tx: any) => sum + (tx.net_amount_cents ?? 0), 0);
-    const totalRevenue = Math.max(0, totalPaidRevenue - totalCancelledRevenue);
+    const totalRevenue = Math.max(0, totalAllRevenue - totalCancelledRevenue);
 
     // Calculate revenue statistics from paid transactions (before subtracting cancelled)
     const paidRevenueValues = (paidTxRows ?? [])
