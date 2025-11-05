@@ -17,8 +17,10 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
-import { TrendingUp, Users, Calendar, DollarSign, Package, Activity, RefreshCw } from "lucide-react";
+import { TrendingUp, Users, Calendar, DollarSign, Package, Activity, RefreshCw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
 
@@ -28,7 +30,10 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<"eventtria" | "feedback" | "account_review">("eventtria");
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
-  const [dateRange, setDateRange] = useState<"7d" | "30d" | "90d" | "all">("30d");
+  const [dateRange, setDateRange] = useState<"7d" | "30d" | "90d" | "all" | "custom">("30d");
+  const [customStartDate, setCustomStartDate] = useState<Date | undefined>();
+  const [customEndDate, setCustomEndDate] = useState<Date | undefined>();
+  const [showCustomDatePicker, setShowCustomDatePicker] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,7 +73,16 @@ export default function AdminPage() {
       
       // Calculate date range
       let startDate: string | null = null;
-      if (dateRange !== "all") {
+      let endDate: string | null = null;
+      
+      if (dateRange === "custom") {
+        if (customStartDate) {
+          startDate = customStartDate.toISOString();
+        }
+        if (customEndDate) {
+          endDate = new Date(customEndDate.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString(); // End of day
+        }
+      } else if (dateRange !== "all") {
         const days = dateRange === "7d" ? 7 : dateRange === "30d" ? 30 : 90;
         const date = new Date();
         date.setDate(date.getDate() - days);
@@ -77,6 +91,7 @@ export default function AdminPage() {
 
       const url = new URL("/api/admin/analytics", window.location.origin);
       if (startDate) url.searchParams.set("start", startDate);
+      if (endDate) url.searchParams.set("end", endDate);
 
       const res = await fetch(url.toString(), {
         headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
@@ -98,6 +113,7 @@ export default function AdminPage() {
     if (isAdmin) {
       fetchAnalytics();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin, dateRange]);
 
   if (loading) {
@@ -137,15 +153,77 @@ export default function AdminPage() {
         <div className="flex items-center gap-2">
           <select
             value={dateRange}
-            onChange={(e) => setDateRange(e.target.value as "7d" | "30d" | "90d" | "all")}
-            className="rounded-md border px-3 py-2 text-sm"
+            onChange={(e) => {
+              const value = e.target.value as "7d" | "30d" | "90d" | "all" | "custom";
+              setDateRange(value);
+              if (value !== "custom") {
+                setShowCustomDatePicker(false);
+              }
+            }}
+            className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
           >
             <option value="7d">Last 7 days</option>
             <option value="30d">Last 30 days</option>
             <option value="90d">Last 90 days</option>
             <option value="all">All time</option>
+            <option value="custom">Custom range</option>
           </select>
-          <Button onClick={fetchAnalytics} disabled={loadingAnalytics} variant="outline" size="sm">
+          {dateRange === "custom" && (
+            <Popover open={showCustomDatePicker} onOpenChange={setShowCustomDatePicker}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="border-input bg-background text-foreground">
+                  <Calendar className="h-4 w-4 mr-2" />
+                  Custom Dates
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-4" align="end">
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Start Date</label>
+                    <DatePicker
+                      date={customStartDate}
+                      setDate={setCustomStartDate}
+                      placeholder="Select start date"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">End Date</label>
+                    <DatePicker
+                      date={customEndDate}
+                      setDate={setCustomEndDate}
+                      placeholder="Select end date"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => {
+                        if (customStartDate && customEndDate) {
+                          fetchAnalytics();
+                          setShowCustomDatePicker(false);
+                        }
+                      }}
+                      size="sm"
+                      className="flex-1"
+                      disabled={!customStartDate || !customEndDate}
+                    >
+                      Apply
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        setCustomStartDate(undefined);
+                        setCustomEndDate(undefined);
+                      }}
+                      variant="outline"
+                      size="sm"
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
+          <Button onClick={fetchAnalytics} disabled={loadingAnalytics} variant="outline" size="sm" className="border-input bg-background text-foreground">
             <RefreshCw className={`h-4 w-4 mr-2 ${loadingAnalytics ? "animate-spin" : ""}`} />
             Refresh
           </Button>
@@ -260,7 +338,7 @@ export default function AdminPage() {
                   </div>
                   <div className="text-3xl font-bold">{formatNumber(analyticsData.totals?.active_subscriptions || 0)}</div>
                   <div className="text-xs text-muted-foreground mt-2">
-                    of {formatNumber(analyticsData.totals?.subscriptions || 0)} total
+                    of {formatNumber(analyticsData.totals?.users || 0)} users
                   </div>
                 </div>
 
@@ -431,6 +509,97 @@ export default function AdminPage() {
                       </Pie>
                       <Tooltip />
                     </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+
+              {/* Event Creation Rate & Transaction Rates */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Event Creation Rate */}
+                <div className="rounded-lg border p-6 bg-card">
+                  <h3 className="text-lg font-semibold mb-4">Event Creation Rate</h3>
+                  <div className="flex items-center justify-center mb-4">
+                    <div className="text-center">
+                      <div className="text-5xl font-bold text-primary">
+                        {analyticsData.additional_metrics?.event_creation_rate !== undefined
+                          ? `${analyticsData.additional_metrics.event_creation_rate.toFixed(1)}%`
+                          : "0%"}
+                      </div>
+                      <div className="text-sm text-muted-foreground mt-2">
+                        Days with events created in selected period
+                      </div>
+                    </div>
+                  </div>
+                  {analyticsData.additional_metrics?.most_popular_category && (
+                    <div className="mt-4 pt-4 border-t">
+                      <div className="text-sm text-muted-foreground">Most Popular Category</div>
+                      <div className="text-xl font-semibold mt-1">
+                        {analyticsData.additional_metrics.most_popular_category}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Transaction Rates */}
+                {analyticsData.transaction_rates && (
+                  <div className="rounded-lg border p-6 bg-card">
+                    <h3 className="text-lg font-semibold mb-4">Transaction Rates</h3>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <PieChart>
+                        <Pie
+                          data={[
+                            { name: "Paid", value: analyticsData.transaction_rates.paid_rate || 0 },
+                            { name: "Cancelled", value: analyticsData.transaction_rates.cancelled_rate || 0 },
+                          ]}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={(props: any) => {
+                            const { name, percent } = props;
+                            return `${name}: ${(percent * 100).toFixed(1)}%`;
+                          }}
+                          outerRadius={100}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          <Cell fill="#10b981" />
+                          <Cell fill="#ef4444" />
+                        </Pie>
+                        <Tooltip />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="mt-4 grid grid-cols-2 gap-4 text-center">
+                      <div>
+                        <div className="text-2xl font-bold text-green-600">
+                          {analyticsData.transaction_rates.paid || 0}
+                        </div>
+                        <div className="text-xs text-muted-foreground">Paid</div>
+                      </div>
+                      <div>
+                        <div className="text-2xl font-bold text-red-600">
+                          {analyticsData.transaction_rates.cancelled || 0}
+                        </div>
+                        <div className="text-xs text-muted-foreground">Cancelled</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Sales by Event Category */}
+              {analyticsData.sales_by_category && analyticsData.sales_by_category.length > 0 && (
+                <div className="rounded-lg border p-6 bg-card">
+                  <h3 className="text-lg font-semibold mb-4">Sales by Event Category</h3>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={analyticsData.sales_by_category}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis dataKey="category" className="text-xs" angle={-45} textAnchor="end" height={100} />
+                      <YAxis className="text-xs" />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="count" fill="#3b82f6" name="Events" />
+                    </BarChart>
                   </ResponsiveContainer>
                 </div>
               )}

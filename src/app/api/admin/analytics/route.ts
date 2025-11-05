@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
       return query;
     };
 
-    // 1. Get all transactions (paid purchases only)
+    // 1. Get all transactions (paid purchases only for revenue)
     let txQuery = db
       .from("transactions")
       .select("id, net_amount_cents, created_at, transaction_type, status, plan_name")
@@ -69,8 +69,18 @@ export async function GET(request: NextRequest) {
     const { data: txRows, error: txError } = await txQuery;
     if (txError) throw txError;
 
-    // 2. Get all events
-    let eventsQuery = db.from("events").select("id, created_at, date");
+    // 1b. Get all transactions (paid and cancelled for rate calculation)
+    let allTxQuery = db
+      .from("transactions")
+      .select("id, net_amount_cents, created_at, transaction_type, status, plan_name")
+      .in("status", ["paid", "cancelled"])
+      .in("transaction_type", ["purchase", "cancellation"]);
+    allTxQuery = buildDateFilter(allTxQuery);
+    const { data: allTxRows, error: allTxError } = await allTxQuery;
+    if (allTxError) throw allTxError;
+
+    // 2. Get all events with category
+    let eventsQuery = db.from("events").select("id, created_at, date, category");
     eventsQuery = buildDateFilter(eventsQuery);
     const { data: eventsRows, error: eventsError } = await eventsQuery;
     if (eventsError) throw eventsError;
@@ -174,10 +184,12 @@ export async function GET(request: NextRequest) {
       const day = new Date(r.created_at).toISOString().slice(0, 10);
       if (!byDay[day]) byDay[day] = { events: 0, transactions: 0, revenue_cents: 0, users: 0, subscriptions: 0, active_subscriptions: 0 };
       byDay[day].subscriptions += 1;
-      // Count active subscriptions
+      // Count active subscriptions - only paid plans (plan_id starting with 111 or 222), exclude free tier (000)
+      const planId = r.plan_id || "";
+      const isPaidPlan = planId.startsWith("111") || planId.startsWith("222");
       const now = new Date();
       const periodEnd = new Date(r.current_period_end);
-      if (r.status === "active" && periodEnd > now) {
+      if (r.status === "active" && periodEnd > now && isPaidPlan) {
         byDay[day].active_subscriptions += 1;
       }
     });
@@ -200,11 +212,13 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // Active subscriptions count
+    // Active subscriptions count - only paid plans (plan_id starting with 111 or 222), exclude free tier (000)
     const now = new Date();
     const activeSubscriptions = (subsRows ?? []).filter((sub: any) => {
+      const planId = sub.plan_id || "";
+      const isPaidPlan = planId.startsWith("111") || planId.startsWith("222");
       const periodEnd = new Date(sub.current_period_end);
-      return sub.status === "active" && periodEnd > now;
+      return sub.status === "active" && periodEnd > now && isPaidPlan;
     }).length;
 
     // Cumulative users over time
@@ -227,6 +241,39 @@ export async function GET(request: NextRequest) {
     const totalUsers = (profilesRows ?? []).length;
     const usersWithSubscriptions = new Set((subsRows ?? []).map((s: any) => s.user_id)).size;
     const conversionRate = totalUsers > 0 ? (usersWithSubscriptions / totalUsers) * 100 : 0;
+
+    // Calculate date range for rate calculations
+    const startDate = start ? new Date(start) : null;
+    const endDate = end ? new Date(end) : new Date();
+    const eventDates = (eventsRows ?? []).map((e: any) => new Date(e.created_at).getTime());
+    const txDates = (allTxRows ?? []).map((t: any) => new Date(t.created_at).getTime());
+    const allDates = [...eventDates, ...txDates, Date.now()];
+    const actualStartDate = startDate || (allDates.length > 0 ? new Date(Math.min(...allDates)) : new Date(endDate.getTime() - 7 * 24 * 60 * 60 * 1000));
+    const totalDays = Math.max(1, Math.ceil((endDate.getTime() - actualStartDate.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+
+    // Event creation rate (percentage of days with events created)
+    const daysWithEvents = new Set((eventsRows ?? []).map((e: any) => new Date(e.created_at).toISOString().slice(0, 10))).size;
+    const eventCreationRate = totalDays > 0 ? (daysWithEvents / totalDays) * 100 : 0;
+
+    // Sales per event category (count events per category)
+    const eventsByCategory: Record<string, number> = {};
+    (eventsRows ?? []).forEach((e: any) => {
+      const category = e.category || "Uncategorized";
+      eventsByCategory[category] = (eventsByCategory[category] || 0) + 1;
+    });
+    const salesByCategory = Object.entries(eventsByCategory)
+      .map(([category, count]) => ({ category, count }))
+      .sort((a, b) => b.count - a.count);
+
+    // Most popular event category
+    const mostPopularCategory = salesByCategory.length > 0 ? salesByCategory[0].category : "None";
+
+    // Transaction rate (paid vs cancelled)
+    const paidTransactions = (allTxRows ?? []).filter((t: any) => t.status === "paid").length;
+    const cancelledTransactions = (allTxRows ?? []).filter((t: any) => t.status === "cancelled").length;
+    const totalTransactionsForRate = paidTransactions + cancelledTransactions;
+    const paidRate = totalTransactionsForRate > 0 ? (paidTransactions / totalTransactionsForRate) * 100 : 0;
+    const cancelledRate = totalTransactionsForRate > 0 ? (cancelledTransactions / totalTransactionsForRate) * 100 : 0;
 
     return NextResponse.json({
       totals: {
@@ -263,6 +310,17 @@ export async function GET(request: NextRequest) {
         conversion_rate: conversionRate,
         avg_revenue_per_transaction: revenueValues.length > 0 ? totalRevenue / revenueValues.length : 0,
         avg_transactions_per_user: totalUsers > 0 ? (txRows ?? []).length / totalUsers : 0,
+        event_creation_rate: eventCreationRate,
+        transaction_paid_rate: paidRate,
+        transaction_cancelled_rate: cancelledRate,
+        most_popular_category: mostPopularCategory,
+      },
+      sales_by_category: salesByCategory,
+      transaction_rates: {
+        paid: paidTransactions,
+        cancelled: cancelledTransactions,
+        paid_rate: paidRate,
+        cancelled_rate: cancelledRate,
       },
       debug: { usedServiceRole: !!serviceKey },
     });
