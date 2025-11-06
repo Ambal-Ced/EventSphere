@@ -804,7 +804,7 @@ export default function AdminPage() {
               </div>
 
               {/* Subscription Distribution Pie Chart */}
-              {analyticsData.subscription_breakdown && analyticsData.subscription_breakdown.length > 0 && (() => {
+              {mounted && analyticsData.subscription_breakdown && analyticsData.subscription_breakdown.length > 0 && (() => {
                 const pieData = analyticsData.subscription_breakdown.map((entry: any, index: number) => ({
                   ...entry,
                   color: COLORS[index % COLORS.length],
@@ -831,9 +831,9 @@ export default function AdminPage() {
                         >
                           {pieData.map((entry: any, index: number) => (
                             <Cell 
-                              key={`cell-sub-${index}`} 
+                              key={`cell-sub-${index}-${entry.name}`} 
                               fill={entry.color} 
-                              stroke={entry.color} 
+                              stroke={entry.color}
                               strokeWidth={2}
                             />
                           ))}
@@ -902,7 +902,7 @@ export default function AdminPage() {
                 </div>
 
                 {/* Transaction Rates */}
-                {analyticsData.transaction_rates && (() => {
+                {mounted && analyticsData.transaction_rates && (() => {
                   const paidColor = COLORS[1]; // Green
                   const cancelledColor = COLORS[3]; // Red
                   const pieData = [
@@ -928,9 +928,9 @@ export default function AdminPage() {
                           >
                             {pieData.map((entry, index) => (
                               <Cell 
-                                key={`cell-tx-${index}`} 
+                                key={`cell-tx-${index}-${entry.name}`} 
                                 fill={entry.color} 
-                                stroke={entry.color} 
+                                stroke={entry.color}
                                 strokeWidth={2}
                               />
                             ))}
