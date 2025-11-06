@@ -452,11 +452,6 @@ export default function AdminPage() {
 
   return (
     <>
-      <style dangerouslySetInnerHTML={{__html: `
-        .recharts-pie-sector { fill: inherit !important; }
-        .recharts-pie-sector path { fill: inherit !important; }
-        .recharts-pie-sector rect { fill: inherit !important; }
-      `}} />
       <div className="container mx-auto max-w-7xl py-4 sm:py-6 lg:py-8 px-4 sm:px-6">
       <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -840,7 +835,6 @@ export default function AdminPage() {
                               fill={entry.color} 
                               stroke={entry.color} 
                               strokeWidth={2}
-                              style={{ fill: entry.color }}
                             />
                           ))}
                         </Pie>
@@ -938,7 +932,6 @@ export default function AdminPage() {
                                 fill={entry.color} 
                                 stroke={entry.color} 
                                 strokeWidth={2}
-                                style={{ fill: entry.color }}
                               />
                             ))}
                           </Pie>
