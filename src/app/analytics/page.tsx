@@ -14,6 +14,7 @@ const XAxis: any = dynamic(() => import("recharts").then(m => m.XAxis as any), {
 const YAxis: any = dynamic(() => import("recharts").then(m => m.YAxis as any), { ssr: false }) as any;
 const CartesianGrid: any = dynamic(() => import("recharts").then(m => m.CartesianGrid as any), { ssr: false }) as any;
 const Tooltip: any = dynamic(() => import("recharts").then(m => m.Tooltip as any), { ssr: false }) as any;
+const Legend: any = dynamic(() => import("recharts").then(m => m.Legend as any), { ssr: false }) as any;
 const PieChart: any = dynamic(() => import("recharts").then(m => m.PieChart as any), { ssr: false }) as any;
 const Pie: any = dynamic(() => import("recharts").then(m => m.Pie as any), { ssr: false }) as any;
 const Cell: any = dynamic(() => import("recharts").then(m => m.Cell as any), { ssr: false }) as any;
@@ -248,8 +249,8 @@ export default function AnalyticsPage() {
   const attendancePie = useMemo(() => {
     if (!aggregates) return [] as any[];
     return [
-      { name: 'Expected', value: aggregates.expectedTotal },
-      { name: 'Actual', value: aggregates.actualTotal },
+      { name: 'Expected', value: aggregates.expectedTotal, fill: '#6366f1' },
+      { name: 'Actual', value: aggregates.actualTotal, fill: '#22c55e' },
     ];
   }, [aggregates]);
 
@@ -708,25 +709,50 @@ export default function AnalyticsPage() {
           </div>
 
           {/* Attendance Overview Pie */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-slate-800/60 rounded-lg p-4 border border-slate-600 md:col-span-1">
-              <h3 className="text-lg font-semibold text-white mb-3">Attendance Overview</h3>
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={attendancePie} dataKey="value" nameKey="name" innerRadius={50} outerRadius={80}>
-                      {attendancePie.map((_, idx) => (
-                        <Cell key={idx} fill={idx === 0 ? '#6366f1' : '#22c55e'} />
-                      ))}
-                    </Pie>
-                    <Tooltip contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} labelStyle={{ color: '#cbd5e1' }} itemStyle={{ color: '#22c55e' }} />
-                  </PieChart>
-                </ResponsiveContainer>
+          {mounted && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-slate-800/60 rounded-lg p-4 border border-slate-600 md:col-span-1">
+                <h3 className="text-lg font-semibold text-white mb-3">Attendance Overview</h3>
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie 
+                        data={attendancePie} 
+                        dataKey="value" 
+                        nameKey="name" 
+                        innerRadius={50} 
+                        outerRadius={80}
+                        isAnimationActive={false}
+                      >
+                        {attendancePie.map((entry, idx) => {
+                          const fillColor = entry.fill || (idx === 0 ? '#6366f1' : '#22c55e');
+                          return (
+                            <Cell 
+                              key={`cell-attendance-${idx}`} 
+                              fill={fillColor}
+                              stroke={fillColor}
+                              strokeWidth={2}
+                            />
+                          );
+                        })}
+                      </Pie>
+                      <Tooltip contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} labelStyle={{ color: '#cbd5e1' }} itemStyle={{ color: '#22c55e' }} />
+                      <Legend 
+                        wrapperStyle={{ color: 'currentColor' }} 
+                        iconType="circle"
+                        formatter={(value: string, entry: any) => {
+                          const dataEntry = attendancePie.find((d: any) => d.name === value);
+                          const legendColor = dataEntry?.fill || entry.color || '#999';
+                          return <span style={{ color: legendColor }}>{value}</span>;
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="mt-3 text-sm text-slate-300">
+                  Avg Rating: <span className="font-semibold">{aggregates.avgRating.toFixed(1)}/5</span>
+                </div>
               </div>
-              <div className="mt-3 text-sm text-slate-300">
-                Avg Rating: <span className="font-semibold">{aggregates.avgRating.toFixed(1)}/5</span>
-              </div>
-            </div>
 
             {/* Cost over Time */}
             <div className="bg-slate-800/60 rounded-lg p-4 border border-slate-600 md:col-span-2">
@@ -744,6 +770,7 @@ export default function AnalyticsPage() {
               </div>
             </div>
           </div>
+          )}
 
           {/* Cost vs Expected Attendees */}
           <div className="bg-slate-800/60 rounded-lg p-4 border border-slate-600">
