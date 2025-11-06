@@ -24,6 +24,8 @@ const Scatter: any = dynamic(() => import("recharts").then(m => m.Scatter as any
 const ZAxis: any = dynamic(() => import("recharts").then(m => m.ZAxis as any), { ssr: false }) as any;
 import { DefaultSubscriptionManager } from "@/lib/default-subscription-manager";
 
+const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
+
 // Note: Metadata must be exported from a server component. This page is client-only.
 
 type EventRow = {
@@ -765,12 +767,16 @@ export default function AnalyticsPage() {
             <h3 className="text-lg font-semibold text-white mb-3">Top Events by Total Item Cost</h3>
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={costChartData} margin={{ left: 8, right: 8 }}>
+                <BarChart data={costChartData.map((item: any, idx: number) => ({ ...item, _index: idx }))} margin={{ left: 8, right: 8 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                   <XAxis dataKey="name" tick={{ fill: '#cbd5e1' }} hide={costChartData.length > 6} />
                   <YAxis tick={{ fill: '#cbd5e1' }} />
                   <Tooltip cursor={{ fill: 'rgba(148,163,184,0.08)' }} contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} labelStyle={{ color: '#cbd5e1' }} itemStyle={{ color: '#22c55e' }} />
-                  <Bar dataKey="cost" fill="#10b981" />
+                  <Bar dataKey="cost" shape={(props: any) => {
+                    const { x, y, width, height, payload } = props;
+                    const idx = payload?._index ?? 0;
+                    return <rect x={x} y={y} width={width} height={height} fill={COLORS[idx % COLORS.length]} />;
+                  }} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

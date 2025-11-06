@@ -682,10 +682,10 @@ export default function AdminPage() {
                   <ResponsiveContainer width="100%" height={300}>
                     <LineChart data={analyticsData.time_series || []}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis dataKey="date" className="text-xs" />
-                      <YAxis className="text-xs" />
+                      <XAxis dataKey="date" className="text-xs" tick={{ fill: '#64748b' }} />
+                      <YAxis className="text-xs" tick={{ fill: '#64748b' }} />
                       <Tooltip contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} labelStyle={{ color: '#cbd5e1' }} itemStyle={{ color: '#22c55e' }} />
-                      <Legend />
+                      <Legend wrapperStyle={{ color: '#1e293b' }} />
                       <Line type="monotone" dataKey="events" stroke="#3b82f6" strokeWidth={2} name="Events" />
                     </LineChart>
                   </ResponsiveContainer>
@@ -697,10 +697,10 @@ export default function AdminPage() {
                   <ResponsiveContainer width="100%" height={300}>
                     <LineChart data={analyticsData.time_series || []}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis dataKey="date" className="text-xs" />
-                      <YAxis className="text-xs" />
+                      <XAxis dataKey="date" className="text-xs" tick={{ fill: '#64748b' }} />
+                      <YAxis className="text-xs" tick={{ fill: '#64748b' }} />
                       <Tooltip contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} labelStyle={{ color: '#cbd5e1' }} itemStyle={{ color: '#22c55e' }} />
-                      <Legend />
+                      <Legend wrapperStyle={{ color: '#1e293b' }} />
                       <Line type="monotone" dataKey="transactions" stroke="#10b981" strokeWidth={2} name="Transactions" />
                     </LineChart>
                   </ResponsiveContainer>
@@ -712,10 +712,10 @@ export default function AdminPage() {
                   <ResponsiveContainer width="100%" height={300}>
                     <LineChart data={analyticsData.time_series || []}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis dataKey="date" className="text-xs" />
-                      <YAxis className="text-xs" tickFormatter={(value: unknown) => `₱${(Number(value as number) / 100).toFixed(0)}`} />
+                      <XAxis dataKey="date" className="text-xs" tick={{ fill: '#64748b' }} />
+                      <YAxis className="text-xs" tick={{ fill: '#64748b' }} tickFormatter={(value: unknown) => `₱${(Number(value as number) / 100).toFixed(0)}`} />
                       <Tooltip formatter={(value: any) => formatCurrency(Number(value))} contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} labelStyle={{ color: '#cbd5e1' }} itemStyle={{ color: '#22c55e' }} />
-                      <Legend />
+                      <Legend wrapperStyle={{ color: '#1e293b' }} />
                       <Line type="monotone" dataKey="revenue_cents" stroke="#f59e0b" strokeWidth={2} name="Revenue" />
                     </LineChart>
                   </ResponsiveContainer>
@@ -727,10 +727,10 @@ export default function AdminPage() {
                   <ResponsiveContainer width="100%" height={300}>
                     <LineChart data={analyticsData.time_series || []}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis dataKey="date" className="text-xs" />
-                      <YAxis className="text-xs" />
+                      <XAxis dataKey="date" className="text-xs" tick={{ fill: '#64748b' }} />
+                      <YAxis className="text-xs" tick={{ fill: '#64748b' }} />
                       <Tooltip contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} labelStyle={{ color: '#cbd5e1' }} itemStyle={{ color: '#22c55e' }} />
-                      <Legend />
+                      <Legend wrapperStyle={{ color: '#1e293b' }} />
                       <Line type="monotone" dataKey="cumulative_users" stroke="#8b5cf6" strokeWidth={2} name="Total Users" />
                       <Line type="monotone" dataKey="users" stroke="#ec4899" strokeWidth={2} name="New Users" />
                     </LineChart>
@@ -744,13 +744,17 @@ export default function AdminPage() {
                 <div className="rounded-lg border p-6 bg-card">
                   <h3 className="text-lg font-semibold mb-4">Most Popular Subscriptions</h3>
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={analyticsData.subscription_breakdown || []}>
+                    <BarChart data={(analyticsData.subscription_breakdown || []).map((item: any, idx: number) => ({ ...item, _index: idx }))}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis dataKey="name" className="text-xs" />
-                      <YAxis className="text-xs" />
+                      <XAxis dataKey="name" className="text-xs" tick={{ fill: '#64748b' }} />
+                      <YAxis className="text-xs" tick={{ fill: '#64748b' }} />
                       <Tooltip contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} labelStyle={{ color: '#cbd5e1' }} itemStyle={{ color: '#22c55e' }} />
-                      <Legend />
-                      <Bar dataKey="count" fill="#3b82f6" name="Subscribers" />
+                      <Legend wrapperStyle={{ color: '#1e293b' }} />
+                      <Bar dataKey="count" name="Subscribers" shape={(props: any) => {
+                        const { x, y, width, height, payload } = props;
+                        const idx = payload?._index ?? 0;
+                        return <rect x={x} y={y} width={width} height={height} fill={COLORS[idx % COLORS.length]} />;
+                      }} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -759,13 +763,17 @@ export default function AdminPage() {
                 <div className="rounded-lg border p-6 bg-card">
                   <h3 className="text-lg font-semibold mb-4">Revenue by Subscription Plan</h3>
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={analyticsData.subscription_breakdown || []}>
+                    <BarChart data={(analyticsData.subscription_breakdown || []).map((item: any, idx: number) => ({ ...item, _index: idx }))}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis dataKey="name" className="text-xs" />
-                      <YAxis className="text-xs" tickFormatter={(value: unknown) => `₱${(Number(value as number) / 100).toFixed(0)}`} />
+                      <XAxis dataKey="name" className="text-xs" tick={{ fill: '#64748b' }} />
+                      <YAxis className="text-xs" tick={{ fill: '#64748b' }} tickFormatter={(value: unknown) => `₱${(Number(value as number) / 100).toFixed(0)}`} />
                       <Tooltip formatter={(value: any) => formatCurrency(Number(value))} contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} labelStyle={{ color: '#cbd5e1' }} itemStyle={{ color: '#22c55e' }} />
-                      <Legend />
-                      <Bar dataKey="revenue_cents" fill="#10b981" name="Revenue" />
+                      <Legend wrapperStyle={{ color: '#1e293b' }} />
+                      <Bar dataKey="revenue_cents" name="Revenue" shape={(props: any) => {
+                        const { x, y, width, height, payload } = props;
+                        const idx = payload?._index ?? 0;
+                        return <rect x={x} y={y} width={width} height={height} fill={COLORS[idx % COLORS.length]} />;
+                      }} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -789,12 +797,14 @@ export default function AdminPage() {
                         outerRadius={100}
                         fill="#8884d8"
                         dataKey="count"
+                        labelStyle={{ fill: '#1e293b', fontSize: '12px', fontWeight: 500 }}
                       >
                         {analyticsData.subscription_breakdown.map((entry: any, index: number) => (
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
                       <Tooltip contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} labelStyle={{ color: '#cbd5e1' }} itemStyle={{ color: '#22c55e' }} />
+                      <Legend wrapperStyle={{ color: '#1e293b' }} />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
@@ -865,12 +875,13 @@ export default function AdminPage() {
                           outerRadius={100}
                           fill="#8884d8"
                           dataKey="value"
+                          labelStyle={{ fill: '#1e293b', fontSize: '12px', fontWeight: 500 }}
                         >
                           <Cell fill="#10b981" />
                           <Cell fill="#ef4444" />
                         </Pie>
-                        <Tooltip />
-                        <Legend />
+                        <Tooltip contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} labelStyle={{ color: '#cbd5e1' }} itemStyle={{ color: '#22c55e' }} />
+                        <Legend wrapperStyle={{ color: '#1e293b' }} />
                       </PieChart>
                     </ResponsiveContainer>
                     <div className="mt-4 grid grid-cols-2 gap-4 text-center">
@@ -896,13 +907,17 @@ export default function AdminPage() {
                 <div className="rounded-lg border p-6 bg-card">
                   <h3 className="text-lg font-semibold mb-4">Sales by Event Category</h3>
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={analyticsData.sales_by_category}>
+                    <BarChart data={analyticsData.sales_by_category.map((item: any, idx: number) => ({ ...item, _index: idx }))}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis dataKey="category" className="text-xs" angle={-45} textAnchor="end" height={100} />
-                      <YAxis className="text-xs" />
-                      <Tooltip />
-                      <Legend />
-                      <Bar dataKey="count" fill="#3b82f6" name="Events" />
+                      <XAxis dataKey="category" className="text-xs" angle={-45} textAnchor="end" height={100} tick={{ fill: '#64748b' }} />
+                      <YAxis className="text-xs" tick={{ fill: '#64748b' }} />
+                      <Tooltip contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} labelStyle={{ color: '#cbd5e1' }} itemStyle={{ color: '#22c55e' }} />
+                      <Legend wrapperStyle={{ color: '#1e293b' }} />
+                      <Bar dataKey="count" name="Events" shape={(props: any) => {
+                        const { x, y, width, height, payload } = props;
+                        const idx = payload?._index ?? 0;
+                        return <rect x={x} y={y} width={width} height={height} fill={COLORS[idx % COLORS.length]} />;
+                      }} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>

@@ -4391,12 +4391,18 @@ RECOMMENDATIONS:
                         <XAxis dataKey="name" tick={{ fill: '#9CA3AF', fontSize: 12 }} />
                         <YAxis tick={{ fill: '#9CA3AF', fontSize: 12 }} />
                         <Tooltip 
-                          formatter={(value, name) => [
-                            name === 'quantity' ? `${value} units` : `PHP ${Number(value).toFixed(2)}`,
-                            name === 'quantity' ? 'Quantity' : 'Cost'
-                          ]}
+                          formatter={(value, name) => {
+                            // name can be either the dataKey ('quantity' or 'cost') or the Bar name prop ('Quantity' or 'Cost')
+                            const normalizedName = String(name).toLowerCase();
+                            if (normalizedName === 'quantity' || normalizedName.includes('quantity')) {
+                              return [`${value} units`, 'Quantity'];
+                            } else {
+                              return [`PHP ${Number(value).toFixed(2)}`, 'Cost'];
+                            }
+                          }}
                           labelStyle={{ color: '#F3F4F6' }}
                           contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151' }}
+                          itemStyle={{ color: '#F3F4F6' }}
                         />
                         <Bar dataKey="quantity" fill="#3B82F6" name="Quantity" />
                         <Bar dataKey="cost" fill="#10B981" name="Cost" />
