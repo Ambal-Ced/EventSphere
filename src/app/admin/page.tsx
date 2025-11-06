@@ -795,7 +795,6 @@ export default function AdminPage() {
                           return `${name}: ${(percent * 100).toFixed(0)}%`;
                         }}
                         outerRadius={100}
-                        fill="#8884d8"
                         dataKey="count"
                         labelStyle={{ fill: '#1e293b', fontSize: '12px', fontWeight: 500 }}
                       >
@@ -873,12 +872,11 @@ export default function AdminPage() {
                             return `${name}: ${(percent * 100).toFixed(1)}%`;
                           }}
                           outerRadius={100}
-                          fill="#8884d8"
                           dataKey="value"
                           labelStyle={{ fill: '#1e293b', fontSize: '12px', fontWeight: 500 }}
                         >
-                          <Cell fill="#10b981" />
-                          <Cell fill="#ef4444" />
+                          <Cell fill={COLORS[1]} /> {/* Paid - green */
+                          <Cell fill={COLORS[3]} /> {/* Cancelled - red */}
                         </Pie>
                         <Tooltip contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} labelStyle={{ color: '#cbd5e1' }} itemStyle={{ color: '#22c55e' }} />
                         <Legend wrapperStyle={{ color: '#1e293b' }} />
