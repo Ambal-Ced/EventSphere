@@ -811,7 +811,7 @@ export default function AdminPage() {
                         labelStyle={{ fill: '#1e293b', fontSize: '12px', fontWeight: 500 }}
                       >
                         {analyticsData.subscription_breakdown.map((entry: any, index: number) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          <Cell key={`cell-sub-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
                       <Tooltip contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} labelStyle={{ color: '#cbd5e1' }} itemStyle={{ color: '#22c55e' }} />
@@ -884,8 +884,8 @@ export default function AdminPage() {
                           dataKey="value"
                           labelStyle={{ fill: '#1e293b', fontSize: '12px', fontWeight: 500 }}
                         >
-                          <Cell fill={COLORS[1]} />
-                          <Cell fill={COLORS[3]} />
+                          <Cell key="cell-paid" fill={COLORS[1]} />
+                          <Cell key="cell-cancelled" fill={COLORS[3]} />
                         </Pie>
                         <Tooltip contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} labelStyle={{ color: '#cbd5e1' }} itemStyle={{ color: '#22c55e' }} />
                         <Legend wrapperStyle={{ color: '#1e293b' }} />
