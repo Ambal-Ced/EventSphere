@@ -40,12 +40,12 @@ export default function AdminPage() {
   const [aiGeneratedInsight, setAiGeneratedInsight] = useState<string | null>(null);
 
   // Helpers are declared before usage to avoid temporal dead zone issues in hooks
-  function formatCurrency(cents: number) {
+  const formatCurrency = useCallback((cents: number) => {
     return `₱${(cents / 100).toFixed(2)}`;
-  }
-  function formatNumber(num: number) {
+  }, []);
+  const formatNumber = useCallback((num: number) => {
     return num.toLocaleString();
-  }
+  }, []);
 
   const descriptiveSummary = useMemo(() => {
     if (!analyticsData) return "";
@@ -78,7 +78,7 @@ export default function AdminPage() {
       parts.push(`Top category: ${metrics.most_popular_category}.`);
     }
     return parts.join(" ");
-  }, [analyticsData]);
+  }, [analyticsData, formatCurrency]);
   const [isGeneratingInsight, setIsGeneratingInsight] = useState(false);
 
   // Watchdog: auto-refresh if analytics load is stuck too long
@@ -173,28 +173,8 @@ export default function AdminPage() {
     }
   }, [isAdmin, dateRange, customStartDate, customEndDate, fetchAnalytics]);
 
-  if (loading) {
-    return (
-      <div className="flex h-[60vh] items-center justify-center text-sm text-muted-foreground">
-        Loading...
-      </div>
-    );
-  }
-
-  if (!isAdmin) {
-    return (
-      <div className="flex h-[60vh] items-center justify-center">
-        <div className="text-center">
-          <div className="text-3xl font-semibold">404</div>
-          <div className="text-muted-foreground">This page could not be found.</div>
-        </div>
-      </div>
-    );
-  }
-
-  
-
-  const generateInsights = (data: any) => {
+  // Helper functions - must be defined before early returns
+  const generateInsights = useCallback((data: any) => {
     const insights: Array<{ type: "success" | "warning" | "info" | "neutral"; title: string; description: string }> = [];
 
     if (!data) return insights;
@@ -360,9 +340,9 @@ export default function AdminPage() {
     }
 
     return insights;
-  };
+  }, [formatCurrency]);
 
-  const generateAIInsight = async () => {
+  const generateAIInsight = useCallback(async () => {
     if (!analyticsData || isGeneratingInsight) return;
 
     setIsGeneratingInsight(true);
@@ -393,10 +373,22 @@ export default function AdminPage() {
       // Professional, explanatory narrative
       const parts: string[] = [];
       parts.push(`Your platform currently has ${users.toLocaleString()} users across ${events.toLocaleString()} events, generating ${transactions.toLocaleString()} total transactions.`);
-      parts.push(`Revenue totals ${revenuePeso}; the typical purchase is around ${avgTx}${mean ? `, closely aligned with a mean of ${mean}` : ""}, suggesting pricing consistency.`);
+      parts.push(`Revenue totals ${revenuePeso}; the typical purchase is around ${avgTx}${mean ? ", closely aligned with a mean of " + mean : ""}, suggesting pricing consistency.`);
       parts.push(`User growth over the most recent period is ${growth}, while subscription conversion is ${conv}. Together, these indicate the present balance between acquisition and monetization.`);
       if (paidRate || cancelledRate) {
-        parts.push(`Of recent transactions, ${paidRate ? `${paidRate} were paid` : ""}${paidRate && cancelledRate ? ", and " : paidRate ? "." : ""}${cancelledRate ? `${cancelledRate} were cancelled` : ""}${!cancelledRate ? "." : "."}`);
+        let txDesc = "Of recent transactions, ";
+        if (paidRate) {
+          txDesc += paidRate + " were paid";
+        }
+        if (paidRate && cancelledRate) {
+          txDesc += ", and ";
+        } else if (paidRate) {
+          txDesc += ".";
+        }
+        if (cancelledRate) {
+          txDesc += cancelledRate + " were cancelled.";
+        }
+        parts.push(txDesc);
       }
       if (topCategory) {
         parts.push(`"${topCategory}" is the most engaged category; highlighting it in discovery and campaigns can compound performance.`);
@@ -425,16 +417,36 @@ export default function AdminPage() {
     } finally {
       setIsGeneratingInsight(false);
     }
-  };
+  }, [analyticsData, isGeneratingInsight]);
+
+  if (loading) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center text-sm text-muted-foreground">
+        Loading...
+      </div>
+    );
+  }
+
+
+  if (!isAdmin) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center">
+        <div className="text-center">
+          <div className="text-3xl font-semibold">404</div>
+          <div className="text-muted-foreground">This page could not be found.</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="container mx-auto max-w-7xl py-8 px-4">
-      <div className="mb-6 flex items-center justify-between">
+    <div className="container mx-auto max-w-7xl py-4 sm:py-6 lg:py-8 px-4 sm:px-6">
+      <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-1">Comprehensive analytics and insights</p>
+          <h1 className="text-2xl sm:text-3xl font-bold">Admin Dashboard</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">Comprehensive analytics and insights</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
           <select
             value={dateRange}
             onChange={(e) => {
@@ -444,7 +456,7 @@ export default function AdminPage() {
                 setShowCustomDatePicker(false);
               }
             }}
-            className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+            className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 w-full sm:w-auto"
           >
             <option value="7d">Last 7 days</option>
             <option value="30d">Last 30 days</option>
@@ -455,7 +467,7 @@ export default function AdminPage() {
           {dateRange === "custom" && (
             <Popover open={showCustomDatePicker} onOpenChange={setShowCustomDatePicker}>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="border-input bg-background text-foreground">
+                <Button variant="outline" size="sm" className="border-input bg-background text-foreground w-full sm:w-auto">
                   <Calendar className="h-4 w-4 mr-2" />
                   Custom Dates
                 </Button>
@@ -507,18 +519,18 @@ export default function AdminPage() {
               </PopoverContent>
             </Popover>
           )}
-          <Button onClick={fetchAnalytics} disabled={loadingAnalytics} variant="outline" size="sm" className="border-input bg-background text-foreground">
+          <Button onClick={fetchAnalytics} disabled={loadingAnalytics} variant="outline" size="sm" className="border-input bg-background text-foreground w-full sm:w-auto">
             <RefreshCw className={`h-4 w-4 mr-2 ${loadingAnalytics ? "animate-spin" : ""}`} />
             Refresh
           </Button>
         </div>
       </div>
 
-      <div className="border-b mb-6">
-        <div className="flex gap-4">
+      <div className="border-b mb-4 sm:mb-6 overflow-x-auto">
+        <div className="flex gap-2 sm:gap-4 min-w-max">
           <button
             onClick={() => setActiveTab("eventtria")}
-            className={`px-4 py-2 text-sm font-medium rounded-t-md transition-colors ${
+            className={`px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-t-md transition-colors whitespace-nowrap ${
               activeTab === "eventtria"
                 ? "bg-background border-b-2 border-primary text-primary"
                 : "hover:text-primary text-muted-foreground"
@@ -528,7 +540,7 @@ export default function AdminPage() {
           </button>
           <button
             onClick={() => setActiveTab("feedback")}
-            className={`px-4 py-2 text-sm font-medium rounded-t-md transition-colors ${
+            className={`px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-t-md transition-colors whitespace-nowrap ${
               activeTab === "feedback"
                 ? "bg-background border-b-2 border-primary text-primary"
                 : "hover:text-primary text-muted-foreground"
@@ -538,7 +550,7 @@ export default function AdminPage() {
           </button>
           <button
             onClick={() => setActiveTab("account_review")}
-            className={`px-4 py-2 text-sm font-medium rounded-t-md transition-colors ${
+            className={`px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-t-md transition-colors whitespace-nowrap ${
               activeTab === "account_review"
                 ? "bg-background border-b-2 border-primary text-primary"
                 : "hover:text-primary text-muted-foreground"
@@ -550,7 +562,7 @@ export default function AdminPage() {
       </div>
 
       {activeTab === "eventtria" && (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {loadingAnalytics && !analyticsData ? (
             <div className="flex h-[60vh] items-center justify-center text-sm text-muted-foreground">
               <div className="text-center">
@@ -561,13 +573,13 @@ export default function AdminPage() {
           ) : analyticsData ? (
             <div className={loadingAnalytics ? "opacity-50 pointer-events-none" : ""}>
               {/* Key Metrics Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="rounded-lg border p-6 bg-card">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card">
                   <div className="flex items-center justify-between mb-2">
-                    <div className="text-sm font-medium text-muted-foreground">Total Users</div>
-                    <Users className="h-5 w-5 text-muted-foreground" />
+                    <div className="text-xs sm:text-sm font-medium text-muted-foreground">Total Users</div>
+                    <Users className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
                   </div>
-                  <div className="text-3xl font-bold">{formatNumber(analyticsData.totals?.users || 0)}</div>
+                  <div className="text-2xl sm:text-3xl font-bold">{formatNumber(analyticsData.totals?.users || 0)}</div>
                   <div className="text-xs text-muted-foreground mt-2">
                     {analyticsData.additional_metrics?.user_growth_rate !== undefined && (
                       <span className={analyticsData.additional_metrics.user_growth_rate >= 0 ? "text-green-600" : "text-red-600"}>
@@ -578,21 +590,21 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                <div className="rounded-lg border p-6 bg-card">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card">
                   <div className="flex items-center justify-between mb-2">
-                    <div className="text-sm font-medium text-muted-foreground">Total Events</div>
-                    <Calendar className="h-5 w-5 text-muted-foreground" />
+                    <div className="text-xs sm:text-sm font-medium text-muted-foreground">Total Events</div>
+                    <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
                   </div>
-                  <div className="text-3xl font-bold">{formatNumber(analyticsData.totals?.events || 0)}</div>
+                  <div className="text-2xl sm:text-3xl font-bold">{formatNumber(analyticsData.totals?.events || 0)}</div>
                   <div className="text-xs text-muted-foreground mt-2">Events created</div>
                 </div>
 
-                <div className="rounded-lg border p-6 bg-card">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card">
                   <div className="flex items-center justify-between mb-2">
-                    <div className="text-sm font-medium text-muted-foreground">Total Transactions</div>
-                    <Activity className="h-5 w-5 text-muted-foreground" />
+                    <div className="text-xs sm:text-sm font-medium text-muted-foreground">Total Transactions</div>
+                    <Activity className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
                   </div>
-                  <div className="text-3xl font-bold">{formatNumber(analyticsData.totals?.transactions || 0)}</div>
+                  <div className="text-2xl sm:text-3xl font-bold">{formatNumber(analyticsData.totals?.transactions || 0)}</div>
                   <div className="text-xs text-muted-foreground mt-2">
                     {analyticsData.additional_metrics?.avg_transactions_per_user !== undefined && (
                       <span>{analyticsData.additional_metrics.avg_transactions_per_user.toFixed(2)} per user</span>
@@ -600,12 +612,12 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                <div className="rounded-lg border p-6 bg-card">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card">
                   <div className="flex items-center justify-between mb-2">
-                    <div className="text-sm font-medium text-muted-foreground">Total Revenue</div>
-                    <DollarSign className="h-5 w-5 text-muted-foreground" />
+                    <div className="text-xs sm:text-sm font-medium text-muted-foreground">Total Revenue</div>
+                    <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
                   </div>
-                  <div className="text-3xl font-bold">
+                  <div className="text-2xl sm:text-3xl font-bold">
                     {formatCurrency(analyticsData.totals?.revenue_cents || 0)}
                   </div>
                   <div className="text-xs text-muted-foreground mt-2">
@@ -617,24 +629,24 @@ export default function AdminPage() {
               </div>
 
               {/* Subscription Metrics */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div className="rounded-lg border p-6 bg-card">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mt-4 sm:mt-6">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card">
                   <div className="flex items-center justify-between mb-2">
-                    <div className="text-sm font-medium text-muted-foreground">Active Subscriptions</div>
-                    <Package className="h-5 w-5 text-muted-foreground" />
+                    <div className="text-xs sm:text-sm font-medium text-muted-foreground">Active Subscriptions</div>
+                    <Package className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
                   </div>
-                  <div className="text-3xl font-bold">{formatNumber(analyticsData.totals?.active_subscriptions || 0)}</div>
+                  <div className="text-2xl sm:text-3xl font-bold">{formatNumber(analyticsData.totals?.active_subscriptions || 0)}</div>
                   <div className="text-xs text-muted-foreground mt-2">
                     of {formatNumber(analyticsData.totals?.users || 0)} users
                   </div>
                 </div>
 
-                <div className="rounded-lg border p-6 bg-card">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card">
                   <div className="flex items-center justify-between mb-2">
-                    <div className="text-sm font-medium text-muted-foreground">Conversion Rate</div>
-                    <TrendingUp className="h-5 w-5 text-muted-foreground" />
+                    <div className="text-xs sm:text-sm font-medium text-muted-foreground">Conversion Rate</div>
+                    <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
                   </div>
-                  <div className="text-3xl font-bold">
+                  <div className="text-2xl sm:text-3xl font-bold">
                     {analyticsData.additional_metrics?.conversion_rate !== undefined
                       ? `${analyticsData.additional_metrics.conversion_rate.toFixed(1)}%`
                       : "0%"}
@@ -642,44 +654,44 @@ export default function AdminPage() {
                   <div className="text-xs text-muted-foreground mt-2">Users with subscriptions</div>
                 </div>
 
-                <div className="rounded-lg border p-6 bg-card">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card">
                   <div className="flex items-center justify-between mb-2">
-                    <div className="text-sm font-medium text-muted-foreground">Total Subscriptions</div>
-                    <Package className="h-5 w-5 text-muted-foreground" />
+                    <div className="text-xs sm:text-sm font-medium text-muted-foreground">Total Subscriptions</div>
+                    <Package className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
                   </div>
-                  <div className="text-3xl font-bold">{formatNumber(analyticsData.totals?.subscriptions || 0)}</div>
+                  <div className="text-2xl sm:text-3xl font-bold">{formatNumber(analyticsData.totals?.subscriptions || 0)}</div>
                   <div className="text-xs text-muted-foreground mt-2">All subscription records</div>
                 </div>
               </div>
 
               {/* Revenue Statistics */}
-              <div className="rounded-lg border p-6 bg-card">
-                <h3 className="text-lg font-semibold mb-4">Revenue Statistics</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="rounded-lg border p-4 bg-muted/50">
-                    <div className="text-sm text-muted-foreground mb-1">Mean (Average)</div>
-                    <div className="text-2xl font-bold">{formatCurrency(analyticsData.revenue_stats?.mean || 0)}</div>
+              <div className="rounded-lg border p-4 sm:p-6 bg-card mt-4 sm:mt-6">
+                <h3 className="text-base sm:text-lg font-semibold mb-4">Revenue Statistics</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                  <div className="rounded-lg border p-3 sm:p-4 bg-muted/50">
+                    <div className="text-xs sm:text-sm text-muted-foreground mb-1">Mean (Average)</div>
+                    <div className="text-xl sm:text-2xl font-bold">{formatCurrency(analyticsData.revenue_stats?.mean || 0)}</div>
                     <div className="text-xs text-muted-foreground mt-1">Average transaction value</div>
                   </div>
-                  <div className="rounded-lg border p-4 bg-muted/50">
-                    <div className="text-sm text-muted-foreground mb-1">Median</div>
-                    <div className="text-2xl font-bold">{formatCurrency(analyticsData.revenue_stats?.median || 0)}</div>
+                  <div className="rounded-lg border p-3 sm:p-4 bg-muted/50">
+                    <div className="text-xs sm:text-sm text-muted-foreground mb-1">Median</div>
+                    <div className="text-xl sm:text-2xl font-bold">{formatCurrency(analyticsData.revenue_stats?.median || 0)}</div>
                     <div className="text-xs text-muted-foreground mt-1">Middle value</div>
                   </div>
-                  <div className="rounded-lg border p-4 bg-muted/50">
-                    <div className="text-sm text-muted-foreground mb-1">Mode (Most Common)</div>
-                    <div className="text-2xl font-bold">{formatCurrency(analyticsData.revenue_stats?.mode || 0)}</div>
+                  <div className="rounded-lg border p-3 sm:p-4 bg-muted/50">
+                    <div className="text-xs sm:text-sm text-muted-foreground mb-1">Mode (Most Common)</div>
+                    <div className="text-xl sm:text-2xl font-bold">{formatCurrency(analyticsData.revenue_stats?.mode || 0)}</div>
                     <div className="text-xs text-muted-foreground mt-1">Most frequent amount</div>
                   </div>
                 </div>
               </div>
 
               {/* Time Series Charts */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6">
                 {/* Events Over Time */}
-                <div className="rounded-lg border p-6 bg-card">
-                  <h3 className="text-lg font-semibold mb-4">Events Created Over Time</h3>
-                  <ResponsiveContainer width="100%" height={300}>
+                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                  <h3 className="text-base sm:text-lg font-semibold mb-4">Events Created Over Time</h3>
+                  <ResponsiveContainer width="100%" height={250}>
                     <LineChart data={analyticsData.time_series || []}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis dataKey="date" className="text-xs" tick={{ fill: '#64748b' }} />
@@ -692,9 +704,9 @@ export default function AdminPage() {
                 </div>
 
                 {/* Transactions Over Time */}
-                <div className="rounded-lg border p-6 bg-card">
-                  <h3 className="text-lg font-semibold mb-4">Transactions Over Time</h3>
-                  <ResponsiveContainer width="100%" height={300}>
+                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                  <h3 className="text-base sm:text-lg font-semibold mb-4">Transactions Over Time</h3>
+                  <ResponsiveContainer width="100%" height={250}>
                     <LineChart data={analyticsData.time_series || []}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis dataKey="date" className="text-xs" tick={{ fill: '#64748b' }} />
@@ -707,9 +719,9 @@ export default function AdminPage() {
                 </div>
 
                 {/* Revenue Over Time */}
-                <div className="rounded-lg border p-6 bg-card">
-                  <h3 className="text-lg font-semibold mb-4">Revenue Over Time</h3>
-                  <ResponsiveContainer width="100%" height={300}>
+                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                  <h3 className="text-base sm:text-lg font-semibold mb-4">Revenue Over Time</h3>
+                  <ResponsiveContainer width="100%" height={250}>
                     <LineChart data={analyticsData.time_series || []}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis dataKey="date" className="text-xs" tick={{ fill: '#64748b' }} />
@@ -722,9 +734,9 @@ export default function AdminPage() {
                 </div>
 
                 {/* User Growth Over Time */}
-                <div className="rounded-lg border p-6 bg-card">
-                  <h3 className="text-lg font-semibold mb-4">User Growth Over Time</h3>
-                  <ResponsiveContainer width="100%" height={300}>
+                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                  <h3 className="text-base sm:text-lg font-semibold mb-4">User Growth Over Time</h3>
+                  <ResponsiveContainer width="100%" height={250}>
                     <LineChart data={analyticsData.time_series || []}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis dataKey="date" className="text-xs" tick={{ fill: '#64748b' }} />
@@ -739,11 +751,11 @@ export default function AdminPage() {
               </div>
 
               {/* Subscription Breakdown */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6">
                 {/* Most Popular Subscriptions */}
-                <div className="rounded-lg border p-6 bg-card">
-                  <h3 className="text-lg font-semibold mb-4">Most Popular Subscriptions</h3>
-                  <ResponsiveContainer width="100%" height={300}>
+                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                  <h3 className="text-base sm:text-lg font-semibold mb-4">Most Popular Subscriptions</h3>
+                  <ResponsiveContainer width="100%" height={250}>
                     <BarChart data={(analyticsData.subscription_breakdown || []).map((item: any, idx: number) => ({ ...item, _index: idx }))}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis dataKey="name" className="text-xs" tick={{ fill: '#64748b' }} />
@@ -760,9 +772,9 @@ export default function AdminPage() {
                 </div>
 
                 {/* Revenue by Subscription Plan */}
-                <div className="rounded-lg border p-6 bg-card">
-                  <h3 className="text-lg font-semibold mb-4">Revenue by Subscription Plan</h3>
-                  <ResponsiveContainer width="100%" height={300}>
+                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                  <h3 className="text-base sm:text-lg font-semibold mb-4">Revenue by Subscription Plan</h3>
+                  <ResponsiveContainer width="100%" height={250}>
                     <BarChart data={(analyticsData.subscription_breakdown || []).map((item: any, idx: number) => ({ ...item, _index: idx }))}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis dataKey="name" className="text-xs" tick={{ fill: '#64748b' }} />
@@ -781,9 +793,9 @@ export default function AdminPage() {
 
               {/* Subscription Distribution Pie Chart */}
               {analyticsData.subscription_breakdown && analyticsData.subscription_breakdown.length > 0 && (
-                <div className="rounded-lg border p-6 bg-card">
-                  <h3 className="text-lg font-semibold mb-4">Subscription Distribution</h3>
-                  <ResponsiveContainer width="100%" height={300}>
+                <div className="rounded-lg border p-4 sm:p-6 bg-card mt-4 sm:mt-6">
+                  <h3 className="text-base sm:text-lg font-semibold mb-4">Subscription Distribution</h3>
+                  <ResponsiveContainer width="100%" height={250}>
                     <PieChart>
                       <Pie
                         data={analyticsData.subscription_breakdown}
@@ -810,13 +822,13 @@ export default function AdminPage() {
               )}
 
               {/* Event Creation Rate & Transaction Rates */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6">
                 {/* Event Creation Rate */}
-                <div className="rounded-lg border p-6 bg-card">
-                  <h3 className="text-lg font-semibold mb-4">Event Creation Rate</h3>
+                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                  <h3 className="text-base sm:text-lg font-semibold mb-4">Event Creation Rate</h3>
                   <div className="flex items-center justify-center mb-4">
                     <div className="text-center">
-                      <div className="text-5xl font-bold text-primary">
+                      <div className="text-4xl sm:text-5xl font-bold text-primary">
                         {analyticsData.additional_metrics?.event_creation_rate !== undefined
                           ? `${analyticsData.additional_metrics.event_creation_rate.toFixed(1)}%`
                           : "0%"}
@@ -855,9 +867,9 @@ export default function AdminPage() {
 
                 {/* Transaction Rates */}
                 {analyticsData.transaction_rates && (
-                  <div className="rounded-lg border p-6 bg-card">
-                    <h3 className="text-lg font-semibold mb-4">Transaction Rates</h3>
-                    <ResponsiveContainer width="100%" height={300}>
+                  <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                    <h3 className="text-base sm:text-lg font-semibold mb-4">Transaction Rates</h3>
+                    <ResponsiveContainer width="100%" height={250}>
                       <PieChart>
                         <Pie
                           data={[
@@ -867,16 +879,13 @@ export default function AdminPage() {
                           cx="50%"
                           cy="50%"
                           labelLine={false}
-                          label={(props: any) => {
-                            const { name, percent } = props;
-                            return `${name}: ${(percent * 100).toFixed(1)}%`;
-                          }}
+                          label={(props: any) => `${props.name}: ${((props.percent || 0) * 100).toFixed(1)}%`}
                           outerRadius={100}
                           dataKey="value"
                           labelStyle={{ fill: '#1e293b', fontSize: '12px', fontWeight: 500 }}
                         >
-                          <Cell fill={COLORS[1]} /> {/* Paid - green */
-                          <Cell fill={COLORS[3]} /> {/* Cancelled - red */}
+                          <Cell fill={COLORS[1]} /> 
+                          <Cell fill={COLORS[3]} />
                         </Pie>
                         <Tooltip contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} labelStyle={{ color: '#cbd5e1' }} itemStyle={{ color: '#22c55e' }} />
                         <Legend wrapperStyle={{ color: '#1e293b' }} />
@@ -902,9 +911,9 @@ export default function AdminPage() {
 
               {/* Sales by Event Category */}
               {analyticsData.sales_by_category && analyticsData.sales_by_category.length > 0 && (
-                <div className="rounded-lg border p-6 bg-card">
-                  <h3 className="text-lg font-semibold mb-4">Sales by Event Category</h3>
-                  <ResponsiveContainer width="100%" height={300}>
+                <div className="rounded-lg border p-4 sm:p-6 bg-card mt-4 sm:mt-6">
+                  <h3 className="text-base sm:text-lg font-semibold mb-4">Sales by Event Category</h3>
+                  <ResponsiveContainer width="100%" height={250}>
                     <BarChart data={analyticsData.sales_by_category.map((item: any, idx: number) => ({ ...item, _index: idx }))}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis dataKey="category" className="text-xs" angle={-45} textAnchor="end" height={100} tick={{ fill: '#64748b' }} />
@@ -922,11 +931,11 @@ export default function AdminPage() {
               )}
 
               {/* AI Insight + Descriptive Summary */}
-              <div className="rounded-lg border p-6 bg-card">
-                <div className="flex items-center justify-between mb-4">
+              <div className="rounded-lg border p-4 sm:p-6 bg-card mt-4 sm:mt-6">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
                   <div className="flex items-center gap-2">
                     <Lightbulb className="h-5 w-5 text-primary" />
-                    <h3 className="text-lg font-semibold">AI Insight</h3>
+                    <h3 className="text-base sm:text-lg font-semibold">AI Insight</h3>
                   </div>
                   <Button
                     onClick={generateAIInsight}
