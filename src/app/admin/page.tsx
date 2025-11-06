@@ -451,7 +451,13 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="container mx-auto max-w-7xl py-4 sm:py-6 lg:py-8 px-4 sm:px-6">
+    <>
+      <style dangerouslySetInnerHTML={{__html: `
+        .recharts-pie-sector { fill: inherit !important; }
+        .recharts-pie-sector path { fill: inherit !important; }
+        .recharts-pie-sector rect { fill: inherit !important; }
+      `}} />
+      <div className="container mx-auto max-w-7xl py-4 sm:py-6 lg:py-8 px-4 sm:px-6">
       <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold">Admin Dashboard</h1>
@@ -803,43 +809,59 @@ export default function AdminPage() {
               </div>
 
               {/* Subscription Distribution Pie Chart */}
-              {analyticsData.subscription_breakdown && analyticsData.subscription_breakdown.length > 0 && (
-                <div className="rounded-lg border p-4 sm:p-6 bg-card mt-4 sm:mt-6">
-                  <h3 className="text-base sm:text-lg font-semibold mb-4">Subscription Distribution</h3>
-                  <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300}>
-                    <PieChart>
-                      <Pie
-                        data={analyticsData.subscription_breakdown}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={(props: any) => {
-                          const { name, percent } = props;
-                          return `${name}: ${(percent * 100).toFixed(0)}%`;
-                        }}
-                        outerRadius={windowWidth > 0 && windowWidth < 640 ? 80 : windowWidth > 0 && windowWidth < 1024 ? 90 : 100}
-                        innerRadius={windowWidth > 0 && windowWidth < 640 ? 30 : 0}
-                        dataKey="count"
-                        labelStyle={{ fill: 'currentColor', fontSize: windowWidth > 0 && windowWidth < 640 ? '10px' : '12px', fontWeight: 500 }}
-                      >
-                        {analyticsData.subscription_breakdown.map((entry: any, index: number) => (
-                          <Cell key={`cell-sub-${index}`} fill={COLORS[index % COLORS.length]} stroke={COLORS[index % COLORS.length]} strokeWidth={2} />
-                        ))}
-                      </Pie>
-                      <Tooltip 
-                        contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} 
-                        labelStyle={{ color: '#cbd5e1' }} 
-                        itemStyle={{ color: '#22c55e' }} 
-                      />
-                      <Legend 
-                        wrapperStyle={{ color: 'currentColor' }} 
-                        iconType="circle"
-                        formatter={(value: string, entry: any) => <span style={{ color: entry.color }}>{value}</span>}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
+              {analyticsData.subscription_breakdown && analyticsData.subscription_breakdown.length > 0 && (() => {
+                const pieData = analyticsData.subscription_breakdown.map((entry: any, index: number) => ({
+                  ...entry,
+                  color: COLORS[index % COLORS.length],
+                }));
+                return (
+                  <div className="rounded-lg border p-4 sm:p-6 bg-card mt-4 sm:mt-6">
+                    <h3 className="text-base sm:text-lg font-semibold mb-4">Subscription Distribution</h3>
+                    <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300}>
+                      <PieChart>
+                        <Pie
+                          data={pieData}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={(props: any) => {
+                            const { name, percent } = props;
+                            return `${name}: ${(percent * 100).toFixed(0)}%`;
+                          }}
+                          outerRadius={windowWidth > 0 && windowWidth < 640 ? 80 : windowWidth > 0 && windowWidth < 1024 ? 90 : 100}
+                          innerRadius={windowWidth > 0 && windowWidth < 640 ? 30 : 0}
+                          dataKey="count"
+                          labelStyle={{ fill: '#ffffff', fontSize: windowWidth > 0 && windowWidth < 640 ? '10px' : '12px', fontWeight: 500 }}
+                          isAnimationActive={false}
+                        >
+                          {pieData.map((entry: any, index: number) => (
+                            <Cell 
+                              key={`cell-sub-${index}`} 
+                              fill={entry.color} 
+                              stroke={entry.color} 
+                              strokeWidth={2}
+                              style={{ fill: entry.color }}
+                            />
+                          ))}
+                        </Pie>
+                        <Tooltip 
+                          contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} 
+                          labelStyle={{ color: '#cbd5e1' }} 
+                          itemStyle={{ color: '#22c55e' }} 
+                        />
+                        <Legend 
+                          wrapperStyle={{ color: 'currentColor' }} 
+                          iconType="circle"
+                          formatter={(value: string, entry: any) => {
+                            const dataEntry = pieData.find((d: any) => d.name === value);
+                            return <span style={{ color: dataEntry?.color || entry.color }}>{value}</span>;
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                );
+              })()}
 
               {/* Event Creation Rate & Transaction Rates */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6">
@@ -886,65 +908,72 @@ export default function AdminPage() {
                 </div>
 
                 {/* Transaction Rates */}
-                {analyticsData.transaction_rates && (
-                  <div className="rounded-lg border p-4 sm:p-6 bg-card">
-                    <h3 className="text-base sm:text-lg font-semibold mb-4">Transaction Rates</h3>
-                    <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300}>
-                      <PieChart>
-                        <Pie
-                          data={[
-                            { name: "Paid", value: analyticsData.transaction_rates.paid_rate || 0 },
-                            { name: "Cancelled", value: analyticsData.transaction_rates.cancelled_rate || 0 },
-                          ]}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          label={(props: any) => `${props.name}: ${((props.percent || 0) * 100).toFixed(1)}%`}
-                          outerRadius={windowWidth > 0 && windowWidth < 640 ? 80 : windowWidth > 0 && windowWidth < 1024 ? 90 : 100}
-                          innerRadius={windowWidth > 0 && windowWidth < 640 ? 30 : 0}
-                          dataKey="value"
-                          labelStyle={{ fill: 'currentColor', fontSize: windowWidth > 0 && windowWidth < 640 ? '10px' : '12px', fontWeight: 500 }}
-                        >
-                          {[
-                            { name: "Paid", value: analyticsData.transaction_rates.paid_rate || 0 },
-                            { name: "Cancelled", value: analyticsData.transaction_rates.cancelled_rate || 0 },
-                          ].map((entry, index) => (
-                            <Cell 
-                              key={`cell-tx-${index}`} 
-                              fill={index === 0 ? COLORS[1] : COLORS[3]} 
-                              stroke={index === 0 ? COLORS[1] : COLORS[3]} 
-                              strokeWidth={2} 
-                            />
-                          ))}
-                        </Pie>
-                        <Tooltip 
-                          contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} 
-                          labelStyle={{ color: '#cbd5e1' }} 
-                          itemStyle={{ color: '#22c55e' }} 
-                        />
-                        <Legend 
-                          wrapperStyle={{ color: 'currentColor' }} 
-                          iconType="circle"
-                          formatter={(value: string, entry: any) => <span style={{ color: entry.color }}>{value}</span>}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="mt-4 grid grid-cols-2 gap-4 text-center">
-                      <div>
-                        <div className="text-xl sm:text-2xl font-bold text-green-600">
-                          {analyticsData.transaction_rates.paid || 0}
+                {analyticsData.transaction_rates && (() => {
+                  const paidColor = COLORS[1]; // Green
+                  const cancelledColor = COLORS[3]; // Red
+                  const pieData = [
+                    { name: "Paid", value: analyticsData.transaction_rates.paid_rate || 0, color: paidColor },
+                    { name: "Cancelled", value: analyticsData.transaction_rates.cancelled_rate || 0, color: cancelledColor },
+                  ];
+                  return (
+                    <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                      <h3 className="text-base sm:text-lg font-semibold mb-4">Transaction Rates</h3>
+                      <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300}>
+                        <PieChart>
+                          <Pie
+                            data={pieData}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            label={(props: any) => `${props.name}: ${((props.percent || 0) * 100).toFixed(1)}%`}
+                            outerRadius={windowWidth > 0 && windowWidth < 640 ? 80 : windowWidth > 0 && windowWidth < 1024 ? 90 : 100}
+                            innerRadius={windowWidth > 0 && windowWidth < 640 ? 30 : 0}
+                            dataKey="value"
+                            labelStyle={{ fill: '#ffffff', fontSize: windowWidth > 0 && windowWidth < 640 ? '10px' : '12px', fontWeight: 500 }}
+                            isAnimationActive={false}
+                          >
+                            {pieData.map((entry, index) => (
+                              <Cell 
+                                key={`cell-tx-${index}`} 
+                                fill={entry.color} 
+                                stroke={entry.color} 
+                                strokeWidth={2}
+                                style={{ fill: entry.color }}
+                              />
+                            ))}
+                          </Pie>
+                          <Tooltip 
+                            contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} 
+                            labelStyle={{ color: '#cbd5e1' }} 
+                            itemStyle={{ color: '#22c55e' }} 
+                          />
+                          <Legend 
+                            wrapperStyle={{ color: 'currentColor' }} 
+                            iconType="circle"
+                            formatter={(value: string, entry: any) => {
+                              const dataEntry = pieData.find((d: any) => d.name === value);
+                              return <span style={{ color: dataEntry?.color || entry.color }}>{value}</span>;
+                            }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div className="mt-4 grid grid-cols-2 gap-4 text-center">
+                        <div>
+                          <div className="text-xl sm:text-2xl font-bold text-green-600">
+                            {analyticsData.transaction_rates.paid || 0}
+                          </div>
+                          <div className="text-xs text-muted-foreground">Paid</div>
                         </div>
-                        <div className="text-xs text-muted-foreground">Paid</div>
-                      </div>
-                      <div>
-                        <div className="text-xl sm:text-2xl font-bold text-red-600">
-                          {analyticsData.transaction_rates.cancelled || 0}
+                        <div>
+                          <div className="text-xl sm:text-2xl font-bold text-red-600">
+                            {analyticsData.transaction_rates.cancelled || 0}
+                          </div>
+                          <div className="text-xs text-muted-foreground">Cancelled</div>
                         </div>
-                        <div className="text-xs text-muted-foreground">Cancelled</div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
 
               {/* Sales by Event Category */}
@@ -1026,6 +1055,7 @@ export default function AdminPage() {
       {activeTab === "account_review" && (
         <div className="rounded-lg border p-6 text-sm text-muted-foreground">Empty</div>
       )}
-    </div>
+      </div>
+    </>
   );
 }
