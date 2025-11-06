@@ -884,8 +884,12 @@ export default function AdminPage() {
                           dataKey="value"
                           labelStyle={{ fill: '#1e293b', fontSize: '12px', fontWeight: 500 }}
                         >
-                          <Cell key="cell-paid" fill={COLORS[1]} />
-                          <Cell key="cell-cancelled" fill={COLORS[3]} />
+                          {[
+                            { name: "Paid", value: analyticsData.transaction_rates.paid_rate || 0 },
+                            { name: "Cancelled", value: analyticsData.transaction_rates.cancelled_rate || 0 },
+                          ].map((entry, index) => (
+                            <Cell key={`cell-tx-${index}`} fill={index === 0 ? COLORS[1] : COLORS[3]} />
+                          ))}
                         </Pie>
                         <Tooltip contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} labelStyle={{ color: '#cbd5e1' }} itemStyle={{ color: '#22c55e' }} />
                         <Legend wrapperStyle={{ color: '#1e293b' }} />
