@@ -807,8 +807,9 @@ export default function AdminPage() {
               {mounted && analyticsData.subscription_breakdown && analyticsData.subscription_breakdown.length > 0 && (() => {
                 const pieData = analyticsData.subscription_breakdown.map((entry: any, index: number) => ({
                   ...entry,
-                  color: COLORS[index % COLORS.length],
+                  fill: COLORS[index % COLORS.length],
                 }));
+                console.log('Pie data colors:', pieData.map((d: any) => ({ name: d.name, fill: d.fill })));
                 return (
                   <div className="rounded-lg border p-4 sm:p-6 bg-card mt-4 sm:mt-6">
                     <h3 className="text-base sm:text-lg font-semibold mb-4">Subscription Distribution</h3>
@@ -829,14 +830,17 @@ export default function AdminPage() {
                           labelStyle={{ fill: '#ffffff', fontSize: windowWidth > 0 && windowWidth < 640 ? '10px' : '12px', fontWeight: 500 }}
                           isAnimationActive={false}
                         >
-                          {pieData.map((entry: any, index: number) => (
-                            <Cell 
-                              key={`cell-sub-${index}-${entry.name}`} 
-                              fill={entry.color} 
-                              stroke={entry.color}
-                              strokeWidth={2}
-                            />
-                          ))}
+                          {pieData.map((entry: any, index: number) => {
+                            const fillColor = entry.fill || COLORS[index % COLORS.length];
+                            return (
+                              <Cell 
+                                key={`cell-sub-${index}-${entry.name}`}
+                                fill={fillColor}
+                                stroke={fillColor}
+                                strokeWidth={2}
+                              />
+                            );
+                          })}
                         </Pie>
                         <Tooltip 
                           contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} 
@@ -848,7 +852,8 @@ export default function AdminPage() {
                           iconType="circle"
                           formatter={(value: string, entry: any) => {
                             const dataEntry = pieData.find((d: any) => d.name === value);
-                            return <span style={{ color: dataEntry?.color || entry.color }}>{value}</span>;
+                            const legendColor = dataEntry?.fill || entry.color || '#999';
+                            return <span style={{ color: legendColor }}>{value}</span>;
                           }}
                         />
                       </PieChart>
@@ -903,12 +908,13 @@ export default function AdminPage() {
 
                 {/* Transaction Rates */}
                 {mounted && analyticsData.transaction_rates && (() => {
-                  const paidColor = COLORS[1]; // Green
-                  const cancelledColor = COLORS[3]; // Red
+                  const paidColor = COLORS[1]; // Green #10b981
+                  const cancelledColor = COLORS[3]; // Red #ef4444
                   const pieData = [
-                    { name: "Paid", value: analyticsData.transaction_rates.paid_rate || 0, color: paidColor },
-                    { name: "Cancelled", value: analyticsData.transaction_rates.cancelled_rate || 0, color: cancelledColor },
+                    { name: "Paid", value: analyticsData.transaction_rates.paid_rate || 0, fill: paidColor },
+                    { name: "Cancelled", value: analyticsData.transaction_rates.cancelled_rate || 0, fill: cancelledColor },
                   ];
+                  console.log('Transaction pie data:', pieData);
                   return (
                     <div className="rounded-lg border p-4 sm:p-6 bg-card">
                       <h3 className="text-base sm:text-lg font-semibold mb-4">Transaction Rates</h3>
@@ -926,14 +932,17 @@ export default function AdminPage() {
                             labelStyle={{ fill: '#ffffff', fontSize: windowWidth > 0 && windowWidth < 640 ? '10px' : '12px', fontWeight: 500 }}
                             isAnimationActive={false}
                           >
-                            {pieData.map((entry, index) => (
-                              <Cell 
-                                key={`cell-tx-${index}-${entry.name}`} 
-                                fill={entry.color} 
-                                stroke={entry.color}
-                                strokeWidth={2}
-                              />
-                            ))}
+                            {pieData.map((entry, index) => {
+                              const fillColor = entry.fill || (index === 0 ? paidColor : cancelledColor);
+                              return (
+                                <Cell 
+                                  key={`cell-tx-${index}-${entry.name}`}
+                                  fill={fillColor}
+                                  stroke={fillColor}
+                                  strokeWidth={2}
+                                />
+                              );
+                            })}
                           </Pie>
                           <Tooltip 
                             contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} 
@@ -945,7 +954,8 @@ export default function AdminPage() {
                             iconType="circle"
                             formatter={(value: string, entry: any) => {
                               const dataEntry = pieData.find((d: any) => d.name === value);
-                              return <span style={{ color: dataEntry?.color || entry.color }}>{value}</span>;
+                              const legendColor = dataEntry?.fill || entry.color || '#999';
+                              return <span style={{ color: legendColor }}>{value}</span>;
                             }}
                           />
                         </PieChart>
