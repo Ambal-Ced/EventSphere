@@ -23,11 +23,21 @@ import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
-const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
+const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4", "#f97316", "#84cc16", "#a855f7"];
 
 export default function AdminPage() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
+  
+  // Track window width for responsive charts
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setWindowWidth(window.innerWidth);
+      const handleResize = () => setWindowWidth(window.innerWidth);
+      window.addEventListener('resize', handleResize);
+      return () => window.removeEventListener('resize', handleResize);
+    }
+  }, []);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [activeTab, setActiveTab] = useState<"eventtria" | "feedback" | "account_review">("eventtria");
@@ -38,6 +48,7 @@ export default function AdminPage() {
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>();
   const [showCustomDatePicker, setShowCustomDatePicker] = useState(false);
   const [aiGeneratedInsight, setAiGeneratedInsight] = useState<string | null>(null);
+  const [windowWidth, setWindowWidth] = useState<number>(0);
 
   // Helpers are declared before usage to avoid temporal dead zone issues in hooks
   const formatCurrency = useCallback((cents: number) => {
@@ -795,7 +806,7 @@ export default function AdminPage() {
               {analyticsData.subscription_breakdown && analyticsData.subscription_breakdown.length > 0 && (
                 <div className="rounded-lg border p-4 sm:p-6 bg-card mt-4 sm:mt-6">
                   <h3 className="text-base sm:text-lg font-semibold mb-4">Subscription Distribution</h3>
-                  <ResponsiveContainer width="100%" height={250}>
+                  <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300}>
                     <PieChart>
                       <Pie
                         data={analyticsData.subscription_breakdown}
@@ -806,16 +817,25 @@ export default function AdminPage() {
                           const { name, percent } = props;
                           return `${name}: ${(percent * 100).toFixed(0)}%`;
                         }}
-                        outerRadius={100}
+                        outerRadius={windowWidth > 0 && windowWidth < 640 ? 80 : windowWidth > 0 && windowWidth < 1024 ? 90 : 100}
+                        innerRadius={windowWidth > 0 && windowWidth < 640 ? 30 : 0}
                         dataKey="count"
-                        labelStyle={{ fill: '#1e293b', fontSize: '12px', fontWeight: 500 }}
+                        labelStyle={{ fill: 'currentColor', fontSize: windowWidth > 0 && windowWidth < 640 ? '10px' : '12px', fontWeight: 500 }}
                       >
                         {analyticsData.subscription_breakdown.map((entry: any, index: number) => (
-                          <Cell key={`cell-sub-${index}`} fill={COLORS[index % COLORS.length]} />
+                          <Cell key={`cell-sub-${index}`} fill={COLORS[index % COLORS.length]} stroke={COLORS[index % COLORS.length]} strokeWidth={2} />
                         ))}
                       </Pie>
-                      <Tooltip contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} labelStyle={{ color: '#cbd5e1' }} itemStyle={{ color: '#22c55e' }} />
-                      <Legend wrapperStyle={{ color: '#1e293b' }} />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} 
+                        labelStyle={{ color: '#cbd5e1' }} 
+                        itemStyle={{ color: '#22c55e' }} 
+                      />
+                      <Legend 
+                        wrapperStyle={{ color: 'currentColor' }} 
+                        iconType="circle"
+                        formatter={(value: string, entry: any) => <span style={{ color: entry.color }}>{value}</span>}
+                      />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
@@ -869,7 +889,7 @@ export default function AdminPage() {
                 {analyticsData.transaction_rates && (
                   <div className="rounded-lg border p-4 sm:p-6 bg-card">
                     <h3 className="text-base sm:text-lg font-semibold mb-4">Transaction Rates</h3>
-                    <ResponsiveContainer width="100%" height={250}>
+                    <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300}>
                       <PieChart>
                         <Pie
                           data={[
@@ -880,30 +900,44 @@ export default function AdminPage() {
                           cy="50%"
                           labelLine={false}
                           label={(props: any) => `${props.name}: ${((props.percent || 0) * 100).toFixed(1)}%`}
-                          outerRadius={100}
+                          outerRadius={windowWidth > 0 && windowWidth < 640 ? 80 : windowWidth > 0 && windowWidth < 1024 ? 90 : 100}
+                          innerRadius={windowWidth > 0 && windowWidth < 640 ? 30 : 0}
                           dataKey="value"
-                          labelStyle={{ fill: '#1e293b', fontSize: '12px', fontWeight: 500 }}
+                          labelStyle={{ fill: 'currentColor', fontSize: windowWidth > 0 && windowWidth < 640 ? '10px' : '12px', fontWeight: 500 }}
                         >
                           {[
                             { name: "Paid", value: analyticsData.transaction_rates.paid_rate || 0 },
                             { name: "Cancelled", value: analyticsData.transaction_rates.cancelled_rate || 0 },
                           ].map((entry, index) => (
-                            <Cell key={`cell-tx-${index}`} fill={index === 0 ? COLORS[1] : COLORS[3]} />
+                            <Cell 
+                              key={`cell-tx-${index}`} 
+                              fill={index === 0 ? COLORS[1] : COLORS[3]} 
+                              stroke={index === 0 ? COLORS[1] : COLORS[3]} 
+                              strokeWidth={2} 
+                            />
                           ))}
                         </Pie>
-                        <Tooltip contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} labelStyle={{ color: '#cbd5e1' }} itemStyle={{ color: '#22c55e' }} />
-                        <Legend wrapperStyle={{ color: '#1e293b' }} />
+                        <Tooltip 
+                          contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} 
+                          labelStyle={{ color: '#cbd5e1' }} 
+                          itemStyle={{ color: '#22c55e' }} 
+                        />
+                        <Legend 
+                          wrapperStyle={{ color: 'currentColor' }} 
+                          iconType="circle"
+                          formatter={(value: string, entry: any) => <span style={{ color: entry.color }}>{value}</span>}
+                        />
                       </PieChart>
                     </ResponsiveContainer>
                     <div className="mt-4 grid grid-cols-2 gap-4 text-center">
                       <div>
-                        <div className="text-2xl font-bold text-green-600">
+                        <div className="text-xl sm:text-2xl font-bold text-green-600">
                           {analyticsData.transaction_rates.paid || 0}
                         </div>
                         <div className="text-xs text-muted-foreground">Paid</div>
                       </div>
                       <div>
-                        <div className="text-2xl font-bold text-red-600">
+                        <div className="text-xl sm:text-2xl font-bold text-red-600">
                           {analyticsData.transaction_rates.cancelled || 0}
                         </div>
                         <div className="text-xs text-muted-foreground">Cancelled</div>
