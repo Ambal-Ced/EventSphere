@@ -59,7 +59,6 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Service role key not configured" }, { status: 500 });
     }
 
-    const { createClient } = await import("@supabase/supabase-js");
     const adminClient = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey);
 
     // Use RPC function to bypass triggers and RLS
