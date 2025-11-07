@@ -41,13 +41,40 @@ export async function GET(request: NextRequest) {
     }
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    // Admin check via RPC to bypass RLS
-    const { data: isAdmin, error: adminCheckError } = await supabase.rpc("admin_is_admin", { p_user_id: userId });
-    if (adminCheckError) {
-      console.error("Admin check error:", adminCheckError);
-      return NextResponse.json({ error: "Failed to verify admin status" }, { status: 500 });
+    // Admin check via RPC to bypass RLS (with fallback)
+    let isAdmin = false;
+    try {
+      const { data: adminCheck, error: adminCheckError } = await supabase.rpc("admin_is_admin", { p_user_id: userId });
+      if (adminCheckError) {
+        console.error("Admin check RPC error:", adminCheckError);
+        // Fallback to direct check if RPC is unavailable
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("account_type")
+          .eq("id", userId)
+          .single();
+        isAdmin = profile?.account_type === "admin";
+      } else {
+        isAdmin = adminCheck === true;
+      }
+    } catch (e) {
+      console.error("Admin check error:", e);
+      // Fallback to direct check
+      try {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("account_type")
+          .eq("id", userId)
+          .single();
+        isAdmin = profile?.account_type === "admin";
+      } catch (fallbackError) {
+        console.error("Fallback admin check error:", fallbackError);
+      }
     }
-    if (!isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    
+    if (!isAdmin) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     // Always use service role key for admin operations to bypass RLS
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -84,6 +111,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch full ratings list with user info
+    // Try with profiles join first, fallback to without if it fails
+    let ratingsList: any[] = [];
     const ratingsListQuery = buildDateFilter(
       db
         .from("user_ratings")
@@ -103,10 +132,25 @@ export async function GET(request: NextRequest) {
         .order("created_at", { ascending: false })
     );
 
-    const { data: ratingsList, error: ratingsListError } = await ratingsListQuery;
+    const { data: ratingsListWithProfiles, error: ratingsListError } = await ratingsListQuery;
+    
     if (ratingsListError) {
-      console.error("Error fetching ratings list:", ratingsListError);
-      throw ratingsListError;
+      console.error("Error fetching ratings list with profiles:", ratingsListError);
+      // Fallback: fetch without profiles join
+      const fallbackQuery = buildDateFilter(
+        db
+          .from("user_ratings")
+          .select("id, user_id, rating, suggestion, created_at, updated_at")
+          .order("created_at", { ascending: false })
+      );
+      const { data: fallbackData, error: fallbackError } = await fallbackQuery;
+      if (fallbackError) {
+        console.error("Error fetching ratings list (fallback):", fallbackError);
+        throw fallbackError;
+      }
+      ratingsList = fallbackData || [];
+    } else {
+      ratingsList = ratingsListWithProfiles || [];
     }
 
     // Process data to create statistics
@@ -172,7 +216,21 @@ export async function GET(request: NextRequest) {
     return res;
   } catch (err: any) {
     console.error("/api/admin/ratings error", err);
-    return NextResponse.json({ error: err.message ?? "Server error" }, { status: 500 });
+    console.error("Error details:", {
+      message: err.message,
+      code: err.code,
+      details: err.details,
+      hint: err.hint,
+      stack: err.stack,
+    });
+    return NextResponse.json({ 
+      error: err.message ?? "Server error",
+      details: process.env.NODE_ENV === "development" ? {
+        code: err.code,
+        details: err.details,
+        hint: err.hint,
+      } : undefined
+    }, { status: 500 });
   }
 }
 

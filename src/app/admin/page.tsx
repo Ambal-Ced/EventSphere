@@ -59,6 +59,7 @@ export default function AdminPage() {
   const [feedbackDateOrder, setFeedbackDateOrder] = useState<"desc" | "asc">("desc");
   const [ratingsData, setRatingsData] = useState<any>(null);
   const [loadingRatings, setLoadingRatings] = useState(false);
+  const [ratingsError, setRatingsError] = useState<string | null>(null);
   const [ratingsFilter, setRatingsFilter] = useState<string>("all");
   const [ratingsDateOrder, setRatingsDateOrder] = useState<"desc" | "asc">("desc");
   const [expandedFeedbackIds, setExpandedFeedbackIds] = useState<Set<string>>(new Set());
@@ -261,6 +262,7 @@ export default function AdminPage() {
 
   const fetchRatingsData = useCallback(async () => {
     setLoadingRatings(true);
+    setRatingsError(null);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
@@ -298,13 +300,16 @@ export default function AdminPage() {
       const json = await res.json();
       if (res.ok) {
         setRatingsData(json);
+        setRatingsError(null);
       } else {
         console.error("Failed to fetch ratings data:", json);
-        setRatingsData(null); // Reset to show empty state
+        setRatingsData(null);
+        setRatingsError(json.error || `Failed to fetch ratings: ${res.status} ${res.statusText}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching ratings data:", error);
-      setRatingsData(null); // Reset to show empty state
+      setRatingsData(null);
+      setRatingsError(error.message || "Failed to fetch ratings data");
     } finally {
       setLoadingRatings(false);
     }
@@ -2066,6 +2071,19 @@ export default function AdminPage() {
           {loadingRatings ? (
             <div className="flex h-[60vh] items-center justify-center text-sm text-muted-foreground">
               Loading ratings data...
+            </div>
+          ) : ratingsError ? (
+            <div className="flex h-[60vh] flex-col items-center justify-center gap-4 text-sm">
+              <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive">
+                <p className="font-semibold">Error loading ratings data</p>
+                <p className="mt-2 text-xs">{ratingsError}</p>
+                <button
+                  onClick={() => fetchRatingsData()}
+                  className="mt-4 rounded-md bg-destructive px-4 py-2 text-sm text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Retry
+                </button>
+              </div>
             </div>
           ) : ratingsData ? (
             <div>
