@@ -22,7 +22,7 @@ async function insertNotificationsWithServiceKey(records: any[], serviceKey: str
       "Content-Type": "application/json",
       apikey: serviceKey,
       Authorization: `Bearer ${serviceKey}`,
-      Prefer: "return=representation",
+      Prefer: "return=representation,bypass-rls=on",
     },
     body: JSON.stringify(records.map((record) => ({
       ...record,
