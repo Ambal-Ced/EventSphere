@@ -105,7 +105,16 @@ export async function POST(request: NextRequest) {
 
     const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey);
 
-    let targetRequests: Array<{ id: string; user_id: string | null; user_email: string | null; status: string | null }> = [];
+    type RequestRow = {
+      id: string;
+      user_id: string | null;
+      user_email: string | null;
+      status: string | null;
+      scheduled_deletion_date: string | null;
+      cancelled_at: string | null;
+    };
+
+    let targetRequests: RequestRow[] = [];
 
     if (allPending) {
       const { data: pendingRows, error: pendingError } = await db
@@ -148,7 +157,7 @@ export async function POST(request: NextRequest) {
       .map((row) => ({
         id: row.id,
         status: action === "approve" ? "approved" : "denied",
-        cancelled_at: action === "deny" ? new Date().toISOString() : row.cancelled_at ?? null,
+        cancelled_at: action === "deny" ? new Date().toISOString() : row.cancelled_at,
         scheduled_deletion_date: action === "approve" ? scheduledDate : row.scheduled_deletion_date,
         updated_at: new Date().toISOString(),
       }));
