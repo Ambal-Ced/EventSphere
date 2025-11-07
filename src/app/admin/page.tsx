@@ -705,6 +705,29 @@ export default function AdminPage() {
     }
   }, [analyticsData, isGeneratingInsight]);
 
+  const getPieOuterRadius = useCallback(() => {
+    if (windowWidth > 0 && windowWidth < 360) return 58;
+    if (windowWidth > 0 && windowWidth < 480) return 66;
+    if (windowWidth > 0 && windowWidth < 640) return 78;
+    if (windowWidth > 0 && windowWidth < 1024) return 92;
+    return 104;
+  }, [windowWidth]);
+
+  const getPieInnerRadius = useCallback(() => {
+    if (windowWidth > 0 && windowWidth < 480) return 26;
+    if (windowWidth > 0 && windowWidth < 640) return 34;
+    if (windowWidth > 0 && windowWidth < 1024) return 40;
+    return 46;
+  }, [windowWidth]);
+
+  const getPieChartHeight = useCallback(() => {
+    if (windowWidth > 0 && windowWidth < 360) return 220;
+    if (windowWidth > 0 && windowWidth < 480) return 240;
+    if (windowWidth > 0 && windowWidth < 640) return 260;
+    if (windowWidth > 0 && windowWidth < 1024) return 280;
+    return 300;
+  }, [windowWidth]);
+
   if (loading) {
     return (
       <div className="flex h-[60vh] items-center justify-center text-sm text-muted-foreground">
@@ -830,46 +853,46 @@ export default function AdminPage() {
           }}
         >
           <div className="flex gap-2 sm:gap-4 pb-1 [&::-webkit-scrollbar]:hidden">
-            <button
-              onClick={() => setActiveTab("eventtria")}
+          <button
+            onClick={() => setActiveTab("eventtria")}
               className={`px-2 sm:px-3 md:px-4 py-2 text-xs sm:text-sm font-medium rounded-t-md transition-colors whitespace-nowrap flex-shrink-0 ${
-                activeTab === "eventtria"
-                  ? "bg-background border-b-2 border-primary text-primary"
-                  : "hover:text-primary text-muted-foreground"
-              }`}
-            >
-              EventTria
-            </button>
-            <button
-              onClick={() => setActiveTab("feedback")}
+              activeTab === "eventtria"
+                ? "bg-background border-b-2 border-primary text-primary"
+                : "hover:text-primary text-muted-foreground"
+            }`}
+          >
+            EventTria
+          </button>
+          <button
+            onClick={() => setActiveTab("feedback")}
               className={`px-2 sm:px-3 md:px-4 py-2 text-xs sm:text-sm font-medium rounded-t-md transition-colors whitespace-nowrap flex-shrink-0 ${
-                activeTab === "feedback"
-                  ? "bg-background border-b-2 border-primary text-primary"
-                  : "hover:text-primary text-muted-foreground"
-              }`}
-            >
-              Feedback
-            </button>
-            <button
+              activeTab === "feedback"
+                ? "bg-background border-b-2 border-primary text-primary"
+                : "hover:text-primary text-muted-foreground"
+            }`}
+          >
+            Feedback
+          </button>
+          <button
               onClick={() => setActiveTab("users")}
               className={`px-2 sm:px-3 md:px-4 py-2 text-xs sm:text-sm font-medium rounded-t-md transition-colors whitespace-nowrap flex-shrink-0 ${
                 activeTab === "users"
-                  ? "bg-background border-b-2 border-primary text-primary"
-                  : "hover:text-primary text-muted-foreground"
-              }`}
-            >
+                ? "bg-background border-b-2 border-primary text-primary"
+                : "hover:text-primary text-muted-foreground"
+            }`}
+          >
               Users
-            </button>
-            <button
-              onClick={() => setActiveTab("rating")}
+          </button>
+          <button
+            onClick={() => setActiveTab("rating")}
               className={`px-2 sm:px-3 md:px-4 py-2 text-xs sm:text-sm font-medium rounded-t-md transition-colors whitespace-nowrap flex-shrink-0 ${
-                activeTab === "rating"
-                  ? "bg-background border-b-2 border-primary text-primary"
-                  : "hover:text-primary text-muted-foreground"
-              }`}
-            >
-              Rating
-            </button>
+              activeTab === "rating"
+                ? "bg-background border-b-2 border-primary text-primary"
+                : "hover:text-primary text-muted-foreground"
+            }`}
+          >
+            Rating
+          </button>
           </div>
         </div>
       </div>
@@ -1112,9 +1135,9 @@ export default function AdminPage() {
                 }));
                 console.log('Pie data colors:', pieData.map((d: any) => ({ name: d.name, fill: d.fill })));
                 return (
-                  <div className="rounded-lg border p-4 sm:p-6 bg-card mt-4 sm:mt-6 min-w-0 overflow-hidden">
+                  <div className="rounded-lg border p-4 sm:p-6 bg-card mt-4 sm:mt-6 min-w-0 overflow-visible">
                     <h3 className="text-base sm:text-lg font-semibold mb-4">Subscription Distribution</h3>
-                    <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300}>
+                    <ResponsiveContainer width="100%" height={getPieChartHeight()}>
                       <PieChart>
                         <Pie
                           data={pieData}
@@ -1125,8 +1148,8 @@ export default function AdminPage() {
                             const { name, percent } = props;
                             return `${name}: ${(percent * 100).toFixed(0)}%`;
                           }}
-                          outerRadius={windowWidth > 0 && windowWidth < 640 ? 80 : windowWidth > 0 && windowWidth < 1024 ? 90 : 100}
-                          innerRadius={windowWidth > 0 && windowWidth < 640 ? 30 : 0}
+                          outerRadius={getPieOuterRadius()}
+                          innerRadius={getPieInnerRadius()}
                           dataKey="count"
                           labelStyle={{ fill: '#ffffff', fontSize: windowWidth > 0 && windowWidth < 640 ? '10px' : '12px', fontWeight: 500 }}
                           isAnimationActive={false}
@@ -1217,9 +1240,9 @@ export default function AdminPage() {
                   ];
                   console.log('Transaction pie data:', pieData);
                   return (
-                    <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0 overflow-hidden">
+                    <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0 overflow-visible">
                       <h3 className="text-base sm:text-lg font-semibold mb-4">Transaction Rates</h3>
-                      <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300}>
+                      <ResponsiveContainer width="100%" height={getPieChartHeight()}>
                         <PieChart>
                           <Pie
                             data={pieData}
@@ -1227,8 +1250,8 @@ export default function AdminPage() {
                             cy="50%"
                             labelLine={false}
                             label={(props: any) => `${props.name}: ${((props.percent || 0) * 100).toFixed(1)}%`}
-                            outerRadius={windowWidth > 0 && windowWidth < 640 ? 80 : windowWidth > 0 && windowWidth < 1024 ? 90 : 100}
-                            innerRadius={windowWidth > 0 && windowWidth < 640 ? 30 : 0}
+                            outerRadius={getPieOuterRadius()}
+                            innerRadius={getPieInnerRadius()}
                             dataKey="value"
                             labelStyle={{ fill: '#ffffff', fontSize: windowWidth > 0 && windowWidth < 640 ? '10px' : '12px', fontWeight: 500 }}
                             isAnimationActive={false}
@@ -1411,7 +1434,7 @@ export default function AdminPage() {
                   {mounted && (
                     <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0 overflow-hidden">
                       <h3 className="text-base sm:text-lg font-semibold mb-4">Feedback by Type</h3>
-                      <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300}>
+                      <ResponsiveContainer width="100%" height={getPieChartHeight()}>
                         <PieChart>
                           <Pie
                             data={feedbackData.feedbackType.map((item: any, index: number) => ({
@@ -1425,8 +1448,8 @@ export default function AdminPage() {
                               const { name, percent } = props;
                               return `${name}: ${(percent * 100).toFixed(0)}%`;
                             }}
-                            outerRadius={windowWidth > 0 && windowWidth < 640 ? 80 : windowWidth > 0 && windowWidth < 1024 ? 90 : 100}
-                            innerRadius={windowWidth > 0 && windowWidth < 640 ? 30 : 0}
+                            outerRadius={getPieOuterRadius()}
+                            innerRadius={getPieInnerRadius()}
                             dataKey="value"
                             labelStyle={{ fill: '#ffffff', fontSize: windowWidth > 0 && windowWidth < 640 ? '10px' : '12px', fontWeight: 500 }}
                             isAnimationActive={false}
@@ -1497,11 +1520,11 @@ export default function AdminPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6">
                   {/* Rating Pie Chart */}
                   {mounted && (
-                    <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0 overflow-hidden">
+                    <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0 overflow-visible">
                       <h3 className="text-base sm:text-lg font-semibold mb-4">Feedback by Rating</h3>
                       <div className="flex items-center gap-4">
                         <div className="flex-1" style={{ maxWidth: '60%' }}>
-                          <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300}>
+                          <ResponsiveContainer width="100%" height={getPieChartHeight()}>
                             <PieChart>
                               <Pie
                                 data={feedbackData.rating.map((item: any, index: number) => ({
@@ -1511,10 +1534,10 @@ export default function AdminPage() {
                                 cx="50%"
                                 cy="50%"
                                 labelLine={false}
-                                outerRadius={windowWidth > 0 && windowWidth < 640 ? 80 : windowWidth > 0 && windowWidth < 1024 ? 90 : 100}
-                                innerRadius={windowWidth > 0 && windowWidth < 640 ? 30 : 0}
+                                outerRadius={getPieOuterRadius()}
+                                innerRadius={getPieInnerRadius()}
                                 dataKey="value"
-                                isAnimationActive={false}
+                                label={(props: any) => `${props.name}: ${(props.percent * 100).toFixed(1)}%`}
                               >
                                 {feedbackData.rating.map((entry: any, index: number) => (
                                   <Cell 
@@ -1587,11 +1610,11 @@ export default function AdminPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6">
                   {/* Status Pie Chart */}
                   {mounted && (
-                    <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0 overflow-hidden">
+                    <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0 overflow-visible">
                       <h3 className="text-base sm:text-lg font-semibold mb-4">Feedback by Status</h3>
                       <div className="flex items-center gap-4">
                         <div className="flex-1" style={{ maxWidth: '60%' }}>
-                          <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300}>
+                          <ResponsiveContainer width="100%" height={getPieChartHeight()}>
                             <PieChart>
                               <Pie
                                 data={feedbackData.status.map((item: any, index: number) => ({
@@ -1601,8 +1624,8 @@ export default function AdminPage() {
                                 cx="50%"
                                 cy="50%"
                                 labelLine={false}
-                                outerRadius={windowWidth > 0 && windowWidth < 640 ? 80 : windowWidth > 0 && windowWidth < 1024 ? 90 : 100}
-                                innerRadius={windowWidth > 0 && windowWidth < 640 ? 30 : 0}
+                                outerRadius={getPieOuterRadius()}
+                                innerRadius={getPieInnerRadius()}
                                 dataKey="value"
                                 isAnimationActive={false}
                               >
@@ -1681,7 +1704,7 @@ export default function AdminPage() {
                       <h3 className="text-base sm:text-lg font-semibold mb-4">Feedback by Priority</h3>
                       <div className="flex items-center gap-4">
                         <div className="flex-1" style={{ maxWidth: '60%' }}>
-                          <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300}>
+                          <ResponsiveContainer width="100%" height={getPieChartHeight()}>
                             <PieChart>
                               <Pie
                                 data={feedbackData.priority.map((item: any, index: number) => ({
@@ -1691,8 +1714,8 @@ export default function AdminPage() {
                                 cx="50%"
                                 cy="50%"
                                 labelLine={false}
-                                outerRadius={windowWidth > 0 && windowWidth < 640 ? 80 : windowWidth > 0 && windowWidth < 1024 ? 90 : 100}
-                                innerRadius={windowWidth > 0 && windowWidth < 640 ? 30 : 0}
+                                outerRadius={getPieOuterRadius()}
+                                innerRadius={getPieInnerRadius()}
                                 dataKey="value"
                                 isAnimationActive={false}
                               >
@@ -2172,7 +2195,7 @@ export default function AdminPage() {
                       <h3 className="text-base sm:text-lg font-semibold mb-4">Rating Distribution</h3>
                       <div className="flex items-center gap-4">
                         <div className="flex-1" style={{ maxWidth: '60%' }}>
-                          <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300}>
+                          <ResponsiveContainer width="100%" height={getPieChartHeight()}>
                             <PieChart>
                               <Pie
                                 data={ratingsData.rating.filter((item: any) => item.count > 0).map((item: any, index: number) => ({
@@ -2182,8 +2205,8 @@ export default function AdminPage() {
                                 cx="50%"
                                 cy="50%"
                                 labelLine={false}
-                                outerRadius={windowWidth > 0 && windowWidth < 640 ? 80 : windowWidth > 0 && windowWidth < 1024 ? 90 : 100}
-                                innerRadius={windowWidth > 0 && windowWidth < 640 ? 30 : 0}
+                                outerRadius={getPieOuterRadius()}
+                                innerRadius={getPieInnerRadius()}
                                 dataKey="value"
                                 isAnimationActive={false}
                               >
