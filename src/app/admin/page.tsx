@@ -886,8 +886,8 @@ export default function AdminPage() {
           ) : analyticsData ? (
             <div className={loadingAnalytics ? "opacity-50 pointer-events-none" : ""}>
               {/* Key Metrics Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 min-w-0">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0 overflow-hidden">
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-xs sm:text-sm font-medium text-muted-foreground">Total Users</div>
                     <Users className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
@@ -903,7 +903,7 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0 overflow-hidden">
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-xs sm:text-sm font-medium text-muted-foreground">Total Events</div>
                     <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
@@ -912,7 +912,7 @@ export default function AdminPage() {
                   <div className="text-xs text-muted-foreground mt-2">Events created</div>
                 </div>
 
-                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0 overflow-hidden">
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-xs sm:text-sm font-medium text-muted-foreground">Total Transactions</div>
                     <Activity className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
@@ -925,7 +925,7 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0 overflow-hidden">
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-xs sm:text-sm font-medium text-muted-foreground">Total Revenue</div>
                     <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
@@ -942,7 +942,7 @@ export default function AdminPage() {
               </div>
 
               {/* Subscription Metrics */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mt-4 sm:mt-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mt-4 sm:mt-6 min-w-0">
                 <div className="rounded-lg border p-4 sm:p-6 bg-card">
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-xs sm:text-sm font-medium text-muted-foreground">Active Subscriptions</div>
@@ -978,9 +978,9 @@ export default function AdminPage() {
               </div>
 
               {/* Revenue Statistics */}
-              <div className="rounded-lg border p-4 sm:p-6 bg-card mt-4 sm:mt-6">
+              <div className="rounded-lg border p-4 sm:p-6 bg-card mt-4 sm:mt-6 min-w-0 overflow-hidden">
                 <h3 className="text-base sm:text-lg font-semibold mb-4">Revenue Statistics</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 min-w-0">
                   <div className="rounded-lg border p-3 sm:p-4 bg-muted/50">
                     <div className="text-xs sm:text-sm text-muted-foreground mb-1">Mean (Average)</div>
                     <div className="text-xl sm:text-2xl font-bold">{formatCurrency(analyticsData.revenue_stats?.mean || 0)}</div>
@@ -1000,11 +1000,12 @@ export default function AdminPage() {
               </div>
 
               {/* Time Series Charts */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6 min-w-0">
                 {/* Events Over Time */}
-                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0 overflow-hidden">
                   <h3 className="text-base sm:text-lg font-semibold mb-4">Events Created Over Time</h3>
-                  <ResponsiveContainer width="100%" height={250}>
+                  <div className="w-full overflow-x-auto">
+                    <ResponsiveContainer width="100%" height={250} minWidth={0}>
                     <LineChart data={analyticsData.time_series || []}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis dataKey="date" className="text-xs" tick={{ fill: '#64748b' }} />
@@ -1014,12 +1015,14 @@ export default function AdminPage() {
                       <Line type="monotone" dataKey="events" stroke="#3b82f6" strokeWidth={2} name="Events" />
                     </LineChart>
                   </ResponsiveContainer>
+                  </div>
                 </div>
 
                 {/* Transactions Over Time */}
-                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0 overflow-hidden">
                   <h3 className="text-base sm:text-lg font-semibold mb-4">Transactions Over Time</h3>
-                  <ResponsiveContainer width="100%" height={250}>
+                  <div className="w-full overflow-x-auto">
+                    <ResponsiveContainer width="100%" height={250} minWidth={0}>
                     <LineChart data={analyticsData.time_series || []}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis dataKey="date" className="text-xs" tick={{ fill: '#64748b' }} />
@@ -1029,12 +1032,14 @@ export default function AdminPage() {
                       <Line type="monotone" dataKey="transactions" stroke="#10b981" strokeWidth={2} name="Transactions" />
                     </LineChart>
                   </ResponsiveContainer>
+                  </div>
                 </div>
 
                 {/* Revenue Over Time */}
-                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0 overflow-hidden">
                   <h3 className="text-base sm:text-lg font-semibold mb-4">Revenue Over Time</h3>
-                  <ResponsiveContainer width="100%" height={250}>
+                  <div className="w-full overflow-x-auto">
+                    <ResponsiveContainer width="100%" height={250} minWidth={0}>
                     <LineChart data={analyticsData.time_series || []}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis dataKey="date" className="text-xs" tick={{ fill: '#64748b' }} />
@@ -1044,12 +1049,14 @@ export default function AdminPage() {
                       <Line type="monotone" dataKey="revenue_cents" stroke="#f59e0b" strokeWidth={2} name="Revenue" />
                     </LineChart>
                   </ResponsiveContainer>
+                  </div>
                 </div>
 
                 {/* User Growth Over Time */}
-                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0 overflow-hidden">
                   <h3 className="text-base sm:text-lg font-semibold mb-4">User Growth Over Time</h3>
-                  <ResponsiveContainer width="100%" height={250}>
+                  <div className="w-full overflow-x-auto">
+                    <ResponsiveContainer width="100%" height={250} minWidth={0}>
                     <LineChart data={analyticsData.time_series || []}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis dataKey="date" className="text-xs" tick={{ fill: '#64748b' }} />
@@ -1060,15 +1067,17 @@ export default function AdminPage() {
                       <Line type="monotone" dataKey="users" stroke="#ec4899" strokeWidth={2} name="New Users" />
                     </LineChart>
                   </ResponsiveContainer>
+                  </div>
                 </div>
               </div>
 
               {/* Subscription Breakdown */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6 min-w-0">
                 {/* Most Popular Subscriptions */}
-                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0 overflow-hidden">
                   <h3 className="text-base sm:text-lg font-semibold mb-4">Most Popular Subscriptions</h3>
-                  <ResponsiveContainer width="100%" height={250}>
+                  <div className="w-full overflow-x-auto">
+                    <ResponsiveContainer width="100%" height={250} minWidth={0}>
                     <BarChart data={(analyticsData.subscription_breakdown || []).map((item: any, idx: number) => ({ ...item, _index: idx }))}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis dataKey="name" className="text-xs" tick={{ fill: '#64748b' }} />
@@ -1082,12 +1091,14 @@ export default function AdminPage() {
                       }} />
                     </BarChart>
                   </ResponsiveContainer>
+                  </div>
                 </div>
 
                 {/* Revenue by Subscription Plan */}
-                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0 overflow-hidden">
                   <h3 className="text-base sm:text-lg font-semibold mb-4">Revenue by Subscription Plan</h3>
-                  <ResponsiveContainer width="100%" height={250}>
+                  <div className="w-full overflow-x-auto">
+                    <ResponsiveContainer width="100%" height={250} minWidth={0}>
                     <BarChart data={(analyticsData.subscription_breakdown || []).map((item: any, idx: number) => ({ ...item, _index: idx }))}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis dataKey="name" className="text-xs" tick={{ fill: '#64748b' }} />
@@ -1101,6 +1112,7 @@ export default function AdminPage() {
                       }} />
                     </BarChart>
                   </ResponsiveContainer>
+                  </div>
                 </div>
               </div>
 
@@ -1112,9 +1124,10 @@ export default function AdminPage() {
                 }));
                 console.log('Pie data colors:', pieData.map((d: any) => ({ name: d.name, fill: d.fill })));
                 return (
-                  <div className="rounded-lg border p-4 sm:p-6 bg-card mt-4 sm:mt-6">
+                  <div className="rounded-lg border p-4 sm:p-6 bg-card mt-4 sm:mt-6 min-w-0 overflow-hidden">
                     <h3 className="text-base sm:text-lg font-semibold mb-4">Subscription Distribution</h3>
-                    <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300}>
+                    <div className="w-full overflow-x-auto">
+                      <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300} minWidth={0}>
                       <PieChart>
                         <Pie
                           data={pieData}
@@ -1159,12 +1172,13 @@ export default function AdminPage() {
                         />
                       </PieChart>
                     </ResponsiveContainer>
+                    </div>
                   </div>
                 );
               })()}
 
               {/* Event Creation Rate & Transaction Rates */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6 min-w-0">
                 {/* Event Creation Rate */}
                 <div className="rounded-lg border p-4 sm:p-6 bg-card">
                   <h3 className="text-base sm:text-lg font-semibold mb-4">Event Creation Rate</h3>
@@ -1219,7 +1233,8 @@ export default function AdminPage() {
                   return (
                     <div className="rounded-lg border p-4 sm:p-6 bg-card">
                       <h3 className="text-base sm:text-lg font-semibold mb-4">Transaction Rates</h3>
-                      <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300}>
+                      <div className="w-full overflow-x-auto">
+                      <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300} minWidth={0}>
                         <PieChart>
                           <Pie
                             data={pieData}
@@ -1261,7 +1276,7 @@ export default function AdminPage() {
                           />
                         </PieChart>
                       </ResponsiveContainer>
-                      <div className="mt-4 grid grid-cols-2 gap-4 text-center">
+                      <div className="mt-4 grid grid-cols-2 gap-4 text-center min-w-0">
                         <div>
                           <div className="text-xl sm:text-2xl font-bold text-green-600">
                             {analyticsData.transaction_rates.paid || 0}
@@ -1282,9 +1297,10 @@ export default function AdminPage() {
 
               {/* Sales by Event Category */}
               {analyticsData.sales_by_category && analyticsData.sales_by_category.length > 0 && (
-                <div className="rounded-lg border p-4 sm:p-6 bg-card mt-4 sm:mt-6">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card mt-4 sm:mt-6 min-w-0 overflow-hidden">
                   <h3 className="text-base sm:text-lg font-semibold mb-4">Sales by Event Category</h3>
-                  <ResponsiveContainer width="100%" height={250}>
+                  <div className="w-full overflow-x-auto">
+                    <ResponsiveContainer width="100%" height={250} minWidth={0}>
                     <BarChart data={analyticsData.sales_by_category.map((item: any, idx: number) => ({ ...item, _index: idx }))}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis dataKey="category" className="text-xs" angle={-45} textAnchor="end" height={100} tick={{ fill: '#64748b' }} />
@@ -1298,11 +1314,12 @@ export default function AdminPage() {
                       }} />
                     </BarChart>
                   </ResponsiveContainer>
+                  </div>
                 </div>
               )}
 
               {/* AI Insight + Descriptive Summary */}
-              <div className="rounded-lg border p-4 sm:p-6 bg-card mt-4 sm:mt-6">
+              <div className="rounded-lg border p-4 sm:p-6 bg-card mt-4 sm:mt-6 min-w-0 overflow-hidden">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
                   <div className="flex items-center gap-2">
                     <Lightbulb className="h-5 w-5 text-primary" />
@@ -1406,12 +1423,13 @@ export default function AdminPage() {
 
               {/* Feedback Type Charts */}
               {feedbackData.feedbackType && feedbackData.feedbackType.length > 0 && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6 min-w-0">
                   {/* Feedback Type Pie Chart */}
                   {mounted && (
                     <div className="rounded-lg border p-4 sm:p-6 bg-card">
                       <h3 className="text-base sm:text-lg font-semibold mb-4">Feedback by Type</h3>
-                      <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300}>
+                      <div className="w-full overflow-x-auto">
+                      <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300} minWidth={0}>
                         <PieChart>
                           <Pie
                             data={feedbackData.feedbackType.map((item: any, index: number) => ({
@@ -1466,7 +1484,8 @@ export default function AdminPage() {
                   {/* Feedback Type Bar Chart */}
                   <div className="rounded-lg border p-4 sm:p-6 bg-card">
                     <h3 className="text-base sm:text-lg font-semibold mb-4">Feedback Type Distribution</h3>
-                    <ResponsiveContainer width="100%" height={250}>
+                    <div className="w-full overflow-x-auto">
+                    <ResponsiveContainer width="100%" height={250} minWidth={0}>
                       <BarChart data={feedbackData.feedbackType.map((item: any, idx: number) => ({ ...item, _index: idx }))}>
                         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                         <XAxis dataKey="name" className="text-xs" angle={-45} textAnchor="end" height={100} tick={{ fill: '#64748b' }} />
@@ -1494,14 +1513,15 @@ export default function AdminPage() {
 
               {/* Rating Charts */}
               {feedbackData.rating && feedbackData.ratingsWithValue > 0 && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6 min-w-0">
                   {/* Rating Pie Chart */}
                   {mounted && (
                     <div className="rounded-lg border p-4 sm:p-6 bg-card">
                       <h3 className="text-base sm:text-lg font-semibold mb-4">Feedback by Rating</h3>
                       <div className="flex items-center gap-4">
                         <div className="flex-1" style={{ maxWidth: '60%' }}>
-                          <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300}>
+                          <div className="w-full overflow-x-auto">
+                      <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300} minWidth={0}>
                             <PieChart>
                               <Pie
                                 data={feedbackData.rating.map((item: any, index: number) => ({
@@ -1556,7 +1576,8 @@ export default function AdminPage() {
                   {/* Rating Bar Chart */}
                   <div className="rounded-lg border p-4 sm:p-6 bg-card">
                     <h3 className="text-base sm:text-lg font-semibold mb-4">Rating Distribution</h3>
-                    <ResponsiveContainer width="100%" height={250}>
+                    <div className="w-full overflow-x-auto">
+                    <ResponsiveContainer width="100%" height={250} minWidth={0}>
                       <BarChart data={feedbackData.rating.map((item: any, idx: number) => ({ ...item, _index: idx }))}>
                         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                         <XAxis dataKey="name" className="text-xs" tick={{ fill: '#64748b' }} />
@@ -1584,14 +1605,15 @@ export default function AdminPage() {
 
               {/* Status Charts */}
               {feedbackData.status && feedbackData.status.length > 0 && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6 min-w-0">
                   {/* Status Pie Chart */}
                   {mounted && (
                     <div className="rounded-lg border p-4 sm:p-6 bg-card">
                       <h3 className="text-base sm:text-lg font-semibold mb-4">Feedback by Status</h3>
                       <div className="flex items-center gap-4">
                         <div className="flex-1" style={{ maxWidth: '60%' }}>
-                          <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300}>
+                          <div className="w-full overflow-x-auto">
+                      <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300} minWidth={0}>
                             <PieChart>
                               <Pie
                                 data={feedbackData.status.map((item: any, index: number) => ({
@@ -1646,7 +1668,8 @@ export default function AdminPage() {
                   {/* Status Bar Chart */}
                   <div className="rounded-lg border p-4 sm:p-6 bg-card">
                     <h3 className="text-base sm:text-lg font-semibold mb-4">Status Distribution</h3>
-                    <ResponsiveContainer width="100%" height={250}>
+                    <div className="w-full overflow-x-auto">
+                    <ResponsiveContainer width="100%" height={250} minWidth={0}>
                       <BarChart data={feedbackData.status.map((item: any, idx: number) => ({ ...item, _index: idx }))}>
                         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                         <XAxis dataKey="name" className="text-xs" tick={{ fill: '#64748b' }} />
@@ -1674,14 +1697,15 @@ export default function AdminPage() {
 
               {/* Priority Charts */}
               {feedbackData.priority && feedbackData.priority.length > 0 && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6 min-w-0">
                   {/* Priority Pie Chart */}
                   {mounted && (
                     <div className="rounded-lg border p-4 sm:p-6 bg-card">
                       <h3 className="text-base sm:text-lg font-semibold mb-4">Feedback by Priority</h3>
                       <div className="flex items-center gap-4">
                         <div className="flex-1" style={{ maxWidth: '60%' }}>
-                          <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300}>
+                          <div className="w-full overflow-x-auto">
+                      <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300} minWidth={0}>
                             <PieChart>
                               <Pie
                                 data={feedbackData.priority.map((item: any, index: number) => ({
@@ -1736,7 +1760,8 @@ export default function AdminPage() {
                   {/* Priority Bar Chart */}
                   <div className="rounded-lg border p-4 sm:p-6 bg-card">
                     <h3 className="text-base sm:text-lg font-semibold mb-4">Priority Distribution</h3>
-                    <ResponsiveContainer width="100%" height={250}>
+                    <div className="w-full overflow-x-auto">
+                    <ResponsiveContainer width="100%" height={250} minWidth={0}>
                       <BarChart data={feedbackData.priority.map((item: any, idx: number) => ({ ...item, _index: idx }))}>
                         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                         <XAxis dataKey="name" className="text-xs" tick={{ fill: '#64748b' }} />
@@ -1763,7 +1788,7 @@ export default function AdminPage() {
               )}
 
               {/* Detailed Statistics Table */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6 min-w-0">
                 {/* Feedback Type Details */}
                 {feedbackData.feedbackType && feedbackData.feedbackType.length > 0 && (
                   <div className="rounded-lg border p-4 sm:p-6 bg-card">
@@ -1817,7 +1842,7 @@ export default function AdminPage() {
 
               {/* Feedback List Section */}
               {feedbackData.feedbackList && feedbackData.feedbackList.length > 0 && (
-                <div className="rounded-lg border p-4 sm:p-6 bg-card mt-4 sm:mt-6">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card mt-4 sm:mt-6 min-w-0 overflow-hidden">
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
                     <h3 className="text-base sm:text-lg font-semibold">Feedback List</h3>
                     <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
@@ -2105,7 +2130,7 @@ export default function AdminPage() {
             <div>
               {/* Summary Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-4">
-                <div className="rounded-lg border p-3 sm:p-4 lg:p-6 bg-card min-w-0">
+                <div className="rounded-lg border p-3 sm:p-4 lg:p-6 bg-card min-w-0 overflow-hidden">
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <p className="text-xs sm:text-sm text-muted-foreground mb-1 truncate">Total Stars</p>
@@ -2116,7 +2141,7 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                <div className="rounded-lg border p-3 sm:p-4 lg:p-6 bg-card min-w-0">
+                <div className="rounded-lg border p-3 sm:p-4 lg:p-6 bg-card min-w-0 overflow-hidden">
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <p className="text-xs sm:text-sm text-muted-foreground mb-1 truncate">Website Rating</p>
@@ -2127,7 +2152,7 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                <div className="rounded-lg border p-3 sm:p-4 lg:p-6 bg-card min-w-0">
+                <div className="rounded-lg border p-3 sm:p-4 lg:p-6 bg-card min-w-0 overflow-hidden">
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <p className="text-xs sm:text-sm text-muted-foreground mb-1 truncate">Average Rating</p>
@@ -2138,7 +2163,7 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                <div className="rounded-lg border p-3 sm:p-4 lg:p-6 bg-card min-w-0">
+                <div className="rounded-lg border p-3 sm:p-4 lg:p-6 bg-card min-w-0 overflow-hidden">
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <p className="text-xs sm:text-sm text-muted-foreground mb-1 truncate">With Suggestions</p>
@@ -2151,7 +2176,7 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                <div className="rounded-lg border p-3 sm:p-4 lg:p-6 bg-card min-w-0">
+                <div className="rounded-lg border p-3 sm:p-4 lg:p-6 bg-card min-w-0 overflow-hidden">
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <p className="text-xs sm:text-sm text-muted-foreground mb-1 truncate">Rated Users</p>
@@ -2165,14 +2190,15 @@ export default function AdminPage() {
 
               {/* Rating Charts */}
               {ratingsData.rating && ratingsData.rating.length > 0 && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6 min-w-0">
                   {/* Rating Pie Chart */}
                   {mounted && (
                     <div className="rounded-lg border p-4 sm:p-6 bg-card">
                       <h3 className="text-base sm:text-lg font-semibold mb-4">Rating Distribution</h3>
                       <div className="flex items-center gap-4">
                         <div className="flex-1" style={{ maxWidth: '60%' }}>
-                          <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300}>
+                          <div className="w-full overflow-x-auto">
+                      <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300} minWidth={0}>
                             <PieChart>
                               <Pie
                                 data={ratingsData.rating.filter((item: any) => item.count > 0).map((item: any, index: number) => ({
@@ -2227,7 +2253,8 @@ export default function AdminPage() {
                   {/* Rating Bar Chart */}
                   <div className="rounded-lg border p-4 sm:p-6 bg-card">
                     <h3 className="text-base sm:text-lg font-semibold mb-4">Rating Breakdown</h3>
-                    <ResponsiveContainer width="100%" height={250}>
+                    <div className="w-full overflow-x-auto">
+                    <ResponsiveContainer width="100%" height={250} minWidth={0}>
                       <BarChart data={ratingsData.rating.filter((item: any) => item.count > 0).map((item: any, idx: number) => ({ ...item, _index: idx }))}>
                         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                         <XAxis dataKey="name" className="text-xs" tick={{ fill: '#64748b' }} />
@@ -2255,7 +2282,7 @@ export default function AdminPage() {
 
               {/* Ratings List Section */}
               {ratingsData.ratingsList && ratingsData.ratingsList.length > 0 && (
-                <div className="rounded-lg border p-4 sm:p-6 bg-card mt-4 sm:mt-6">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card mt-4 sm:mt-6 min-w-0 overflow-hidden">
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
                     <h3 className="text-base sm:text-lg font-semibold">Ratings List</h3>
                     <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
@@ -2384,7 +2411,7 @@ export default function AdminPage() {
               )}
 
               {(!ratingsData.ratingsList || ratingsData.ratingsList.length === 0) && (
-                <div className="rounded-lg border p-6 bg-card mt-4 sm:mt-6">
+                <div className="rounded-lg border p-6 bg-card mt-4 sm:mt-6 min-w-0 overflow-hidden">
                   <div className="text-center py-8 text-sm text-muted-foreground">
                     No ratings data available
                   </div>
