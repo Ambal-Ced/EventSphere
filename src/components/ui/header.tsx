@@ -541,14 +541,19 @@ export function Header() {
             
             {/* Show notifications only for authenticated users */}
             {user && (
-              <Link prefetch={true} href="/notifications" className="flex items-center justify-center gap-2 text-base" onClick={()=>setMobileOpen(false)}>
-                <span className={cn(pathname === "/notifications" ? "text-primary" : "text-muted-foreground")}>Notifications</span>
-                {unreadCount > 0 && (
-                  <span className="min-w-[18px] h-5 px-1 rounded-full bg-primary text-[11px] font-medium text-primary-foreground inline-flex items-center justify-center">
-                    {Math.min(unreadCount, 99)}
-                  </span>
-                )}
-              </Link>
+              <>
+                <Link prefetch={true} href="/notifications" className="flex items-center justify-center gap-2 text-base" onClick={()=>setMobileOpen(false)}>
+                  <span className={cn(pathname === "/notifications" ? "text-primary" : "text-muted-foreground")}>Notifications</span>
+                  {unreadCount > 0 && (
+                    <span className="min-w-[18px] h-5 px-1 rounded-full bg-primary text-[11px] font-medium text-primary-foreground inline-flex items-center justify-center">
+                      {Math.min(unreadCount, 99)}
+                    </span>
+                  )}
+                </Link>
+                <Link prefetch={true} href="/rating" className={cn("text-base", pathname === "/rating" ? "text-primary" : "text-muted-foreground")} onClick={()=>setMobileOpen(false)}>
+                  Rate Us Now
+                </Link>
+              </>
             )}
             
             {/* Show login/signup buttons for non-authenticated users */}

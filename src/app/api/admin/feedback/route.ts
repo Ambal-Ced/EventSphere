@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
       return query;
     };
 
-    // Fetch feedback data
+    // Fetch feedback data for analytics
     const feedbackQuery = buildDateFilter(
       db
         .from("feedback")
@@ -71,6 +71,17 @@ export async function GET(request: NextRequest) {
 
     const { data: feedbackRows, error: feedbackError } = await feedbackQuery;
     if (feedbackError) throw feedbackError;
+
+    // Fetch full feedback list for the detailed view
+    const feedbackListQuery = buildDateFilter(
+      db
+        .from("feedback")
+        .select("id, title, description, feedback_type, rating, status, priority, created_at, updated_at")
+        .order("created_at", { ascending: false })
+    );
+
+    const { data: feedbackList, error: feedbackListError } = await feedbackListQuery;
+    if (feedbackListError) throw feedbackListError;
 
     // Process data to create statistics
     const total = feedbackRows?.length || 0;
@@ -147,6 +158,7 @@ export async function GET(request: NextRequest) {
       status: statusData,
       priority: priorityData,
       ratingsWithValue,
+      feedbackList: feedbackList || [],
       debug: { usedServiceRole: !!serviceKey },
     };
 

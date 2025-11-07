@@ -18,7 +18,7 @@ const YAxis: any = dynamic(() => import("recharts").then(m => m.YAxis as any), {
 const CartesianGrid: any = dynamic(() => import("recharts").then(m => m.CartesianGrid as any), { ssr: false, loading: () => null }) as any;
 const Tooltip: any = dynamic(() => import("recharts").then(m => m.Tooltip as any), { ssr: false, loading: () => null }) as any;
 const Legend: any = dynamic(() => import("recharts").then(m => m.Legend as any), { ssr: false, loading: () => null }) as any;
-import { TrendingUp, Users, Calendar, DollarSign, Package, Activity, RefreshCw, Lightbulb } from "lucide-react";
+import { TrendingUp, Users, Calendar, DollarSign, Package, Activity, RefreshCw, Lightbulb, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -51,6 +51,9 @@ export default function AdminPage() {
   const [windowWidth, setWindowWidth] = useState<number>(0);
   const [feedbackData, setFeedbackData] = useState<any>(null);
   const [loadingFeedback, setLoadingFeedback] = useState(false);
+  const [feedbackSeverityFilter, setFeedbackSeverityFilter] = useState<string>("all");
+  const [feedbackRatingFilter, setFeedbackRatingFilter] = useState<string>("all");
+  const [feedbackDateOrder, setFeedbackDateOrder] = useState<"desc" | "asc">("desc");
 
   // Helpers are declared before usage to avoid temporal dead zone issues in hooks
   const formatCurrency = useCallback((cents: number) => {
@@ -1577,6 +1580,162 @@ export default function AdminPage() {
                   </div>
                 )}
               </div>
+
+              {/* Feedback List Section */}
+              {feedbackData.feedbackList && feedbackData.feedbackList.length > 0 && (
+                <div className="rounded-lg border p-4 sm:p-6 bg-card mt-4 sm:mt-6">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+                    <h3 className="text-base sm:text-lg font-semibold">Feedback List</h3>
+                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                      {/* Severity Filter */}
+                      <select
+                        value={feedbackSeverityFilter}
+                        onChange={(e) => setFeedbackSeverityFilter(e.target.value)}
+                        className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                      >
+                        <option value="all">All Severity</option>
+                        <option value="urgent">Urgent</option>
+                        <option value="high">High</option>
+                        <option value="medium">Medium</option>
+                        <option value="low">Low</option>
+                      </select>
+
+                      {/* Rating Filter */}
+                      <select
+                        value={feedbackRatingFilter}
+                        onChange={(e) => setFeedbackRatingFilter(e.target.value)}
+                        className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                      >
+                        <option value="all">All Ratings</option>
+                        <option value="5">5 Stars</option>
+                        <option value="4">4 Stars</option>
+                        <option value="3">3 Stars</option>
+                        <option value="2">2 Stars</option>
+                        <option value="1">1 Star</option>
+                        <option value="0">No Rating</option>
+                      </select>
+
+                      {/* Date Order */}
+                      <select
+                        value={feedbackDateOrder}
+                        onChange={(e) => setFeedbackDateOrder(e.target.value as "desc" | "asc")}
+                        className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                      >
+                        <option value="desc">Newest First</option>
+                        <option value="asc">Oldest First</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Filtered and Sorted Feedback List */}
+                  {(() => {
+                    let filtered = [...(feedbackData.feedbackList || [])];
+
+                    // Filter by severity/priority
+                    if (feedbackSeverityFilter !== "all") {
+                      filtered = filtered.filter((item: any) => 
+                        (item.priority || "").toLowerCase() === feedbackSeverityFilter.toLowerCase()
+                      );
+                    }
+
+                    // Filter by rating
+                    if (feedbackRatingFilter !== "all") {
+                      const ratingValue = parseInt(feedbackRatingFilter);
+                      if (ratingValue === 0) {
+                        filtered = filtered.filter((item: any) => 
+                          item.rating === null || item.rating === undefined
+                        );
+                      } else {
+                        filtered = filtered.filter((item: any) => 
+                          item.rating === ratingValue
+                        );
+                      }
+                    }
+
+                    // Sort by date
+                    filtered.sort((a: any, b: any) => {
+                      const dateA = new Date(a.created_at).getTime();
+                      const dateB = new Date(b.created_at).getTime();
+                      return feedbackDateOrder === "desc" ? dateB - dateA : dateA - dateB;
+                    });
+
+                    return (
+                      <div>
+                        {filtered.length === 0 ? (
+                          <div className="text-center py-8 text-sm text-muted-foreground">
+                            No feedback matches the selected filters
+                          </div>
+                        ) : (
+                          <>
+                            <div className="text-xs sm:text-sm text-muted-foreground mb-3">
+                              {filtered.length} feedback {filtered.length === 1 ? 'entry' : 'entries'}
+                              {filtered.length > 10 && " (scroll to see all)"}
+                            </div>
+                            <div 
+                              className="overflow-y-auto space-y-3 pr-2 border rounded-md p-2"
+                              style={{ maxHeight: '800px' }}
+                            >
+                              {filtered.map((item: any) => (
+                                <div
+                                  key={item.id}
+                                  className="rounded-lg border p-4 bg-muted/30 hover:bg-muted/50 transition-colors"
+                                >
+                                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-start gap-2 mb-2">
+                                        <h4 className="font-semibold text-sm sm:text-base truncate">{item.title}</h4>
+                                        <span className="text-xs px-2 py-1 rounded bg-primary/20 text-primary flex-shrink-0">
+                                          {item.feedback_type?.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase()) || "Unknown"}
+                                        </span>
+                                      </div>
+                                      <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2 mb-2">
+                                        {item.description}
+                                      </p>
+                                      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                                        <span>
+                                          {new Date(item.created_at).toLocaleDateString()} {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-3 flex-shrink-0">
+                                      {/* Severity/Priority Badge */}
+                                      <div className="flex flex-col items-end gap-1">
+                                        <span className="text-xs font-medium text-muted-foreground">Severity</span>
+                                        <span className={`text-xs font-semibold px-2 py-1 rounded ${
+                                          item.priority === "urgent" ? "bg-red-500/20 text-red-500" :
+                                          item.priority === "high" ? "bg-orange-500/20 text-orange-500" :
+                                          item.priority === "medium" ? "bg-yellow-500/20 text-yellow-500" :
+                                          item.priority === "low" ? "bg-green-500/20 text-green-500" :
+                                          "bg-muted text-muted-foreground"
+                                        }`}>
+                                          {(item.priority || "N/A").charAt(0).toUpperCase() + (item.priority || "N/A").slice(1)}
+                                        </span>
+                                      </div>
+
+                                      {/* Rating Badge */}
+                                      <div className="flex flex-col items-end gap-1">
+                                        <span className="text-xs font-medium text-muted-foreground">Rating</span>
+                                        {item.rating !== null && item.rating !== undefined ? (
+                                          <div className="flex items-center gap-1">
+                                            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                                            <span className="text-xs font-semibold">{item.rating}</span>
+                                          </div>
+                                        ) : (
+                                          <span className="text-xs text-muted-foreground">No rating</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex h-[60vh] items-center justify-center text-sm text-muted-foreground">

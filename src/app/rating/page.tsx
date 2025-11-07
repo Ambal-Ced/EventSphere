@@ -111,23 +111,23 @@ export default function RatingPage() {
   }
 
   return (
-    <div className="container mx-auto py-8 px-4">
+    <div className="container mx-auto py-4 sm:py-6 lg:py-8 px-4 sm:px-6">
       <div className="max-w-2xl mx-auto">
-        <div className="rounded-lg border p-6 sm:p-8 bg-card">
-          <h1 className="text-2xl sm:text-3xl font-bold mb-2">Rate EventTria</h1>
-          <p className="text-muted-foreground mb-6">
+        <div className="rounded-lg border p-4 sm:p-6 lg:p-8 bg-card">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-2">Rate EventTria</h1>
+          <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-6">
             {submitted 
               ? "Thank you for your rating! You can update it anytime."
               : "Your feedback helps us improve our platform. Please rate your experience."}
           </p>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
             {/* Star Rating */}
             <div>
-              <label className="text-sm font-medium mb-3 block">
+              <label className="text-xs sm:text-sm font-medium mb-2 sm:mb-3 block">
                 Rating {rating > 0 && `(${rating} ${rating === 1 ? 'star' : 'stars'})`}
               </label>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 sm:gap-2 justify-center sm:justify-start">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <button
                     key={star}
@@ -135,11 +135,11 @@ export default function RatingPage() {
                     onClick={() => setRating(star)}
                     onMouseEnter={() => setHoveredRating(star)}
                     onMouseLeave={() => setHoveredRating(0)}
-                    className="transition-transform hover:scale-110"
+                    className="transition-transform hover:scale-110 active:scale-95"
                     aria-label={`Rate ${star} ${star === 1 ? 'star' : 'stars'}`}
                   >
                     <Star
-                      className={`h-10 w-10 sm:h-12 sm:w-12 transition-colors ${
+                      className={`h-8 w-8 sm:h-10 sm:w-10 lg:h-12 lg:w-12 transition-colors ${
                         star <= (hoveredRating || rating)
                           ? "fill-yellow-400 text-yellow-400"
                           : "text-muted-foreground"
@@ -148,14 +148,14 @@ export default function RatingPage() {
                   </button>
                 ))}
               </div>
-              <p className="text-xs text-muted-foreground mt-2">
+              <p className="text-xs text-muted-foreground mt-2 text-center sm:text-left">
                 Click on a star to rate. You can submit without selecting a rating.
               </p>
             </div>
 
             {/* Suggestion Box */}
             <div>
-              <label htmlFor="suggestion" className="text-sm font-medium mb-2 block">
+              <label htmlFor="suggestion" className="text-xs sm:text-sm font-medium mb-2 block">
                 Suggestions (Optional)
               </label>
               <textarea
@@ -167,7 +167,7 @@ export default function RatingPage() {
                   }
                 }}
                 placeholder="Tell us what we can do to improve..."
-                className="w-full min-h-[120px] rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                className="w-full min-h-[100px] sm:min-h-[120px] rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                 maxLength={1500}
               />
               <div className="flex justify-between items-center mt-1">
