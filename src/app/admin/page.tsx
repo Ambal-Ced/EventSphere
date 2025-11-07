@@ -887,7 +887,7 @@ export default function AdminPage() {
             <div className={loadingAnalytics ? "opacity-50 pointer-events-none" : ""}>
               {/* Key Metrics Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0">
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-xs sm:text-sm font-medium text-muted-foreground">Total Users</div>
                     <Users className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
@@ -903,7 +903,7 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0">
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-xs sm:text-sm font-medium text-muted-foreground">Total Events</div>
                     <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
@@ -912,7 +912,7 @@ export default function AdminPage() {
                   <div className="text-xs text-muted-foreground mt-2">Events created</div>
                 </div>
 
-                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0">
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-xs sm:text-sm font-medium text-muted-foreground">Total Transactions</div>
                     <Activity className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
@@ -925,7 +925,7 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0">
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-xs sm:text-sm font-medium text-muted-foreground">Total Revenue</div>
                     <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
@@ -943,7 +943,7 @@ export default function AdminPage() {
 
               {/* Subscription Metrics */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mt-4 sm:mt-6">
-                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0">
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-xs sm:text-sm font-medium text-muted-foreground">Active Subscriptions</div>
                     <Package className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
@@ -954,7 +954,7 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0">
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-xs sm:text-sm font-medium text-muted-foreground">Conversion Rate</div>
                     <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
@@ -967,7 +967,7 @@ export default function AdminPage() {
                   <div className="text-xs text-muted-foreground mt-2">Users with subscriptions</div>
                 </div>
 
-                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0">
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-xs sm:text-sm font-medium text-muted-foreground">Total Subscriptions</div>
                     <Package className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
@@ -978,20 +978,20 @@ export default function AdminPage() {
               </div>
 
               {/* Revenue Statistics */}
-              <div className="rounded-lg border p-4 sm:p-6 bg-card mt-4 sm:mt-6">
+              <div className="rounded-lg border p-4 sm:p-6 bg-card mt-4 sm:mt-6 min-w-0">
                 <h3 className="text-base sm:text-lg font-semibold mb-4">Revenue Statistics</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-                  <div className="rounded-lg border p-3 sm:p-4 bg-muted/50">
+                  <div className="rounded-lg border p-3 sm:p-4 bg-muted/50 min-w-0">
                     <div className="text-xs sm:text-sm text-muted-foreground mb-1">Mean (Average)</div>
                     <div className="text-xl sm:text-2xl font-bold">{formatCurrency(analyticsData.revenue_stats?.mean || 0)}</div>
                     <div className="text-xs text-muted-foreground mt-1">Average transaction value</div>
                   </div>
-                  <div className="rounded-lg border p-3 sm:p-4 bg-muted/50">
+                  <div className="rounded-lg border p-3 sm:p-4 bg-muted/50 min-w-0">
                     <div className="text-xs sm:text-sm text-muted-foreground mb-1">Median</div>
                     <div className="text-xl sm:text-2xl font-bold">{formatCurrency(analyticsData.revenue_stats?.median || 0)}</div>
                     <div className="text-xs text-muted-foreground mt-1">Middle value</div>
                   </div>
-                  <div className="rounded-lg border p-3 sm:p-4 bg-muted/50">
+                  <div className="rounded-lg border p-3 sm:p-4 bg-muted/50 min-w-0">
                     <div className="text-xs sm:text-sm text-muted-foreground mb-1">Mode (Most Common)</div>
                     <div className="text-xl sm:text-2xl font-bold">{formatCurrency(analyticsData.revenue_stats?.mode || 0)}</div>
                     <div className="text-xs text-muted-foreground mt-1">Most frequent amount</div>
@@ -1002,7 +1002,7 @@ export default function AdminPage() {
               {/* Time Series Charts */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6">
                 {/* Events Over Time */}
-                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0 overflow-hidden">
                   <h3 className="text-base sm:text-lg font-semibold mb-4">Events Created Over Time</h3>
                   <ResponsiveContainer width="100%" height={250}>
                     <LineChart data={analyticsData.time_series || []}>
@@ -1017,7 +1017,7 @@ export default function AdminPage() {
                 </div>
 
                 {/* Transactions Over Time */}
-                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0 overflow-hidden">
                   <h3 className="text-base sm:text-lg font-semibold mb-4">Transactions Over Time</h3>
                   <ResponsiveContainer width="100%" height={250}>
                     <LineChart data={analyticsData.time_series || []}>
@@ -1032,7 +1032,7 @@ export default function AdminPage() {
                 </div>
 
                 {/* Revenue Over Time */}
-                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0 overflow-hidden">
                   <h3 className="text-base sm:text-lg font-semibold mb-4">Revenue Over Time</h3>
                   <ResponsiveContainer width="100%" height={250}>
                     <LineChart data={analyticsData.time_series || []}>
@@ -1047,7 +1047,7 @@ export default function AdminPage() {
                 </div>
 
                 {/* User Growth Over Time */}
-                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0 overflow-hidden">
                   <h3 className="text-base sm:text-lg font-semibold mb-4">User Growth Over Time</h3>
                   <ResponsiveContainer width="100%" height={250}>
                     <LineChart data={analyticsData.time_series || []}>
@@ -1066,7 +1066,7 @@ export default function AdminPage() {
               {/* Subscription Breakdown */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6">
                 {/* Most Popular Subscriptions */}
-                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0 overflow-hidden">
                   <h3 className="text-base sm:text-lg font-semibold mb-4">Most Popular Subscriptions</h3>
                   <ResponsiveContainer width="100%" height={250}>
                     <BarChart data={(analyticsData.subscription_breakdown || []).map((item: any, idx: number) => ({ ...item, _index: idx }))}>
@@ -1085,7 +1085,7 @@ export default function AdminPage() {
                 </div>
 
                 {/* Revenue by Subscription Plan */}
-                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0 overflow-hidden">
                   <h3 className="text-base sm:text-lg font-semibold mb-4">Revenue by Subscription Plan</h3>
                   <ResponsiveContainer width="100%" height={250}>
                     <BarChart data={(analyticsData.subscription_breakdown || []).map((item: any, idx: number) => ({ ...item, _index: idx }))}>
@@ -1112,7 +1112,7 @@ export default function AdminPage() {
                 }));
                 console.log('Pie data colors:', pieData.map((d: any) => ({ name: d.name, fill: d.fill })));
                 return (
-                  <div className="rounded-lg border p-4 sm:p-6 bg-card mt-4 sm:mt-6">
+                  <div className="rounded-lg border p-4 sm:p-6 bg-card mt-4 sm:mt-6 min-w-0 overflow-hidden">
                     <h3 className="text-base sm:text-lg font-semibold mb-4">Subscription Distribution</h3>
                     <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300}>
                       <PieChart>
@@ -1166,7 +1166,7 @@ export default function AdminPage() {
               {/* Event Creation Rate & Transaction Rates */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6">
                 {/* Event Creation Rate */}
-                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0">
                   <h3 className="text-base sm:text-lg font-semibold mb-4">Event Creation Rate</h3>
                   <div className="flex items-center justify-center mb-4">
                     <div className="text-center">
@@ -1217,7 +1217,7 @@ export default function AdminPage() {
                   ];
                   console.log('Transaction pie data:', pieData);
                   return (
-                    <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                    <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0 overflow-hidden">
                       <h3 className="text-base sm:text-lg font-semibold mb-4">Transaction Rates</h3>
                       <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300}>
                         <PieChart>
@@ -1282,7 +1282,7 @@ export default function AdminPage() {
 
               {/* Sales by Event Category */}
               {analyticsData.sales_by_category && analyticsData.sales_by_category.length > 0 && (
-                <div className="rounded-lg border p-4 sm:p-6 bg-card mt-4 sm:mt-6">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card mt-4 sm:mt-6 min-w-0 overflow-hidden">
                   <h3 className="text-base sm:text-lg font-semibold mb-4">Sales by Event Category</h3>
                   <ResponsiveContainer width="100%" height={250}>
                     <BarChart data={analyticsData.sales_by_category.map((item: any, idx: number) => ({ ...item, _index: idx }))}>
@@ -1302,7 +1302,7 @@ export default function AdminPage() {
               )}
 
               {/* AI Insight + Descriptive Summary */}
-              <div className="rounded-lg border p-4 sm:p-6 bg-card mt-4 sm:mt-6">
+              <div className="rounded-lg border p-4 sm:p-6 bg-card mt-4 sm:mt-6 min-w-0">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
                   <div className="flex items-center gap-2">
                     <Lightbulb className="h-5 w-5 text-primary" />
@@ -1366,7 +1366,7 @@ export default function AdminPage() {
             <div className={loadingFeedback ? "opacity-50 pointer-events-none" : ""}>
               {/* Summary Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0">
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-xs sm:text-sm font-medium text-muted-foreground">Total Feedback</div>
                     <Activity className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
@@ -1375,7 +1375,7 @@ export default function AdminPage() {
                   <div className="text-xs text-muted-foreground mt-2">All feedback entries</div>
                 </div>
 
-                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0">
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-xs sm:text-sm font-medium text-muted-foreground">Feedback Types</div>
                     <Package className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
@@ -1384,7 +1384,7 @@ export default function AdminPage() {
                   <div className="text-xs text-muted-foreground mt-2">Unique types</div>
                 </div>
 
-                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0">
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-xs sm:text-sm font-medium text-muted-foreground">Avg Rating</div>
                     <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
@@ -1409,7 +1409,7 @@ export default function AdminPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6">
                   {/* Feedback Type Pie Chart */}
                   {mounted && (
-                    <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                    <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0 overflow-hidden">
                       <h3 className="text-base sm:text-lg font-semibold mb-4">Feedback by Type</h3>
                       <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300}>
                         <PieChart>
@@ -1464,7 +1464,7 @@ export default function AdminPage() {
                   )}
 
                   {/* Feedback Type Bar Chart */}
-                  <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                  <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0 overflow-hidden">
                     <h3 className="text-base sm:text-lg font-semibold mb-4">Feedback Type Distribution</h3>
                     <ResponsiveContainer width="100%" height={250}>
                       <BarChart data={feedbackData.feedbackType.map((item: any, idx: number) => ({ ...item, _index: idx }))}>
@@ -1497,7 +1497,7 @@ export default function AdminPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6">
                   {/* Rating Pie Chart */}
                   {mounted && (
-                    <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                    <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0 overflow-hidden">
                       <h3 className="text-base sm:text-lg font-semibold mb-4">Feedback by Rating</h3>
                       <div className="flex items-center gap-4">
                         <div className="flex-1" style={{ maxWidth: '60%' }}>
@@ -1554,7 +1554,7 @@ export default function AdminPage() {
                   )}
 
                   {/* Rating Bar Chart */}
-                  <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                  <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0 overflow-hidden">
                     <h3 className="text-base sm:text-lg font-semibold mb-4">Rating Distribution</h3>
                     <ResponsiveContainer width="100%" height={250}>
                       <BarChart data={feedbackData.rating.map((item: any, idx: number) => ({ ...item, _index: idx }))}>
@@ -1587,7 +1587,7 @@ export default function AdminPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6">
                   {/* Status Pie Chart */}
                   {mounted && (
-                    <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                    <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0 overflow-hidden">
                       <h3 className="text-base sm:text-lg font-semibold mb-4">Feedback by Status</h3>
                       <div className="flex items-center gap-4">
                         <div className="flex-1" style={{ maxWidth: '60%' }}>
@@ -1644,7 +1644,7 @@ export default function AdminPage() {
                   )}
 
                   {/* Status Bar Chart */}
-                  <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                  <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0 overflow-hidden">
                     <h3 className="text-base sm:text-lg font-semibold mb-4">Status Distribution</h3>
                     <ResponsiveContainer width="100%" height={250}>
                       <BarChart data={feedbackData.status.map((item: any, idx: number) => ({ ...item, _index: idx }))}>
