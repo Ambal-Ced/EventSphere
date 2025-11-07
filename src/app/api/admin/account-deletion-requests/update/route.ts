@@ -142,47 +142,45 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, updated: 0, message: "No matching pending requests found" });
     }
 
-    const pendingIds = targetRequests
-      .filter((row) => (row.status ?? "").toLowerCase() === "pending")
-      .map((row) => row.id);
+    const pendingRows = targetRequests.filter((row) => (row.status ?? "").toLowerCase() === "pending");
+    const pendingIds = pendingRows.map((row) => row.id);
 
     if (pendingIds.length === 0) {
       return NextResponse.json({ success: true, updated: 0, message: "No pending requests to update" });
     }
 
-    const scheduledDate = action === "approve" ? getEndOfMonthDate() : null;
+    if (action === "approve") {
+      const scheduledDate = getEndOfMonthDate();
+      const nowIso = new Date().toISOString();
 
-    const updateRows = targetRequests
-      .filter((row) => pendingIds.includes(row.id))
-      .map((row) => ({
+      const updateRows = pendingRows.map((row) => ({
         id: row.id,
-        status: action === "approve" ? "approved" : "denied",
-        cancelled_at: action === "deny" ? new Date().toISOString() : row.cancelled_at,
-        scheduled_deletion_date: action === "approve" ? scheduledDate : row.scheduled_deletion_date,
-        updated_at: new Date().toISOString(),
+        status: "approved",
+        cancelled_at: null,
+        scheduled_deletion_date: scheduledDate,
+        updated_at: nowIso,
       }));
 
-    const { data: updatedRows, error: updateError } = await db
-      .from("account_deletion_requests")
-      .upsert(updateRows, { onConflict: "id" })
-      .select("id, user_id, user_email, scheduled_deletion_date");
+      const { data: updatedRows, error: updateError } = await db
+        .from("account_deletion_requests")
+        .upsert(updateRows, { onConflict: "id" })
+        .select("id, user_id, user_email, scheduled_deletion_date");
 
-    if (updateError) {
-      console.error("account-deletion update update error", updateError);
-      throw updateError;
-    }
+      if (updateError) {
+        console.error("account-deletion update approve error", updateError);
+        throw updateError;
+      }
 
-    const updated = updatedRows || [];
+      const updated = updatedRows || [];
 
-    if (updated.length > 0) {
-      const notifications = updated
-        .filter((row) => row.user_id)
-        .map((row) => {
-          const scheduled = row.scheduled_deletion_date;
-          const scheduledDisplay = scheduled
-            ? new Date(scheduled).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
-            : null;
-          if (action === "approve") {
+      if (updated.length > 0) {
+        const notifications = updated
+          .filter((row) => row.user_id)
+          .map((row) => {
+            const scheduled = row.scheduled_deletion_date;
+            const scheduledDisplay = scheduled
+              ? new Date(scheduled).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+              : null;
             return {
               user_id: row.user_id!,
               type: "account_deletion",
@@ -196,38 +194,66 @@ export async function POST(request: NextRequest) {
                 scheduled_deletion_date: scheduled,
               },
             };
-          }
-          return {
-            user_id: row.user_id!,
-            type: "account_deletion",
-            title: "Account deletion request denied",
-            message: "Your account deletion request has been denied due to circumstances. Please contact us for more details and instructions.",
-            level: "warning",
-            link_url: null,
-            metadata: {
-              request_id: row.id,
-              action,
-            },
-          };
-        });
+          });
 
-      if (notifications.length > 0) {
-        const { error: notificationError } = await db
-          .from("notifications")
-          .insert(notifications.map((n) => ({ ...n, metadata: n.metadata ?? {} })));
-        if (notificationError) {
-          console.error("account-deletion update notification error", notificationError);
+        if (notifications.length > 0) {
+          const { error: notificationError } = await db
+            .from("notifications")
+            .insert(notifications.map((n) => ({ ...n, metadata: n.metadata ?? {} })));
+          if (notificationError) {
+            console.error("account-deletion update notification error", notificationError);
+          }
         }
       }
+
+      return NextResponse.json({
+        success: true,
+        updated: pendingIds.length,
+        action,
+        message: `${pendingIds.length} request${pendingIds.length === 1 ? "" : "s"} approved and scheduled`,
+      });
+    }
+
+    // Deny: notify then delete
+    const denyNotifications = pendingRows
+      .filter((row) => row.user_id)
+      .map((row) => ({
+        user_id: row.user_id!,
+        type: "account_deletion",
+        title: "Account deletion request denied",
+        message: "Your account deletion request has been denied due to circumstances. Please contact us for more details and instructions.",
+        level: "warning",
+        link_url: null,
+        metadata: {
+          request_id: row.id,
+          action,
+        },
+      }));
+
+    if (denyNotifications.length > 0) {
+      const { error: denyNotificationError } = await db
+        .from("notifications")
+        .insert(denyNotifications.map((n) => ({ ...n, metadata: n.metadata ?? {} })));
+      if (denyNotificationError) {
+        console.error("account-deletion deny notification error", denyNotificationError);
+      }
+    }
+
+    const { error: deleteError } = await db
+      .from("account_deletion_requests")
+      .delete()
+      .in("id", pendingIds);
+
+    if (deleteError) {
+      console.error("account-deletion deny delete error", deleteError);
+      throw deleteError;
     }
 
     return NextResponse.json({
       success: true,
-      updated: updated.length,
+      updated: pendingIds.length,
       action,
-      message: action === "approve"
-        ? `${updated.length} request${updated.length === 1 ? "" : "s"} approved and scheduled`
-        : `${updated.length} request${updated.length === 1 ? "" : "s"} denied`,
+      message: `${pendingIds.length} request${pendingIds.length === 1 ? "" : "s"} denied and removed`,
     });
   } catch (err: any) {
     console.error("/api/admin/account-deletion-requests/update error", err);
