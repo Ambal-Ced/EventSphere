@@ -1342,55 +1342,57 @@ export default function AdminPage() {
                   {mounted && (
                     <div className="rounded-lg border p-4 sm:p-6 bg-card">
                       <h3 className="text-base sm:text-lg font-semibold mb-4">Feedback by Status</h3>
-                      <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300}>
-                        <PieChart>
-                          <Pie
-                            data={feedbackData.status.map((item: any, index: number) => ({
-                              ...item,
-                              fill: COLORS[index % COLORS.length],
-                            }))}
-                            cx="50%"
-                            cy="50%"
-                            labelLine={false}
-                            label={(props: any) => {
-                              const { name, percent } = props;
-                              return `${name}: ${(percent * 100).toFixed(0)}%`;
-                            }}
-                            outerRadius={windowWidth > 0 && windowWidth < 640 ? 80 : windowWidth > 0 && windowWidth < 1024 ? 90 : 100}
-                            innerRadius={windowWidth > 0 && windowWidth < 640 ? 30 : 0}
-                            dataKey="value"
-                            labelStyle={{ fill: '#ffffff', fontSize: windowWidth > 0 && windowWidth < 640 ? '10px' : '12px', fontWeight: 500 }}
-                            isAnimationActive={false}
-                          >
-                            {feedbackData.status.map((entry: any, index: number) => (
-                              <Cell 
-                                key={`cell-status-${index}-${entry.name}`}
-                                fill={COLORS[index % COLORS.length]}
-                                stroke={COLORS[index % COLORS.length]}
-                                strokeWidth={2}
+                      <div className="flex items-center gap-4">
+                        <div className="flex-1" style={{ maxWidth: '60%' }}>
+                          <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300}>
+                            <PieChart>
+                              <Pie
+                                data={feedbackData.status.map((item: any, index: number) => ({
+                                  ...item,
+                                  fill: COLORS[index % COLORS.length],
+                                }))}
+                                cx="50%"
+                                cy="50%"
+                                labelLine={false}
+                                outerRadius={windowWidth > 0 && windowWidth < 640 ? 80 : windowWidth > 0 && windowWidth < 1024 ? 90 : 100}
+                                innerRadius={windowWidth > 0 && windowWidth < 640 ? 30 : 0}
+                                dataKey="value"
+                                isAnimationActive={false}
+                              >
+                                {feedbackData.status.map((entry: any, index: number) => (
+                                  <Cell 
+                                    key={`cell-status-${index}-${entry.name}`}
+                                    fill={COLORS[index % COLORS.length]}
+                                    stroke={COLORS[index % COLORS.length]}
+                                    strokeWidth={2}
+                                  />
+                                ))}
+                              </Pie>
+                              <Tooltip 
+                                contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} 
+                                labelStyle={{ color: '#cbd5e1' }} 
+                                itemStyle={{ color: '#22c55e' }}
+                                formatter={(value: any, name: any, props: any) => [
+                                  `${props.payload.count} (${props.payload.percentage.toFixed(1)}%)`,
+                                  name
+                                ]}
                               />
-                            ))}
-                          </Pie>
-                          <Tooltip 
-                            contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} 
-                            labelStyle={{ color: '#cbd5e1' }} 
-                            itemStyle={{ color: '#22c55e' }}
-                            formatter={(value: any, name: any, props: any) => [
-                              `${props.payload.count} (${props.payload.percentage.toFixed(1)}%)`,
-                              name
-                            ]}
-                          />
-                          <Legend 
-                            wrapperStyle={{ color: 'currentColor' }} 
-                            iconType="circle"
-                            formatter={(value: string, entry: any) => {
-                              const dataEntry = feedbackData.status.find((d: any) => d.name === value);
-                              const legendColor = dataEntry ? COLORS[feedbackData.status.indexOf(dataEntry) % COLORS.length] : entry.color || '#999';
-                              return <span style={{ color: legendColor }}>{value}</span>;
-                            }}
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <div className="flex-1 flex flex-col justify-center gap-2">
+                          {feedbackData.status.map((item: any, index: number) => (
+                            <div key={item.name} className="flex items-center gap-2">
+                              <div 
+                                className="w-3 h-3 rounded-full flex-shrink-0" 
+                                style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                              />
+                              <span className="text-sm font-medium">{item.name}:</span>
+                              <span className="text-sm text-muted-foreground ml-auto">{item.percentage.toFixed(1)}%</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   )}
 
@@ -1430,55 +1432,57 @@ export default function AdminPage() {
                   {mounted && (
                     <div className="rounded-lg border p-4 sm:p-6 bg-card">
                       <h3 className="text-base sm:text-lg font-semibold mb-4">Feedback by Priority</h3>
-                      <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300}>
-                        <PieChart>
-                          <Pie
-                            data={feedbackData.priority.map((item: any, index: number) => ({
-                              ...item,
-                              fill: COLORS[index % COLORS.length],
-                            }))}
-                            cx="50%"
-                            cy="50%"
-                            labelLine={false}
-                            label={(props: any) => {
-                              const { name, percent } = props;
-                              return `${name}: ${(percent * 100).toFixed(0)}%`;
-                            }}
-                            outerRadius={windowWidth > 0 && windowWidth < 640 ? 80 : windowWidth > 0 && windowWidth < 1024 ? 90 : 100}
-                            innerRadius={windowWidth > 0 && windowWidth < 640 ? 30 : 0}
-                            dataKey="value"
-                            labelStyle={{ fill: '#ffffff', fontSize: windowWidth > 0 && windowWidth < 640 ? '10px' : '12px', fontWeight: 500 }}
-                            isAnimationActive={false}
-                          >
-                            {feedbackData.priority.map((entry: any, index: number) => (
-                              <Cell 
-                                key={`cell-priority-${index}-${entry.name}`}
-                                fill={COLORS[index % COLORS.length]}
-                                stroke={COLORS[index % COLORS.length]}
-                                strokeWidth={2}
+                      <div className="flex items-center gap-4">
+                        <div className="flex-1" style={{ maxWidth: '60%' }}>
+                          <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300}>
+                            <PieChart>
+                              <Pie
+                                data={feedbackData.priority.map((item: any, index: number) => ({
+                                  ...item,
+                                  fill: COLORS[index % COLORS.length],
+                                }))}
+                                cx="50%"
+                                cy="50%"
+                                labelLine={false}
+                                outerRadius={windowWidth > 0 && windowWidth < 640 ? 80 : windowWidth > 0 && windowWidth < 1024 ? 90 : 100}
+                                innerRadius={windowWidth > 0 && windowWidth < 640 ? 30 : 0}
+                                dataKey="value"
+                                isAnimationActive={false}
+                              >
+                                {feedbackData.priority.map((entry: any, index: number) => (
+                                  <Cell 
+                                    key={`cell-priority-${index}-${entry.name}`}
+                                    fill={COLORS[index % COLORS.length]}
+                                    stroke={COLORS[index % COLORS.length]}
+                                    strokeWidth={2}
+                                  />
+                                ))}
+                              </Pie>
+                              <Tooltip 
+                                contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} 
+                                labelStyle={{ color: '#cbd5e1' }} 
+                                itemStyle={{ color: '#22c55e' }}
+                                formatter={(value: any, name: any, props: any) => [
+                                  `${props.payload.count} (${props.payload.percentage.toFixed(1)}%)`,
+                                  name
+                                ]}
                               />
-                            ))}
-                          </Pie>
-                          <Tooltip 
-                            contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} 
-                            labelStyle={{ color: '#cbd5e1' }} 
-                            itemStyle={{ color: '#22c55e' }}
-                            formatter={(value: any, name: any, props: any) => [
-                              `${props.payload.count} (${props.payload.percentage.toFixed(1)}%)`,
-                              name
-                            ]}
-                          />
-                          <Legend 
-                            wrapperStyle={{ color: 'currentColor' }} 
-                            iconType="circle"
-                            formatter={(value: string, entry: any) => {
-                              const dataEntry = feedbackData.priority.find((d: any) => d.name === value);
-                              const legendColor = dataEntry ? COLORS[feedbackData.priority.indexOf(dataEntry) % COLORS.length] : entry.color || '#999';
-                              return <span style={{ color: legendColor }}>{value}</span>;
-                            }}
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <div className="flex-1 flex flex-col justify-center gap-2">
+                          {feedbackData.priority.map((item: any, index: number) => (
+                            <div key={item.name} className="flex items-center gap-2">
+                              <div 
+                                className="w-3 h-3 rounded-full flex-shrink-0" 
+                                style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                              />
+                              <span className="text-sm font-medium">{item.name}:</span>
+                              <span className="text-sm text-muted-foreground ml-auto">{item.percentage.toFixed(1)}%</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   )}
 
