@@ -33,6 +33,15 @@ CREATE POLICY "Users can insert own profile" ON profiles
 CREATE POLICY "Users can delete own profile" ON profiles
     FOR DELETE USING (auth.uid() = id);
 
+-- Policy: Service role full access to profiles (for API routes)
+-- This allows the service role key to bypass RLS completely
+-- Needed for joins in admin queries (e.g., user_ratings with profiles)
+CREATE POLICY "Service role full access to profiles" ON profiles
+    FOR ALL
+    TO service_role
+    USING (true)
+    WITH CHECK (true);
+
 -- =====================================================
 -- 3. AUTH.USERS TABLE POLICIES (for password changes)
 -- =====================================================

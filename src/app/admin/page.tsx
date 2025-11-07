@@ -813,48 +813,64 @@ export default function AdminPage() {
         </div>
       </div>
 
-      <div className="border-b mb-4 sm:mb-6 overflow-x-auto">
-        <div className="flex gap-2 sm:gap-4 min-w-max">
-          <button
-            onClick={() => setActiveTab("eventtria")}
-            className={`px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-t-md transition-colors whitespace-nowrap ${
-              activeTab === "eventtria"
-                ? "bg-background border-b-2 border-primary text-primary"
-                : "hover:text-primary text-muted-foreground"
-            }`}
-          >
-            EventTria
-          </button>
-          <button
-            onClick={() => setActiveTab("feedback")}
-            className={`px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-t-md transition-colors whitespace-nowrap ${
-              activeTab === "feedback"
-                ? "bg-background border-b-2 border-primary text-primary"
-                : "hover:text-primary text-muted-foreground"
-            }`}
-          >
-            Feedback
-          </button>
-          <button
-            onClick={() => setActiveTab("account_review")}
-            className={`px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-t-md transition-colors whitespace-nowrap ${
-              activeTab === "account_review"
-                ? "bg-background border-b-2 border-primary text-primary"
-                : "hover:text-primary text-muted-foreground"
-            }`}
-          >
-            Account Review
-          </button>
-          <button
-            onClick={() => setActiveTab("rating")}
-            className={`px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-t-md transition-colors whitespace-nowrap ${
-              activeTab === "rating"
-                ? "bg-background border-b-2 border-primary text-primary"
-                : "hover:text-primary text-muted-foreground"
-            }`}
-          >
-            Rating
-          </button>
+      <div className="border-b mb-4 sm:mb-6 -mx-4 sm:mx-0 px-4 sm:px-0">
+        <div 
+          className="overflow-x-auto overflow-y-hidden"
+          style={{ 
+            scrollbarWidth: 'none', 
+            msOverflowStyle: 'none',
+            WebkitOverflowScrolling: 'touch'
+          }}
+          onWheel={(e) => {
+            const element = e.currentTarget;
+            if (e.deltaY !== 0) {
+              element.scrollLeft += e.deltaY;
+              e.preventDefault();
+            }
+          }}
+        >
+          <div className="flex gap-2 sm:gap-4 min-w-max pb-1 [&::-webkit-scrollbar]:hidden">
+            <button
+              onClick={() => setActiveTab("eventtria")}
+              className={`px-2 sm:px-3 md:px-4 py-2 text-xs sm:text-sm font-medium rounded-t-md transition-colors whitespace-nowrap flex-shrink-0 ${
+                activeTab === "eventtria"
+                  ? "bg-background border-b-2 border-primary text-primary"
+                  : "hover:text-primary text-muted-foreground"
+              }`}
+            >
+              EventTria
+            </button>
+            <button
+              onClick={() => setActiveTab("feedback")}
+              className={`px-2 sm:px-3 md:px-4 py-2 text-xs sm:text-sm font-medium rounded-t-md transition-colors whitespace-nowrap flex-shrink-0 ${
+                activeTab === "feedback"
+                  ? "bg-background border-b-2 border-primary text-primary"
+                  : "hover:text-primary text-muted-foreground"
+              }`}
+            >
+              Feedback
+            </button>
+            <button
+              onClick={() => setActiveTab("account_review")}
+              className={`px-2 sm:px-3 md:px-4 py-2 text-xs sm:text-sm font-medium rounded-t-md transition-colors whitespace-nowrap flex-shrink-0 ${
+                activeTab === "account_review"
+                  ? "bg-background border-b-2 border-primary text-primary"
+                  : "hover:text-primary text-muted-foreground"
+              }`}
+            >
+              Account Review
+            </button>
+            <button
+              onClick={() => setActiveTab("rating")}
+              className={`px-2 sm:px-3 md:px-4 py-2 text-xs sm:text-sm font-medium rounded-t-md transition-colors whitespace-nowrap flex-shrink-0 ${
+                activeTab === "rating"
+                  ? "bg-background border-b-2 border-primary text-primary"
+                  : "hover:text-primary text-muted-foreground"
+              }`}
+            >
+              Rating
+            </button>
+          </div>
         </div>
       </div>
 
