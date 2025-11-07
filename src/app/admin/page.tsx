@@ -726,8 +726,8 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="w-full min-w-0 overflow-x-hidden">
-      <div className="container mx-auto max-w-7xl py-4 sm:py-6 lg:py-8 px-4 sm:px-6">
+    <div className="w-full min-w-0 overflow-x-hidden max-w-full">
+      <div className="container mx-auto max-w-6xl py-4 sm:py-6 lg:py-8 px-4 sm:px-6 min-w-0">
       <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold">Admin Dashboard</h1>
@@ -813,7 +813,7 @@ export default function AdminPage() {
         </div>
       </div>
 
-      <div className="border-b mb-4 sm:mb-6 -mx-4 sm:-mx-6 md:-mx-6 lg:mx-0 px-4 sm:px-6 md:px-6 lg:px-0">
+      <div className="border-b mb-4 sm:mb-6 -mx-4 sm:-mx-6 px-4 sm:px-6 overflow-x-hidden">
         <div 
           className="overflow-x-auto overflow-y-hidden"
           style={{ 
@@ -829,7 +829,7 @@ export default function AdminPage() {
             }
           }}
         >
-          <div className="flex gap-2 sm:gap-4 min-w-max pb-1 [&::-webkit-scrollbar]:hidden">
+          <div className="flex gap-2 sm:gap-4 pb-1 [&::-webkit-scrollbar]:hidden">
             <button
               onClick={() => setActiveTab("eventtria")}
               className={`px-2 sm:px-3 md:px-4 py-2 text-xs sm:text-sm font-medium rounded-t-md transition-colors whitespace-nowrap flex-shrink-0 ${
@@ -884,9 +884,9 @@ export default function AdminPage() {
               </div>
             </div>
           ) : analyticsData ? (
-            <div className={loadingAnalytics ? "opacity-50 pointer-events-none" : ""}>
+            <div className={loadingAnalytics ? "opacity-50 pointer-events-none" : ""} style={{ maxWidth: '100%', overflow: 'hidden' }}>
               {/* Key Metrics Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 min-w-0">
                 <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0">
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-xs sm:text-sm font-medium text-muted-foreground">Total Users</div>
@@ -1004,7 +1004,7 @@ export default function AdminPage() {
                 {/* Events Over Time */}
                 <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0 overflow-hidden">
                   <h3 className="text-base sm:text-lg font-semibold mb-4">Events Created Over Time</h3>
-                  <ResponsiveContainer width="100%" height={250}>
+                  <ResponsiveContainer width="100%" height={220}>
                     <LineChart data={analyticsData.time_series || []}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis dataKey="date" className="text-xs" tick={{ fill: '#64748b' }} />
@@ -1354,7 +1354,7 @@ export default function AdminPage() {
       )}
 
       {activeTab === "feedback" && (
-        <div className="space-y-4 sm:space-y-6">
+        <div className="space-y-4 sm:space-y-6 min-w-0" style={{ maxWidth: '100%', overflow: 'hidden' }}>
           {loadingFeedback && !feedbackData ? (
             <div className="flex h-[60vh] items-center justify-center text-sm text-muted-foreground">
               <div className="text-center">
@@ -1363,9 +1363,9 @@ export default function AdminPage() {
               </div>
             </div>
           ) : feedbackData ? (
-            <div className={loadingFeedback ? "opacity-50 pointer-events-none" : ""}>
+            <div className={loadingFeedback ? "opacity-50 pointer-events-none" : ""} style={{ maxWidth: '100%', overflow: 'hidden' }}>
               {/* Summary Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 min-w-0">
                 <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0">
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-xs sm:text-sm font-medium text-muted-foreground">Total Feedback</div>
@@ -2080,10 +2080,10 @@ export default function AdminPage() {
         </div>
       )}
       {activeTab === "account_review" && (
-        <div className="rounded-lg border p-6 text-sm text-muted-foreground">Empty</div>
+        <div className="rounded-lg border p-6 text-sm text-muted-foreground min-w-0" style={{ maxWidth: '100%', overflow: 'hidden' }}>Empty</div>
       )}
       {activeTab === "rating" && (
-        <div>
+        <div className="min-w-0" style={{ maxWidth: '100%', overflow: 'hidden' }}>
           {loadingRatings ? (
             <div className="flex h-[60vh] items-center justify-center text-sm text-muted-foreground">
               Loading ratings data...
@@ -2102,9 +2102,9 @@ export default function AdminPage() {
               </div>
             </div>
           ) : ratingsData ? (
-            <div>
+            <div style={{ maxWidth: '100%', overflow: 'hidden' }}>
               {/* Summary Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-4 min-w-0">
                 <div className="rounded-lg border p-3 sm:p-4 lg:p-6 bg-card min-w-0">
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0 flex-1">
