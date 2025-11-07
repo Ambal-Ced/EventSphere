@@ -55,6 +55,7 @@ export default function AdminPage() {
   const [loadingFeedback, setLoadingFeedback] = useState(false);
   const [feedbackSeverityFilter, setFeedbackSeverityFilter] = useState<string>("all");
   const [feedbackRatingFilter, setFeedbackRatingFilter] = useState<string>("all");
+  const [feedbackStatusFilter, setFeedbackStatusFilter] = useState<string>("all");
   const [feedbackDateOrder, setFeedbackDateOrder] = useState<"desc" | "asc">("desc");
   const [expandedFeedbackIds, setExpandedFeedbackIds] = useState<Set<string>>(new Set());
   const [notesDialogOpen, setNotesDialogOpen] = useState(false);
@@ -1763,6 +1764,17 @@ export default function AdminPage() {
                         <option value="0">No Rating</option>
                       </select>
 
+                      {/* Status Filter */}
+                      <select
+                        value={feedbackStatusFilter}
+                        onChange={(e) => setFeedbackStatusFilter(e.target.value)}
+                        className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                      >
+                        <option value="all">All Status</option>
+                        <option value="open">Open</option>
+                        <option value="resolved">Resolved</option>
+                      </select>
+
                       {/* Date Order */}
                       <select
                         value={feedbackDateOrder}
@@ -1800,8 +1812,23 @@ export default function AdminPage() {
                       }
                     }
 
-                    // Sort by date
+                    // Filter by status
+                    if (feedbackStatusFilter !== "all") {
+                      filtered = filtered.filter((item: any) => 
+                        (item.status || "open").toLowerCase() === feedbackStatusFilter.toLowerCase()
+                      );
+                    }
+
+                    // Sort: First by status (open first, resolved last), then by date
                     filtered.sort((a: any, b: any) => {
+                      const statusA = (a.status || "open").toLowerCase();
+                      const statusB = (b.status || "open").toLowerCase();
+                      
+                      // Resolved entries go to the bottom
+                      if (statusA === "resolved" && statusB !== "resolved") return 1;
+                      if (statusA !== "resolved" && statusB === "resolved") return -1;
+                      
+                      // If same status, sort by date
                       const dateA = new Date(a.created_at).getTime();
                       const dateB = new Date(b.created_at).getTime();
                       return feedbackDateOrder === "desc" ? dateB - dateA : dateA - dateB;
