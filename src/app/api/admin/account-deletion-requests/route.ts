@@ -116,7 +116,7 @@ export async function GET(request: NextRequest) {
     const { data: rows, error } = await db
       .from("account_deletion_requests")
       .select(
-        "id, user_id, user_email, status, deletion_reason, requested_at, scheduled_deletion_at, cancelled_at, deleted_at"
+        "id, user_id, user_email, status, deletion_reason, requested_at, scheduled_deletion_date, cancelled_at, deleted_at"
       )
       .order("requested_at", { ascending: false });
 
@@ -205,7 +205,8 @@ export async function GET(request: NextRequest) {
         status: normaliseStatus(row.status),
         deletion_reason: row.deletion_reason,
         requested_at: row.requested_at,
-        scheduled_deletion_at: row.scheduled_deletion_at,
+        scheduled_deletion_at: row.scheduled_deletion_date,
+        scheduled_deletion_date: row.scheduled_deletion_date,
         cancelled_at: row.cancelled_at,
         deleted_at: row.deleted_at,
       })),
