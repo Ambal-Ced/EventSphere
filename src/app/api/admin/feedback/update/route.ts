@@ -52,41 +52,35 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Feedback ID is required" }, { status: 400 });
     }
 
-    // Use service role key to bypass RLS and triggers
+    // Use service role client for RPC call to bypass triggers
+    // This makes auth.uid() NULL in the function, which allows the update
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!serviceKey) {
       return NextResponse.json({ error: "Service role key not configured" }, { status: 500 });
     }
 
-    const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey);
+    const { createClient } = await import("@supabase/supabase-js");
+    const adminClient = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey);
 
-    // Build update payload
-    const updatePayload: any = {};
-    if (status !== undefined) {
-      updatePayload.status = status;
-    }
-    if (admin_notes !== undefined) {
-      updatePayload.admin_notes = admin_notes;
-    }
-
-    if (Object.keys(updatePayload).length === 0) {
-      return NextResponse.json({ error: "No fields to update" }, { status: 400 });
-    }
-
-    // Update using service role (bypasses RLS and triggers)
-    const { data, error } = await admin
-      .from("feedback")
-      .update(updatePayload)
-      .eq("id", id)
-      .select()
-      .single();
+    // Use RPC function to bypass triggers and RLS
+    // The function uses SECURITY DEFINER to run with elevated privileges
+    // Using service role client makes auth.uid() NULL, which the function allows
+    const { data: result, error } = await adminClient.rpc("admin_update_feedback", {
+      p_feedback_id: id,
+      p_status: status !== undefined ? status : null,
+      p_admin_notes: admin_notes !== undefined ? admin_notes : null,
+    });
 
     if (error) {
       console.error("Error updating feedback:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ data });
+    if (!result) {
+      return NextResponse.json({ error: "Update failed - no result returned" }, { status: 500 });
+    }
+
+    return NextResponse.json({ data: result });
   } catch (err: any) {
     console.error("/api/admin/feedback/update error", err);
     return NextResponse.json({ error: err.message ?? "Server error" }, { status: 500 });
