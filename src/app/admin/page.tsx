@@ -42,7 +42,7 @@ export default function AdminPage() {
   }, []);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
-  const [activeTab, setActiveTab] = useState<"eventtria" | "feedback" | "account_review" | "rating">("eventtria");
+  const [activeTab, setActiveTab] = useState<"eventtria" | "feedback" | "users" | "rating">("eventtria");
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
   const [dateRange, setDateRange] = useState<"7d" | "30d" | "90d" | "all" | "custom">("30d");
@@ -726,8 +726,8 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="w-full min-w-0 overflow-x-hidden max-w-full">
-      <div className="container mx-auto max-w-6xl py-4 sm:py-6 lg:py-8 px-3 sm:px-6 min-w-0">
+    <div className="w-full min-w-0 max-w-full">
+      <div className="container mx-auto w-full max-w-[calc(100vw-1.5rem)] xl:max-w-6xl py-4 sm:py-6 lg:py-8 px-4 sm:px-6 min-w-0">
       <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold">Admin Dashboard</h1>
@@ -851,14 +851,14 @@ export default function AdminPage() {
               Feedback
             </button>
             <button
-              onClick={() => setActiveTab("account_review")}
+              onClick={() => setActiveTab("users")}
               className={`px-2 sm:px-3 md:px-4 py-2 text-xs sm:text-sm font-medium rounded-t-md transition-colors whitespace-nowrap flex-shrink-0 ${
-                activeTab === "account_review"
+                activeTab === "users"
                   ? "bg-background border-b-2 border-primary text-primary"
                   : "hover:text-primary text-muted-foreground"
               }`}
             >
-              Account Review
+              Users
             </button>
             <button
               onClick={() => setActiveTab("rating")}
@@ -884,9 +884,7 @@ export default function AdminPage() {
               </div>
             </div>
           ) : analyticsData ? (
-            <div
-              className={`${loadingAnalytics ? "opacity-50 pointer-events-none" : ""} max-w-full overflow-x-hidden`}
-            >
+            <div className={`${loadingAnalytics ? "opacity-50 pointer-events-none" : ""} max-w-full`}>
               {/* Key Metrics Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 min-w-0">
                 <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0">
@@ -1365,9 +1363,7 @@ export default function AdminPage() {
               </div>
             </div>
           ) : feedbackData ? (
-            <div
-              className={`${loadingFeedback ? "opacity-50 pointer-events-none" : ""} max-w-full overflow-x-hidden`}
-            >
+            <div className={`${loadingFeedback ? "opacity-50 pointer-events-none" : ""} max-w-full`}>
               {/* Summary Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 min-w-0">
                 <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0">
@@ -2083,11 +2079,11 @@ export default function AdminPage() {
           )}
         </div>
       )}
-      {activeTab === "account_review" && (
-        <div className="rounded-lg border p-6 text-sm text-muted-foreground min-w-0 max-w-full overflow-x-hidden">Empty</div>
+      {activeTab === "users" && (
+        <div className="rounded-lg border p-6 text-sm text-muted-foreground min-w-0 max-w-full">Empty</div>
       )}
       {activeTab === "rating" && (
-        <div className="min-w-0 max-w-full overflow-x-hidden">
+        <div className="min-w-0 max-w-full">
           {loadingRatings ? (
             <div className="flex h-[60vh] items-center justify-center text-sm text-muted-foreground">
               Loading ratings data...
@@ -2106,7 +2102,7 @@ export default function AdminPage() {
               </div>
             </div>
           ) : ratingsData ? (
-            <div className="max-w-full overflow-x-hidden">
+            <div className="max-w-full">
               {/* Summary Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-4 min-w-0">
                 <div className="rounded-lg border p-3 sm:p-4 lg:p-6 bg-card min-w-0">
