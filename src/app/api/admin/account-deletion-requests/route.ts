@@ -142,6 +142,7 @@ export async function GET(request: NextRequest) {
 
     const reasonCounts: Record<string, number> = {};
     const monthCounts: Record<string, number> = {};
+    const dailyCounts: Record<string, { requested: number; approved: number }> = {};
 
     let pendingCount = 0;
 
@@ -159,6 +160,18 @@ export async function GET(request: NextRequest) {
       const monthKey = formatMonthKey(row.requested_at);
       if (monthKey) {
         monthCounts[monthKey] = (monthCounts[monthKey] || 0) + 1;
+      }
+
+      if (row.requested_at) {
+        const requestedDateKey = new Date(row.requested_at).toISOString().slice(0, 10);
+        dailyCounts[requestedDateKey] ??= { requested: 0, approved: 0 };
+        dailyCounts[requestedDateKey].requested += 1;
+      }
+
+      if (status === "approved" && row.scheduled_deletion_date) {
+        const approvedDateKey = new Date(row.updated_at ?? row.scheduled_deletion_date).toISOString().slice(0, 10);
+        dailyCounts[approvedDateKey] ??= { requested: 0, approved: 0 };
+        dailyCounts[approvedDateKey].approved += 1;
       }
     });
 
@@ -198,12 +211,21 @@ export async function GET(request: NextRequest) {
         return aDate.getTime() - bDate.getTime();
       });
 
+    const dailyTrend = Object.entries(dailyCounts)
+      .map(([date, counts]) => ({
+        date,
+        requested: counts.requested,
+        approved: counts.approved,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
     const payload = {
       totalRequests,
       pendingCount,
       statusDistribution,
       reasonDistribution: reasonData,
       monthDistribution: monthData,
+      dailyTrend,
       requests: (rows || []).map((row: any) => ({
         id: row.id,
         user_id: row.user_id,
@@ -215,6 +237,7 @@ export async function GET(request: NextRequest) {
         scheduled_deletion_date: row.scheduled_deletion_date,
         cancelled_at: row.cancelled_at,
         deleted_at: row.deleted_at,
+        updated_at: row.updated_at,
       })),
       debug: {
         usedServiceRole: true,

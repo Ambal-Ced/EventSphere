@@ -8,6 +8,8 @@ const loadingBox = (h:number=300) => <div style={{height:h}} className="w-full a
 const ResponsiveContainer: any = dynamic(() => import("recharts").then(m => m.ResponsiveContainer as any), { ssr: false, loading: () => loadingBox() }) as any;
 const LineChart: any = dynamic(() => import("recharts").then(m => m.LineChart as any), { ssr: false, loading: () => null }) as any;
 const Line: any = dynamic(() => import("recharts").then(m => m.Line as any), { ssr: false, loading: () => null }) as any;
+const AreaChart: any = dynamic(() => import("recharts").then(m => m.AreaChart as any), { ssr: false, loading: () => null }) as any;
+const Area: any = dynamic(() => import("recharts").then(m => m.Area as any), { ssr: false, loading: () => null }) as any;
 const BarChart: any = dynamic(() => import("recharts").then(m => m.BarChart as any), { ssr: false, loading: () => null }) as any;
 const Bar: any = dynamic(() => import("recharts").then(m => m.Bar as any), { ssr: false, loading: () => null }) as any;
 const PieChart: any = dynamic(() => import("recharts").then(m => m.PieChart as any), { ssr: false, loading: () => loadingBox() }) as any;
@@ -2239,7 +2241,7 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {(accountDeletionData.statusDistribution?.length ?? 0) > 0 || (accountDeletionData.reasonDistribution?.length ?? 0) > 0 ? (
+              {(accountDeletionData.statusDistribution?.length ?? 0) > 0 || (accountDeletionData.dailyTrend?.length ?? 0) > 0 ? (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                   {(accountDeletionData.statusDistribution?.length ?? 0) > 0 && mounted && (
                     <div className="rounded-lg border p-4 sm:p-6 bg-card">
@@ -2300,26 +2302,23 @@ export default function AdminPage() {
                     </div>
                   )}
 
-                  {(accountDeletionData.reasonDistribution?.length ?? 0) > 0 && (
+                  {(accountDeletionData.dailyTrend?.length ?? 0) > 0 && (
                     <div className="rounded-lg border p-4 sm:p-6 bg-card">
-                      <h3 className="text-base sm:text-lg font-semibold mb-4">Top Deletion Reasons</h3>
-                      <ResponsiveContainer width="100%" height={250}>
-                        <BarChart data={accountDeletionData.reasonDistribution.map((item: any, index: number) => ({ ...item, _index: index }))}>
+                      <h3 className="text-base sm:text-lg font-semibold mb-4">Requests vs Approvals (Daily)</h3>
+                      <ResponsiveContainer width="100%" height={260}>
+                        <LineChart data={accountDeletionData.dailyTrend} margin={{ top: 10, right: 20, bottom: 10, left: 0 }}>
                           <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                          <XAxis dataKey="reason" className="text-xs" tick={{ fill: "#64748b" }} angle={-20} textAnchor="end" height={60} interval={0} />
-                          <YAxis className="text-xs" tick={{ fill: "#64748b" }} allowDecimals={false} />
+                          <XAxis dataKey="date" className="text-xs" tick={{ fill: '#64748b' }} angle={-20} textAnchor="end" height={60} interval={Math.max(0, (accountDeletionData.dailyTrend.length ?? 0) - 8)} />
+                          <YAxis className="text-xs" tick={{ fill: '#64748b' }} allowDecimals={false} />
                           <Tooltip
-                            contentStyle={{ backgroundColor: "rgba(15,23,42,0.95)", border: "1px solid #334155", color: "#e2e8f0" }}
-                            labelStyle={{ color: "#cbd5e1" }}
-                            formatter={(value: any) => [`${value} request${value === 1 ? "" : "s"}`, "Count"]}
+                            contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }}
+                            labelStyle={{ color: '#cbd5e1' }}
+                            formatter={(value: any, name: any) => [`${value} request${value === 1 ? '' : 's'}`, name === 'requested' ? 'Requested' : 'Approved']}
                           />
-                          <Legend wrapperStyle={{ color: "#1e293b" }} />
-                          <Bar dataKey="count" name="Count" shape={(props: any) => {
-                            const { x, y, width, height, payload } = props;
-                            const idx = payload?._index ?? 0;
-                            return <rect x={x} y={y} width={width} height={height} fill={COLORS[idx % COLORS.length]} rx={4} ry={4} />;
-                          }} />
-                        </BarChart>
+                          <Legend wrapperStyle={{ color: '#1e293b' }} />
+                          <Line type="monotone" dataKey="requested" stroke="#3b82f6" name="Requested" strokeWidth={2} dot={{ r: 3 }} isAnimationActive={false} />
+                          <Line type="monotone" dataKey="approved" stroke="#10b981" name="Approved" strokeWidth={2} dot={{ r: 3 }} isAnimationActive={false} />
+                        </LineChart>
                       </ResponsiveContainer>
                     </div>
                   )}
