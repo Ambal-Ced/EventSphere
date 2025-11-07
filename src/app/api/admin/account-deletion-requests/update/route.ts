@@ -13,6 +13,34 @@ function getEndOfMonthDate(): string {
   return end.toISOString();
 }
 
+async function insertNotificationsWithServiceKey(records: any[], serviceKey: string) {
+  if (!records.length) return;
+
+  const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/notifications`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
+      Prefer: "return=representation",
+    },
+    body: JSON.stringify(records.map((record) => ({
+      ...record,
+      metadata: record.metadata ?? {},
+    })) ),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed to insert notifications: ${response.status} ${response.statusText} - ${text}`);
+  }
+
+  const inserted = await response.json();
+  if (!Array.isArray(inserted) || inserted.length !== records.length) {
+    throw new Error("Failed to insert all notifications");
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -197,17 +225,7 @@ export async function POST(request: NextRequest) {
           });
 
         if (notifications.length > 0) {
-          const { data: insertedNotifications, error: notificationError } = await db
-            .from("notifications")
-            .insert(notifications.map((n) => ({ ...n, metadata: n.metadata ?? {} })))
-            .select("id");
-          if (notificationError) {
-            console.error("account-deletion update notification error", notificationError);
-            throw notificationError;
-          }
-          if (!insertedNotifications || insertedNotifications.length !== notifications.length) {
-            throw new Error("Failed to create notifications for all approved requests");
-          }
+          await insertNotificationsWithServiceKey(notifications, serviceKey);
         }
       }
 
@@ -236,17 +254,7 @@ export async function POST(request: NextRequest) {
       }));
 
     if (denyNotifications.length > 0) {
-      const { data: insertedNotifications, error: denyNotificationError } = await db
-        .from("notifications")
-        .insert(denyNotifications.map((n) => ({ ...n, metadata: n.metadata ?? {} })))
-        .select("id");
-      if (denyNotificationError) {
-        console.error("account-deletion deny notification error", denyNotificationError);
-        throw denyNotificationError;
-      }
-      if (!insertedNotifications || insertedNotifications.length !== denyNotifications.length) {
-        throw new Error("Failed to create notifications for all denied requests");
-      }
+      await insertNotificationsWithServiceKey(denyNotifications, serviceKey);
     }
 
     const { error: deleteError } = await db
