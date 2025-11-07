@@ -274,12 +274,24 @@ export default function AdminPage() {
 
     setUpdatingFeedback(selectedFeedbackId);
     try {
-      const { error } = await supabase
-        .from("feedback")
-        .update({ admin_notes: adminNotes.trim() || null })
-        .eq("id", selectedFeedbackId);
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const res = await fetch("/api/admin/feedback/update", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({
+          id: selectedFeedbackId,
+          admin_notes: adminNotes.trim() || null,
+        }),
+      });
 
-      if (error) throw error;
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || "Failed to save admin notes");
+      }
 
       // Update local state
       setFeedbackData((prev: any) => {
@@ -310,12 +322,24 @@ export default function AdminPage() {
   const handleCloseEntry = useCallback(async (feedbackId: string) => {
     setUpdatingFeedback(feedbackId);
     try {
-      const { error } = await supabase
-        .from("feedback")
-        .update({ status: "resolved" })
-        .eq("id", feedbackId);
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const res = await fetch("/api/admin/feedback/update", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({
+          id: feedbackId,
+          status: "resolved",
+        }),
+      });
 
-      if (error) throw error;
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || "Failed to close entry");
+      }
 
       // Update local state
       setFeedbackData((prev: any) => {
@@ -1925,7 +1949,18 @@ export default function AdminPage() {
       )}
 
       {/* Admin Notes Dialog */}
-      <Dialog open={notesDialogOpen} onOpenChange={setNotesDialogOpen}>
+      <Dialog 
+        open={notesDialogOpen} 
+        onOpenChange={(open) => {
+          setNotesDialogOpen(open);
+          if (!open) {
+            // When dialog closes, reset state but don't clear notes if we're just closing temporarily
+            // The notes will be reloaded when reopening via openNotesDialog
+            setSelectedFeedbackId(null);
+            setAdminNotes("");
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Admin Notes</DialogTitle>
