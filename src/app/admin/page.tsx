@@ -62,6 +62,9 @@ export default function AdminPage() {
   const [ratingsError, setRatingsError] = useState<string | null>(null);
   const [ratingsFilter, setRatingsFilter] = useState<string>("all");
   const [ratingsDateOrder, setRatingsDateOrder] = useState<"desc" | "asc">("desc");
+  const [accountDeletionData, setAccountDeletionData] = useState<any>(null);
+  const [loadingAccountDeletion, setLoadingAccountDeletion] = useState(false);
+  const [accountDeletionError, setAccountDeletionError] = useState<string | null>(null);
   const [expandedFeedbackIds, setExpandedFeedbackIds] = useState<Set<string>>(new Set());
   const [notesDialogOpen, setNotesDialogOpen] = useState(false);
   const [selectedFeedbackId, setSelectedFeedbackId] = useState<string | null>(null);
@@ -323,6 +326,44 @@ export default function AdminPage() {
       return () => clearTimeout(timeoutId);
     }
   }, [isAdmin, activeTab, dateRange, customStartDate, customEndDate, fetchRatingsData]);
+
+  const fetchAccountDeletionData = useCallback(async () => {
+    setLoadingAccountDeletion(true);
+    setAccountDeletionError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const res = await fetch("/api/admin/account-deletion-requests", {
+        headers: {
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+          "Cache-Control": "no-cache",
+        },
+        cache: "no-store",
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || "Failed to fetch account deletion requests");
+      }
+
+      setAccountDeletionData(json);
+    } catch (error: any) {
+      console.error("Error fetching account deletion data:", error);
+      setAccountDeletionError(error.message || "Failed to load account deletion requests");
+      setAccountDeletionData(null);
+    } finally {
+      setLoadingAccountDeletion(false);
+    }
+  }, [supabase]);
+
+  useEffect(() => {
+    if (isAdmin && activeTab === "users") {
+      const timeoutId = setTimeout(() => {
+        fetchAccountDeletionData();
+      }, 300);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [isAdmin, activeTab, fetchAccountDeletionData]);
 
   // Toggle expand/collapse for feedback items
   const toggleFeedbackExpand = useCallback((feedbackId: string) => {
@@ -2103,7 +2144,141 @@ export default function AdminPage() {
         </div>
       )}
       {activeTab === "users" && (
-        <div className="rounded-lg border p-6 text-sm text-muted-foreground min-w-0 max-w-full">Empty</div>
+        <div className="min-w-0 max-w-full">
+          {loadingAccountDeletion ? (
+            <div className="flex h-[60vh] items-center justify-center text-sm text-muted-foreground">
+              Loading account deletion requests...
+            </div>
+          ) : accountDeletionError ? (
+            <div className="flex h-[60vh] flex-col items-center justify-center gap-4 text-sm">
+              <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive text-center max-w-md">
+                <p className="font-semibold">Unable to load account deletion data</p>
+                <p className="mt-2 text-xs text-destructive/80 break-words">{accountDeletionError}</p>
+                <Button
+                  onClick={() => fetchAccountDeletionData()}
+                  className="mt-4"
+                  size="sm"
+                >
+                  Retry
+                </Button>
+              </div>
+            </div>
+          ) : accountDeletionData ? (
+            <div className="max-w-full space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs sm:text-sm text-muted-foreground mb-1 truncate">Pending Deletion Requests</p>
+                      <p className="text-2xl sm:text-3xl font-bold break-words">{accountDeletionData.pendingCount || 0}</p>
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                        {accountDeletionData.totalRequests || 0} total request{accountDeletionData.totalRequests === 1 ? "" : "s"}
+                      </p>
+                    </div>
+                    <Users className="h-8 w-8 sm:h-10 sm:w-10 text-blue-400 flex-shrink-0" />
+                  </div>
+                </div>
+              </div>
+
+              {(accountDeletionData.statusDistribution?.length ?? 0) > 0 || (accountDeletionData.reasonDistribution?.length ?? 0) > 0 ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                  {(accountDeletionData.statusDistribution?.length ?? 0) > 0 && mounted && (
+                    <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                      <h3 className="text-base sm:text-lg font-semibold mb-4">Deletion Requests by Status</h3>
+                      <div className="flex flex-col md:flex-row md:items-center gap-4">
+                        <div className="flex-1" style={{ maxWidth: "60%" }}>
+                          <ResponsiveContainer width="100%" height={getPieChartHeight()}>
+                            <PieChart>
+                              <Pie
+                                data={accountDeletionData.statusDistribution.map((item: any, index: number) => ({
+                                  ...item,
+                                  name: item.label || item.status,
+                                  fill: COLORS[index % COLORS.length],
+                                }))}
+                                cx="50%"
+                                cy="50%"
+                                outerRadius={getPieOuterRadius()}
+                                innerRadius={getPieInnerRadius()}
+                                dataKey="count"
+                                nameKey="name"
+                                isAnimationActive={false}
+                              >
+                                {accountDeletionData.statusDistribution.map((item: any, index: number) => (
+                                  <Cell
+                                    key={`status-cell-${item.status}-${index}`}
+                                    fill={COLORS[index % COLORS.length]}
+                                    stroke={COLORS[index % COLORS.length]}
+                                    strokeWidth={2}
+                                  />
+                                ))}
+                              </Pie>
+                              <Tooltip
+                                contentStyle={{ backgroundColor: "rgba(15,23,42,0.95)", border: "1px solid #334155", color: "#e2e8f0" }}
+                                labelStyle={{ color: "#cbd5e1" }}
+                                formatter={(value: any, name: any, props: any) => [
+                                  `${value} (${props.payload.percentage.toFixed(1)}%)`,
+                                  name,
+                                ]}
+                              />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <div className="flex-1 flex flex-col justify-center gap-2">
+                          {accountDeletionData.statusDistribution.map((item: any, index: number) => (
+                            <div key={item.status ?? index} className="flex items-center gap-2">
+                              <div
+                                className="w-3 h-3 rounded-full flex-shrink-0"
+                                style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                              />
+                              <span className="text-sm font-medium capitalize">{item.label || item.status}</span>
+                              <span className="text-sm text-muted-foreground ml-auto">
+                                {item.count} • {item.percentage.toFixed(1)}%
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {(accountDeletionData.reasonDistribution?.length ?? 0) > 0 && (
+                    <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                      <h3 className="text-base sm:text-lg font-semibold mb-4">Top Deletion Reasons</h3>
+                      <ResponsiveContainer width="100%" height={250}>
+                        <BarChart data={accountDeletionData.reasonDistribution.map((item: any, index: number) => ({ ...item, _index: index }))}>
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                          <XAxis dataKey="reason" className="text-xs" tick={{ fill: "#64748b" }} angle={-20} textAnchor="end" height={60} interval={0} />
+                          <YAxis className="text-xs" tick={{ fill: "#64748b" }} allowDecimals={false} />
+                          <Tooltip
+                            contentStyle={{ backgroundColor: "rgba(15,23,42,0.95)", border: "1px solid #334155", color: "#e2e8f0" }}
+                            labelStyle={{ color: "#cbd5e1" }}
+                            formatter={(value: any) => [`${value} request${value === 1 ? "" : "s"}`, "Count"]}
+                          />
+                          <Legend wrapperStyle={{ color: "#1e293b" }} />
+                          <Bar dataKey="count" name="Count" shape={(props: any) => {
+                            const { x, y, width, height, payload } = props;
+                            const idx = payload?._index ?? 0;
+                            return <rect x={x} y={y} width={width} height={height} fill={COLORS[idx % COLORS.length]} rx={4} ry={4} />;
+                          }} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="rounded-lg border p-6 bg-card">
+                  <div className="text-center py-10 text-sm text-muted-foreground">
+                    No account deletion data available yet
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex h-[60vh] items-center justify-center text-sm text-muted-foreground">
+              No account deletion data available
+            </div>
+          )}
+        </div>
       )}
       {activeTab === "rating" && (
         <div className="min-w-0 max-w-full">
