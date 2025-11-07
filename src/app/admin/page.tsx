@@ -2088,61 +2088,61 @@ export default function AdminPage() {
           ) : ratingsData ? (
             <div>
               {/* Summary Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-                <div className="rounded-lg border p-4 sm:p-6 bg-card">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs sm:text-sm text-muted-foreground mb-1">Total Stars</p>
-                      <p className="text-2xl sm:text-3xl font-bold">{ratingsData.totalStars || 0}</p>
-                      <p className="text-xs text-muted-foreground mt-1">from {ratingsData.total || 0} {ratingsData.total === 1 ? 'rating' : 'ratings'}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-4">
+                <div className="rounded-lg border p-3 sm:p-4 lg:p-6 bg-card min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs sm:text-sm text-muted-foreground mb-1 truncate">Total Stars</p>
+                      <p className="text-xl sm:text-2xl lg:text-3xl font-bold break-words">{ratingsData.totalStars || 0}</p>
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">from {ratingsData.total || 0} {ratingsData.total === 1 ? 'rating' : 'ratings'}</p>
                     </div>
-                    <Star className="h-8 w-8 sm:h-10 sm:w-10 text-yellow-400" />
+                    <Star className="h-6 w-6 sm:h-8 sm:w-8 lg:h-10 lg:w-10 text-yellow-400 flex-shrink-0" />
                   </div>
                 </div>
 
-                <div className="rounded-lg border p-4 sm:p-6 bg-card">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs sm:text-sm text-muted-foreground mb-1">Website Rating</p>
-                      <p className="text-2xl sm:text-3xl font-bold">{ratingsData.websiteRating || "0.0"}%</p>
-                      <p className="text-xs text-muted-foreground mt-1">Avg: {ratingsData.averageRating || "0.00"} / 5 stars</p>
+                <div className="rounded-lg border p-3 sm:p-4 lg:p-6 bg-card min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs sm:text-sm text-muted-foreground mb-1 truncate">Website Rating</p>
+                      <p className="text-xl sm:text-2xl lg:text-3xl font-bold break-words">{ratingsData.websiteRating || "0.0"}%</p>
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">Avg: {ratingsData.averageRating || "0.00"} / 5</p>
                     </div>
-                    <Star className="h-8 w-8 sm:h-10 sm:w-10 text-yellow-400 fill-yellow-400" />
+                    <Star className="h-6 w-6 sm:h-8 sm:w-8 lg:h-10 lg:w-10 text-yellow-400 fill-yellow-400 flex-shrink-0" />
                   </div>
                 </div>
 
-                <div className="rounded-lg border p-4 sm:p-6 bg-card">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs sm:text-sm text-muted-foreground mb-1">Average Rating</p>
-                      <p className="text-2xl sm:text-3xl font-bold">{ratingsData.averageRating || "0.00"}</p>
-                      <p className="text-xs text-muted-foreground mt-1">out of 5 stars</p>
+                <div className="rounded-lg border p-3 sm:p-4 lg:p-6 bg-card min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs sm:text-sm text-muted-foreground mb-1 truncate">Average Rating</p>
+                      <p className="text-xl sm:text-2xl lg:text-3xl font-bold break-words">{ratingsData.averageRating || "0.00"}</p>
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">out of 5 stars</p>
                     </div>
-                    <Star className="h-8 w-8 sm:h-10 sm:w-10 text-yellow-400" />
+                    <Star className="h-6 w-6 sm:h-8 sm:w-8 lg:h-10 lg:w-10 text-yellow-400 flex-shrink-0" />
                   </div>
                 </div>
 
-                <div className="rounded-lg border p-4 sm:p-6 bg-card">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs sm:text-sm text-muted-foreground mb-1">With Suggestions</p>
-                      <p className="text-2xl sm:text-3xl font-bold">{ratingsData.withSuggestions || 0}</p>
-                      <p className="text-xs text-muted-foreground mt-1">
+                <div className="rounded-lg border p-3 sm:p-4 lg:p-6 bg-card min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs sm:text-sm text-muted-foreground mb-1 truncate">With Suggestions</p>
+                      <p className="text-xl sm:text-2xl lg:text-3xl font-bold break-words">{ratingsData.withSuggestions || 0}</p>
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
                         {ratingsData.total > 0 ? ((ratingsData.withSuggestions / ratingsData.total) * 100).toFixed(1) : 0}% of total
                       </p>
                     </div>
-                    <FileText className="h-8 w-8 sm:h-10 sm:w-10 text-blue-400" />
+                    <FileText className="h-6 w-6 sm:h-8 sm:w-8 lg:h-10 lg:w-10 text-blue-400 flex-shrink-0" />
                   </div>
                 </div>
 
-                <div className="rounded-lg border p-4 sm:p-6 bg-card">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs sm:text-sm text-muted-foreground mb-1">Rated Users</p>
-                      <p className="text-2xl sm:text-3xl font-bold">{ratingsData.ratedCount || 0}</p>
-                      <p className="text-xs text-muted-foreground mt-1">with 1-5 stars</p>
+                <div className="rounded-lg border p-3 sm:p-4 lg:p-6 bg-card min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs sm:text-sm text-muted-foreground mb-1 truncate">Rated Users</p>
+                      <p className="text-xl sm:text-2xl lg:text-3xl font-bold break-words">{ratingsData.ratedCount || 0}</p>
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">with 1-5 stars</p>
                     </div>
-                    <Users className="h-8 w-8 sm:h-10 sm:w-10 text-green-400" />
+                    <Users className="h-6 w-6 sm:h-8 sm:w-8 lg:h-10 lg:w-10 text-green-400 flex-shrink-0" />
                   </div>
                 </div>
               </div>
@@ -2306,42 +2306,42 @@ export default function AdminPage() {
                               {filtered.map((item: any) => (
                                 <div
                                   key={item.id}
-                                  className="rounded-lg border p-4 bg-muted/30 hover:bg-muted/50 transition-colors"
+                                  className="rounded-lg border p-3 sm:p-4 bg-muted/30 hover:bg-muted/50 transition-colors"
                                 >
                                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-start gap-2 mb-2">
-                                        <h4 className="font-semibold text-sm sm:text-base">{item.user_name}</h4>
+                                    <div className="flex-1 min-w-0 overflow-hidden">
+                                      <div className="flex flex-col sm:flex-row sm:items-start gap-2 mb-2">
+                                        <h4 className="font-semibold text-sm sm:text-base truncate min-w-0">{item.user_name}</h4>
                                         {item.user_email && (
-                                          <span className="text-xs text-muted-foreground">({item.user_email})</span>
+                                          <span className="text-xs text-muted-foreground truncate min-w-0">({item.user_email})</span>
                                         )}
                                       </div>
                                       {item.suggestion && (
-                                        <p className="text-xs sm:text-sm text-muted-foreground mb-2 whitespace-pre-wrap">
+                                        <p className="text-xs sm:text-sm text-muted-foreground mb-2 whitespace-pre-wrap break-words">
                                           {item.suggestion}
                                         </p>
                                       )}
-                                      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                                        <span>
+                                      <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-3 text-xs text-muted-foreground">
+                                        <span className="break-words">
                                           Rated on {new Date(item.created_at).toLocaleDateString()} {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </span>
                                         {item.updated_at !== item.created_at && (
-                                          <span className="text-muted-foreground/70">
+                                          <span className="text-muted-foreground/70 break-words">
                                             (Updated {new Date(item.updated_at).toLocaleDateString()})
                                           </span>
                                         )}
                                       </div>
                                     </div>
-                                    <div className="flex items-center gap-3 flex-shrink-0">
+                                    <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0 sm:self-start">
                                       {/* Rating Display */}
-                                      <div className="flex flex-col items-end gap-1">
+                                      <div className="flex flex-col items-start sm:items-end gap-1">
                                         <span className="text-xs font-medium text-muted-foreground">Rating</span>
                                         {item.rating > 0 ? (
                                           <div className="flex items-center gap-1">
                                             {[1, 2, 3, 4, 5].map((star) => (
                                               <Star
                                                 key={star}
-                                                className={`h-4 w-4 ${
+                                                className={`h-4 w-4 flex-shrink-0 ${
                                                   star <= item.rating
                                                     ? "fill-yellow-400 text-yellow-400"
                                                     : "text-muted-foreground"
