@@ -1118,7 +1118,7 @@ export default function AdminPage() {
           ) : feedbackData ? (
             <div className={loadingFeedback ? "opacity-50 pointer-events-none" : ""}>
               {/* Summary Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                 <div className="rounded-lg border p-4 sm:p-6 bg-card">
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-xs sm:text-sm font-medium text-muted-foreground">Total Feedback</div>
@@ -1126,19 +1126,6 @@ export default function AdminPage() {
                   </div>
                   <div className="text-2xl sm:text-3xl font-bold">{formatNumber(feedbackData.total || 0)}</div>
                   <div className="text-xs text-muted-foreground mt-2">All feedback entries</div>
-                </div>
-
-                <div className="rounded-lg border p-4 sm:p-6 bg-card">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="text-xs sm:text-sm font-medium text-muted-foreground">With Ratings</div>
-                    <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
-                  </div>
-                  <div className="text-2xl sm:text-3xl font-bold">{formatNumber(feedbackData.ratingsWithValue || 0)}</div>
-                  <div className="text-xs text-muted-foreground mt-2">
-                    {feedbackData.total > 0 
-                      ? `${((feedbackData.ratingsWithValue / feedbackData.total) * 100).toFixed(1)}% of total`
-                      : "0% of total"}
-                  </div>
                 </div>
 
                 <div className="rounded-lg border p-4 sm:p-6 bg-card">
@@ -1265,55 +1252,57 @@ export default function AdminPage() {
                   {mounted && (
                     <div className="rounded-lg border p-4 sm:p-6 bg-card">
                       <h3 className="text-base sm:text-lg font-semibold mb-4">Feedback by Rating</h3>
-                      <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300}>
-                        <PieChart>
-                          <Pie
-                            data={feedbackData.rating.map((item: any, index: number) => ({
-                              ...item,
-                              fill: COLORS[index % COLORS.length],
-                            }))}
-                            cx="50%"
-                            cy="50%"
-                            labelLine={false}
-                            label={(props: any) => {
-                              const { name, percent } = props;
-                              return `${name}: ${(percent * 100).toFixed(0)}%`;
-                            }}
-                            outerRadius={windowWidth > 0 && windowWidth < 640 ? 80 : windowWidth > 0 && windowWidth < 1024 ? 90 : 100}
-                            innerRadius={windowWidth > 0 && windowWidth < 640 ? 30 : 0}
-                            dataKey="value"
-                            labelStyle={{ fill: '#ffffff', fontSize: windowWidth > 0 && windowWidth < 640 ? '10px' : '12px', fontWeight: 500 }}
-                            isAnimationActive={false}
-                          >
-                            {feedbackData.rating.map((entry: any, index: number) => (
-                              <Cell 
-                                key={`cell-rating-${index}-${entry.name}`}
-                                fill={COLORS[index % COLORS.length]}
-                                stroke={COLORS[index % COLORS.length]}
-                                strokeWidth={2}
+                      <div className="flex items-center gap-4">
+                        <div className="flex-1" style={{ maxWidth: '60%' }}>
+                          <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300}>
+                            <PieChart>
+                              <Pie
+                                data={feedbackData.rating.map((item: any, index: number) => ({
+                                  ...item,
+                                  fill: COLORS[index % COLORS.length],
+                                }))}
+                                cx="50%"
+                                cy="50%"
+                                labelLine={false}
+                                outerRadius={windowWidth > 0 && windowWidth < 640 ? 80 : windowWidth > 0 && windowWidth < 1024 ? 90 : 100}
+                                innerRadius={windowWidth > 0 && windowWidth < 640 ? 30 : 0}
+                                dataKey="value"
+                                isAnimationActive={false}
+                              >
+                                {feedbackData.rating.map((entry: any, index: number) => (
+                                  <Cell 
+                                    key={`cell-rating-${index}-${entry.name}`}
+                                    fill={COLORS[index % COLORS.length]}
+                                    stroke={COLORS[index % COLORS.length]}
+                                    strokeWidth={2}
+                                  />
+                                ))}
+                              </Pie>
+                              <Tooltip 
+                                contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} 
+                                labelStyle={{ color: '#cbd5e1' }} 
+                                itemStyle={{ color: '#22c55e' }}
+                                formatter={(value: any, name: any, props: any) => [
+                                  `${props.payload.count} (${props.payload.percentage.toFixed(1)}%)`,
+                                  name
+                                ]}
                               />
-                            ))}
-                          </Pie>
-                          <Tooltip 
-                            contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} 
-                            labelStyle={{ color: '#cbd5e1' }} 
-                            itemStyle={{ color: '#22c55e' }}
-                            formatter={(value: any, name: any, props: any) => [
-                              `${props.payload.count} (${props.payload.percentage.toFixed(1)}%)`,
-                              name
-                            ]}
-                          />
-                          <Legend 
-                            wrapperStyle={{ color: 'currentColor' }} 
-                            iconType="circle"
-                            formatter={(value: string, entry: any) => {
-                              const dataEntry = feedbackData.rating.find((d: any) => d.name === value);
-                              const legendColor = dataEntry ? COLORS[feedbackData.rating.indexOf(dataEntry) % COLORS.length] : entry.color || '#999';
-                              return <span style={{ color: legendColor }}>{value}</span>;
-                            }}
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <div className="flex-1 flex flex-col justify-center gap-2">
+                          {feedbackData.rating.map((item: any, index: number) => (
+                            <div key={item.name} className="flex items-center gap-2">
+                              <div 
+                                className="w-3 h-3 rounded-full flex-shrink-0" 
+                                style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                              />
+                              <span className="text-sm font-medium">{item.name}:</span>
+                              <span className="text-sm text-muted-foreground ml-auto">{item.percentage.toFixed(1)}%</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   )}
 
