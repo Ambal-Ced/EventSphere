@@ -96,11 +96,9 @@ export default function FeedbackPage() {
         feedback_type: form.feedback_type,
         title: form.title.trim(),
         description: form.description.trim(),
-        rating: Number(form.rating) || null,
+        rating: form.rating ? Number(form.rating) : null,
         priority: form.priority,
         status: "open",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
       };
       // Only add event_id if it's not empty (now as string, not foreign key)
       if (form.event_id && form.event_id.trim()) {
@@ -115,8 +113,19 @@ export default function FeedbackPage() {
         .insert(payload)
         .select()
         .single();
-      if (error) throw error;
-      if (!inserted) throw new Error("Insert returned no row. Check RLS policies.");
+      
+      if (error) {
+        console.error("Supabase error:", error);
+        console.error("Error code:", error.code);
+        console.error("Error message:", error.message);
+        console.error("Error details:", error.details);
+        console.error("Error hint:", error.hint);
+        throw new Error(error.message || `Failed to submit feedback: ${error.code || 'Unknown error'}`);
+      }
+      
+      if (!inserted) {
+        throw new Error("Insert returned no row. Check RLS policies or database constraints.");
+      }
 
 
       // If an event was selected, also insert into event_feedback table
@@ -175,7 +184,19 @@ export default function FeedbackPage() {
         hint: err.hint,
         code: err.code
       });
-      toast.error(err.message || "Failed to submit feedback");
+      
+      // Show more detailed error message to user
+      let errorMessage = "Failed to submit feedback.";
+      if (err.message) {
+        errorMessage = err.message;
+      } else if (err.code) {
+        errorMessage = `Error ${err.code}: ${err.message || 'Failed to submit feedback'}`;
+      }
+      
+      toast.error(errorMessage, {
+        description: err.hint || err.details || "Please check your connection and try again.",
+        duration: 5000,
+      });
     } finally {
       setIsSubmitting(false);
     }

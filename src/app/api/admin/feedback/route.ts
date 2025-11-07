@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
     const feedbackListQuery = buildDateFilter(
       db
         .from("feedback")
-        .select("id, title, description, feedback_type, rating, status, priority, created_at, updated_at")
+        .select("id, title, description, feedback_type, rating, status, priority, admin_notes, created_at, updated_at")
         .order("created_at", { ascending: false })
     );
 

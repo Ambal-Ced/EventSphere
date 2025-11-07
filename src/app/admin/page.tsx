@@ -18,10 +18,12 @@ const YAxis: any = dynamic(() => import("recharts").then(m => m.YAxis as any), {
 const CartesianGrid: any = dynamic(() => import("recharts").then(m => m.CartesianGrid as any), { ssr: false, loading: () => null }) as any;
 const Tooltip: any = dynamic(() => import("recharts").then(m => m.Tooltip as any), { ssr: false, loading: () => null }) as any;
 const Legend: any = dynamic(() => import("recharts").then(m => m.Legend as any), { ssr: false, loading: () => null }) as any;
-import { TrendingUp, Users, Calendar, DollarSign, Package, Activity, RefreshCw, Lightbulb, Star } from "lucide-react";
+import { TrendingUp, Users, Calendar, DollarSign, Package, Activity, RefreshCw, Lightbulb, Star, ChevronDown, ChevronUp, FileText, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { toast } from "sonner";
 
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4", "#f97316", "#84cc16", "#a855f7"];
 
@@ -54,6 +56,11 @@ export default function AdminPage() {
   const [feedbackSeverityFilter, setFeedbackSeverityFilter] = useState<string>("all");
   const [feedbackRatingFilter, setFeedbackRatingFilter] = useState<string>("all");
   const [feedbackDateOrder, setFeedbackDateOrder] = useState<"desc" | "asc">("desc");
+  const [expandedFeedbackIds, setExpandedFeedbackIds] = useState<Set<string>>(new Set());
+  const [notesDialogOpen, setNotesDialogOpen] = useState(false);
+  const [selectedFeedbackId, setSelectedFeedbackId] = useState<string | null>(null);
+  const [adminNotes, setAdminNotes] = useState<string>("");
+  const [updatingFeedback, setUpdatingFeedback] = useState<string | null>(null);
 
   // Helpers are declared before usage to avoid temporal dead zone issues in hooks
   const formatCurrency = useCallback((cents: number) => {
@@ -240,6 +247,97 @@ export default function AdminPage() {
       return () => clearTimeout(timeoutId);
     }
   }, [isAdmin, activeTab, dateRange, customStartDate, customEndDate, fetchFeedbackData]);
+
+  // Toggle expand/collapse for feedback items
+  const toggleFeedbackExpand = useCallback((feedbackId: string) => {
+    setExpandedFeedbackIds((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(feedbackId)) {
+        newSet.delete(feedbackId);
+      } else {
+        newSet.add(feedbackId);
+      }
+      return newSet;
+    });
+  }, []);
+
+  // Open notes dialog
+  const openNotesDialog = useCallback((feedbackId: string, currentNotes: string | null) => {
+    setSelectedFeedbackId(feedbackId);
+    setAdminNotes(currentNotes || "");
+    setNotesDialogOpen(true);
+  }, []);
+
+  // Update admin notes
+  const handleSaveNotes = useCallback(async () => {
+    if (!selectedFeedbackId) return;
+
+    setUpdatingFeedback(selectedFeedbackId);
+    try {
+      const { error } = await supabase
+        .from("feedback")
+        .update({ admin_notes: adminNotes.trim() || null })
+        .eq("id", selectedFeedbackId);
+
+      if (error) throw error;
+
+      // Update local state
+      setFeedbackData((prev: any) => {
+        if (!prev?.feedbackList) return prev;
+        return {
+          ...prev,
+          feedbackList: prev.feedbackList.map((item: any) =>
+            item.id === selectedFeedbackId
+              ? { ...item, admin_notes: adminNotes.trim() || null }
+              : item
+          ),
+        };
+      });
+
+      toast.success("Admin notes saved successfully");
+      setNotesDialogOpen(false);
+      setSelectedFeedbackId(null);
+      setAdminNotes("");
+    } catch (error: any) {
+      console.error("Error saving admin notes:", error);
+      toast.error(error.message || "Failed to save admin notes");
+    } finally {
+      setUpdatingFeedback(null);
+    }
+  }, [selectedFeedbackId, adminNotes, supabase]);
+
+  // Close entry (change status to resolved)
+  const handleCloseEntry = useCallback(async (feedbackId: string) => {
+    setUpdatingFeedback(feedbackId);
+    try {
+      const { error } = await supabase
+        .from("feedback")
+        .update({ status: "resolved" })
+        .eq("id", feedbackId);
+
+      if (error) throw error;
+
+      // Update local state
+      setFeedbackData((prev: any) => {
+        if (!prev?.feedbackList) return prev;
+        return {
+          ...prev,
+          feedbackList: prev.feedbackList.map((item: any) =>
+            item.id === feedbackId
+              ? { ...item, status: "resolved" }
+              : item
+          ),
+        };
+      });
+
+      toast.success("Feedback entry closed");
+    } catch (error: any) {
+      console.error("Error closing entry:", error);
+      toast.error(error.message || "Failed to close entry");
+    } finally {
+      setUpdatingFeedback(null);
+    }
+  }, [supabase]);
 
   // Helper functions - must be defined before early returns
   const generateInsights = useCallback((data: any) => {
@@ -1675,59 +1773,134 @@ export default function AdminPage() {
                               className="overflow-y-auto space-y-3 pr-2 border rounded-md p-2"
                               style={{ maxHeight: '800px' }}
                             >
-                              {filtered.map((item: any) => (
-                                <div
-                                  key={item.id}
-                                  className="rounded-lg border p-4 bg-muted/30 hover:bg-muted/50 transition-colors"
-                                >
-                                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-start gap-2 mb-2">
-                                        <h4 className="font-semibold text-sm sm:text-base truncate">{item.title}</h4>
-                                        <span className="text-xs px-2 py-1 rounded bg-primary/20 text-primary flex-shrink-0">
-                                          {item.feedback_type?.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase()) || "Unknown"}
-                                        </span>
-                                      </div>
-                                      <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2 mb-2">
-                                        {item.description}
-                                      </p>
-                                      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                                        <span>
-                                          {new Date(item.created_at).toLocaleDateString()} {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        </span>
-                                      </div>
-                                    </div>
-                                    <div className="flex items-center gap-3 flex-shrink-0">
-                                      {/* Severity/Priority Badge */}
-                                      <div className="flex flex-col items-end gap-1">
-                                        <span className="text-xs font-medium text-muted-foreground">Severity</span>
-                                        <span className={`text-xs font-semibold px-2 py-1 rounded ${
-                                          item.priority === "urgent" ? "bg-red-500/20 text-red-500" :
-                                          item.priority === "high" ? "bg-orange-500/20 text-orange-500" :
-                                          item.priority === "medium" ? "bg-yellow-500/20 text-yellow-500" :
-                                          item.priority === "low" ? "bg-green-500/20 text-green-500" :
-                                          "bg-muted text-muted-foreground"
-                                        }`}>
-                                          {(item.priority || "N/A").charAt(0).toUpperCase() + (item.priority || "N/A").slice(1)}
-                                        </span>
-                                      </div>
-
-                                      {/* Rating Badge */}
-                                      <div className="flex flex-col items-end gap-1">
-                                        <span className="text-xs font-medium text-muted-foreground">Rating</span>
-                                        {item.rating !== null && item.rating !== undefined ? (
-                                          <div className="flex items-center gap-1">
-                                            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                                            <span className="text-xs font-semibold">{item.rating}</span>
+                              {filtered.map((item: any) => {
+                                const isExpanded = expandedFeedbackIds.has(item.id);
+                                const isUpdating = updatingFeedback === item.id;
+                                
+                                return (
+                                  <div
+                                    key={item.id}
+                                    className="rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors"
+                                  >
+                                    {/* Main content - clickable to expand */}
+                                    <div
+                                      className="p-4 cursor-pointer"
+                                      onClick={() => toggleFeedbackExpand(item.id)}
+                                    >
+                                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-start gap-2 mb-2">
+                                            <h4 className="font-semibold text-sm sm:text-base truncate">{item.title}</h4>
+                                            <span className="text-xs px-2 py-1 rounded bg-primary/20 text-primary flex-shrink-0">
+                                              {item.feedback_type?.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase()) || "Unknown"}
+                                            </span>
+                                            {/* Status Badge */}
+                                            <span className={`text-xs px-2 py-1 rounded flex-shrink-0 ${
+                                              item.status === "resolved" 
+                                                ? "bg-green-500/20 text-green-500" 
+                                                : "bg-blue-500/20 text-blue-500"
+                                            }`}>
+                                              {item.status === "resolved" ? "Resolved" : "Open"}
+                                            </span>
                                           </div>
-                                        ) : (
-                                          <span className="text-xs text-muted-foreground">No rating</span>
-                                        )}
+                                          <p className={`text-xs sm:text-sm text-muted-foreground mb-2 ${!isExpanded ? 'line-clamp-2' : ''}`}>
+                                            {item.description}
+                                          </p>
+                                          <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                                            <span>
+                                              {new Date(item.created_at).toLocaleDateString()} {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                          </div>
+                                        </div>
+                                        <div className="flex items-center gap-3 flex-shrink-0">
+                                          {/* Expand/Collapse Icon */}
+                                          <div className="flex-shrink-0">
+                                            {isExpanded ? (
+                                              <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                                            ) : (
+                                              <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                                            )}
+                                          </div>
+                                          
+                                          {/* Severity/Priority Badge */}
+                                          <div className="flex flex-col items-end gap-1">
+                                            <span className="text-xs font-medium text-muted-foreground">Severity</span>
+                                            <span className={`text-xs font-semibold px-2 py-1 rounded ${
+                                              item.priority === "urgent" ? "bg-red-500/20 text-red-500" :
+                                              item.priority === "high" ? "bg-orange-500/20 text-orange-500" :
+                                              item.priority === "medium" ? "bg-yellow-500/20 text-yellow-500" :
+                                              item.priority === "low" ? "bg-green-500/20 text-green-500" :
+                                              "bg-muted text-muted-foreground"
+                                            }`}>
+                                              {(item.priority || "N/A").charAt(0).toUpperCase() + (item.priority || "N/A").slice(1)}
+                                            </span>
+                                          </div>
+
+                                          {/* Rating Badge */}
+                                          <div className="flex flex-col items-end gap-1">
+                                            <span className="text-xs font-medium text-muted-foreground">Rating</span>
+                                            {item.rating !== null && item.rating !== undefined ? (
+                                              <div className="flex items-center gap-1">
+                                                <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                                                <span className="text-xs font-semibold">{item.rating}</span>
+                                              </div>
+                                            ) : (
+                                              <span className="text-xs text-muted-foreground">No rating</span>
+                                            )}
+                                          </div>
+                                        </div>
                                       </div>
                                     </div>
+
+                                    {/* Expanded content */}
+                                    {isExpanded && (
+                                      <div className="px-4 pb-4 pt-0 border-t mt-2" onClick={(e) => e.stopPropagation()}>
+                                        <div className="mt-4 space-y-3">
+                                          {/* Full description */}
+                                          <div>
+                                            <h5 className="text-xs font-medium text-muted-foreground mb-1">Full Description</h5>
+                                            <p className="text-sm text-foreground whitespace-pre-wrap">{item.description}</p>
+                                          </div>
+
+                                          {/* Admin Notes */}
+                                          {item.admin_notes && (
+                                            <div>
+                                              <h5 className="text-xs font-medium text-muted-foreground mb-1">Admin Notes</h5>
+                                              <p className="text-sm text-foreground whitespace-pre-wrap bg-muted/50 p-2 rounded">{item.admin_notes}</p>
+                                            </div>
+                                          )}
+
+                                          {/* Action buttons */}
+                                          <div className="flex flex-wrap gap-2 pt-2">
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              onClick={() => openNotesDialog(item.id, item.admin_notes)}
+                                              disabled={isUpdating}
+                                              className="text-xs"
+                                            >
+                                              <FileText className="h-3 w-3 mr-1" />
+                                              {item.admin_notes ? "Edit Notes" : "Add Notes"}
+                                            </Button>
+                                            
+                                            {item.status === "open" && (
+                                              <Button
+                                                size="sm"
+                                                variant="default"
+                                                onClick={() => handleCloseEntry(item.id)}
+                                                disabled={isUpdating}
+                                                className="text-xs"
+                                              >
+                                                {isUpdating ? "Closing..." : "Close Entry"}
+                                              </Button>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
                                   </div>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           </>
                         )}
@@ -1750,6 +1923,50 @@ export default function AdminPage() {
       {activeTab === "rating" && (
         <div className="rounded-lg border p-6 text-sm text-muted-foreground">Empty</div>
       )}
+
+      {/* Admin Notes Dialog */}
+      <Dialog open={notesDialogOpen} onOpenChange={setNotesDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Admin Notes</DialogTitle>
+            <DialogDescription>
+              Add or edit notes for this feedback entry. These notes are only visible to admins.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <label htmlFor="admin-notes" className="text-sm font-medium mb-2 block">
+                Notes
+              </label>
+              <textarea
+                id="admin-notes"
+                value={adminNotes}
+                onChange={(e) => setAdminNotes(e.target.value)}
+                placeholder="Enter admin notes here..."
+                className="w-full min-h-[150px] rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setNotesDialogOpen(false);
+                setSelectedFeedbackId(null);
+                setAdminNotes("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveNotes}
+              disabled={updatingFeedback !== null}
+            >
+              {updatingFeedback ? "Saving..." : "Save Notes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       </div>
     </>
   );
