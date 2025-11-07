@@ -65,6 +65,8 @@ export default function AdminPage() {
   const [accountDeletionData, setAccountDeletionData] = useState<any>(null);
   const [loadingAccountDeletion, setLoadingAccountDeletion] = useState(false);
   const [accountDeletionError, setAccountDeletionError] = useState<string | null>(null);
+  const [accountDeletionStatusFilter, setAccountDeletionStatusFilter] = useState<string>("all");
+  const [accountDeletionSort, setAccountDeletionSort] = useState<"desc" | "asc">("desc");
   const [expandedFeedbackIds, setExpandedFeedbackIds] = useState<Set<string>>(new Set());
   const [notesDialogOpen, setNotesDialogOpen] = useState(false);
   const [selectedFeedbackId, setSelectedFeedbackId] = useState<string | null>(null);
@@ -2270,6 +2272,122 @@ export default function AdminPage() {
                   <div className="text-center py-10 text-sm text-muted-foreground">
                     No account deletion data available yet
                   </div>
+                </div>
+              )}
+
+              {(accountDeletionData.requests?.length ?? 0) > 0 && (
+                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
+                    <h3 className="text-base sm:text-lg font-semibold">Deletion Requests</h3>
+                    <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                      <select
+                        value={accountDeletionStatusFilter}
+                        onChange={(e) => setAccountDeletionStatusFilter(e.target.value)}
+                        className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                      >
+                        <option value="all">All Statuses</option>
+                        <option value="pending">Pending</option>
+                        <option value="scheduled">Scheduled</option>
+                        <option value="cancelled">Cancelled</option>
+                        <option value="deleted">Deleted</option>
+                        <option value="completed">Completed</option>
+                        <option value="unknown">Unknown</option>
+                      </select>
+
+                      <select
+                        value={accountDeletionSort}
+                        onChange={(e) => setAccountDeletionSort(e.target.value as "desc" | "asc")}
+                        className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                      >
+                        <option value="desc">Newest First</option>
+                        <option value="asc">Oldest First</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {(() => {
+                    let requests = [...(accountDeletionData.requests || [])];
+
+                    if (accountDeletionStatusFilter !== "all") {
+                      requests = requests.filter((item: any) => (item.status || "unknown") === accountDeletionStatusFilter);
+                    }
+
+                    requests.sort((a: any, b: any) => {
+                      const dateA = new Date(a.requested_at ?? a.created_at ?? 0).getTime();
+                      const dateB = new Date(b.requested_at ?? b.created_at ?? 0).getTime();
+                      return accountDeletionSort === "desc" ? dateB - dateA : dateA - dateB;
+                    });
+
+                    if (requests.length === 0) {
+                      return (
+                        <div className="text-sm text-muted-foreground text-center py-8">
+                          No requests match the selected filters
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="space-y-3 max-h-[680px] overflow-y-auto pr-1">
+                        {requests.map((item: any) => {
+                          const status = (item.status || "unknown") as string;
+                          const statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
+
+                          return (
+                            <div key={item.id} className="rounded-lg border p-3 sm:p-4 bg-muted/20 hover:bg-muted/40 transition-colors">
+                              <div className="flex flex-col gap-3 sm:gap-4">
+                                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2">
+                                      <h4 className="font-semibold text-sm sm:text-base truncate">{item.user_email || "Unknown user"}</h4>
+                                      <span className="text-xs text-muted-foreground break-words">{item.user_id}</span>
+                                    </div>
+                                    {item.deletion_reason && (
+                                      <p className="text-xs sm:text-sm text-muted-foreground mt-2 whitespace-pre-wrap break-words">
+                                        {item.deletion_reason}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <div className="flex items-start gap-2 sm:gap-3 flex-shrink-0">
+                                    <span
+                                      className={`text-xs font-semibold px-2 py-1 rounded capitalize ${
+                                        status === "pending" ? "bg-blue-500/15 text-blue-500" :
+                                        status === "scheduled" ? "bg-amber-500/15 text-amber-500" :
+                                        status === "cancelled" ? "bg-red-500/15 text-red-500" :
+                                        status === "deleted" ? "bg-emerald-500/15 text-emerald-500" :
+                                        status === "completed" ? "bg-emerald-500/15 text-emerald-500" :
+                                        "bg-muted text-muted-foreground"
+                                      }`}
+                                    >
+                                      {statusLabel}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs sm:text-sm text-muted-foreground">
+                                  <div>
+                                    <span className="font-medium text-foreground block">Requested</span>
+                                    <span>{item.requested_at ? new Date(item.requested_at).toLocaleString() : "–"}</span>
+                                  </div>
+                                  <div>
+                                    <span className="font-medium text-foreground block">Scheduled</span>
+                                    <span>{item.scheduled_deletion_at ? new Date(item.scheduled_deletion_at).toLocaleString() : "–"}</span>
+                                  </div>
+                                  <div>
+                                    <span className="font-medium text-foreground block">Cancelled</span>
+                                    <span>{item.cancelled_at ? new Date(item.cancelled_at).toLocaleString() : "–"}</span>
+                                  </div>
+                                  <div>
+                                    <span className="font-medium text-foreground block">Deleted</span>
+                                    <span>{item.deleted_at ? new Date(item.deleted_at).toLocaleString() : "–"}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>
