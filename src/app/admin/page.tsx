@@ -727,7 +727,7 @@ export default function AdminPage() {
 
   return (
     <div className="w-full min-w-0 overflow-x-hidden max-w-full">
-      <div className="container mx-auto max-w-6xl py-4 sm:py-6 lg:py-8 px-4 sm:px-6 min-w-0">
+      <div className="container mx-auto max-w-6xl py-4 sm:py-6 lg:py-8 px-3 sm:px-6 min-w-0">
       <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold">Admin Dashboard</h1>
@@ -813,7 +813,7 @@ export default function AdminPage() {
         </div>
       </div>
 
-      <div className="border-b mb-4 sm:mb-6 -mx-4 sm:-mx-6 px-4 sm:px-6 overflow-x-hidden">
+      <div className="border-b mb-4 sm:mb-6 px-3 sm:px-6 overflow-x-hidden">
         <div 
           className="overflow-x-auto overflow-y-hidden"
           style={{ 
@@ -884,7 +884,9 @@ export default function AdminPage() {
               </div>
             </div>
           ) : analyticsData ? (
-            <div className={loadingAnalytics ? "opacity-50 pointer-events-none" : ""} style={{ maxWidth: '100%', overflow: 'hidden' }}>
+            <div
+              className={`${loadingAnalytics ? "opacity-50 pointer-events-none" : ""} max-w-full overflow-x-hidden`}
+            >
               {/* Key Metrics Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 min-w-0">
                 <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0">
@@ -1354,7 +1356,7 @@ export default function AdminPage() {
       )}
 
       {activeTab === "feedback" && (
-        <div className="space-y-4 sm:space-y-6 min-w-0" style={{ maxWidth: '100%', overflow: 'hidden' }}>
+        <div className="space-y-4 sm:space-y-6 min-w-0 max-w-full overflow-x-hidden">
           {loadingFeedback && !feedbackData ? (
             <div className="flex h-[60vh] items-center justify-center text-sm text-muted-foreground">
               <div className="text-center">
@@ -1363,7 +1365,9 @@ export default function AdminPage() {
               </div>
             </div>
           ) : feedbackData ? (
-            <div className={loadingFeedback ? "opacity-50 pointer-events-none" : ""} style={{ maxWidth: '100%', overflow: 'hidden' }}>
+            <div
+              className={`${loadingFeedback ? "opacity-50 pointer-events-none" : ""} max-w-full overflow-x-hidden`}
+            >
               {/* Summary Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 min-w-0">
                 <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0">
@@ -2080,10 +2084,10 @@ export default function AdminPage() {
         </div>
       )}
       {activeTab === "account_review" && (
-        <div className="rounded-lg border p-6 text-sm text-muted-foreground min-w-0" style={{ maxWidth: '100%', overflow: 'hidden' }}>Empty</div>
+        <div className="rounded-lg border p-6 text-sm text-muted-foreground min-w-0 max-w-full overflow-x-hidden">Empty</div>
       )}
       {activeTab === "rating" && (
-        <div className="min-w-0" style={{ maxWidth: '100%', overflow: 'hidden' }}>
+        <div className="min-w-0 max-w-full overflow-x-hidden">
           {loadingRatings ? (
             <div className="flex h-[60vh] items-center justify-center text-sm text-muted-foreground">
               Loading ratings data...
@@ -2102,7 +2106,7 @@ export default function AdminPage() {
               </div>
             </div>
           ) : ratingsData ? (
-            <div style={{ maxWidth: '100%', overflow: 'hidden' }}>
+            <div className="max-w-full overflow-x-hidden">
               {/* Summary Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-4 min-w-0">
                 <div className="rounded-lg border p-3 sm:p-4 lg:p-6 bg-card min-w-0">
