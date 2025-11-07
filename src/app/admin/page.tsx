@@ -49,6 +49,8 @@ export default function AdminPage() {
   const [showCustomDatePicker, setShowCustomDatePicker] = useState(false);
   const [aiGeneratedInsight, setAiGeneratedInsight] = useState<string | null>(null);
   const [windowWidth, setWindowWidth] = useState<number>(0);
+  const [feedbackData, setFeedbackData] = useState<any>(null);
+  const [loadingFeedback, setLoadingFeedback] = useState(false);
 
   // Helpers are declared before usage to avoid temporal dead zone issues in hooks
   const formatCurrency = useCallback((cents: number) => {
@@ -183,6 +185,58 @@ export default function AdminPage() {
       return () => clearTimeout(timeoutId);
     }
   }, [isAdmin, dateRange, customStartDate, customEndDate, fetchAnalytics]);
+
+  const fetchFeedbackData = useCallback(async () => {
+    setLoadingFeedback(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      // Calculate date range
+      let startDate: string | null = null;
+      let endDate: string | null = null;
+      
+      if (dateRange === "custom") {
+        if (customStartDate) {
+          startDate = customStartDate.toISOString();
+        }
+        if (customEndDate) {
+          endDate = new Date(customEndDate.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString(); // End of day
+        }
+      } else if (dateRange !== "all") {
+        const days = dateRange === "7d" ? 7 : dateRange === "30d" ? 30 : 90;
+        const date = new Date();
+        date.setDate(date.getDate() - days);
+        startDate = date.toISOString();
+      }
+
+      const url = new URL("/api/admin/feedback", window.location.origin);
+      if (startDate) url.searchParams.set("start", startDate);
+      if (endDate) url.searchParams.set("end", endDate);
+
+      const res = await fetch(url.toString(), {
+        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setFeedbackData(json);
+      } else {
+        console.error("Failed to fetch feedback data:", json);
+      }
+    } catch (error) {
+      console.error("Error fetching feedback data:", error);
+    } finally {
+      setLoadingFeedback(false);
+    }
+  }, [dateRange, customStartDate, customEndDate]);
+
+  useEffect(() => {
+    if (isAdmin && activeTab === "feedback") {
+      const timeoutId = setTimeout(() => {
+        fetchFeedbackData();
+      }, 300);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [isAdmin, activeTab, dateRange, customStartDate, customEndDate, fetchFeedbackData]);
 
   // Helper functions - must be defined before early returns
   const generateInsights = useCallback((data: any) => {
@@ -1053,7 +1107,480 @@ export default function AdminPage() {
       )}
 
       {activeTab === "feedback" && (
-        <div className="rounded-lg border p-6 text-sm text-muted-foreground">Empty</div>
+        <div className="space-y-4 sm:space-y-6">
+          {loadingFeedback && !feedbackData ? (
+            <div className="flex h-[60vh] items-center justify-center text-sm text-muted-foreground">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                <div>Loading feedback analytics...</div>
+              </div>
+            </div>
+          ) : feedbackData ? (
+            <div className={loadingFeedback ? "opacity-50 pointer-events-none" : ""}>
+              {/* Summary Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-xs sm:text-sm font-medium text-muted-foreground">Total Feedback</div>
+                    <Activity className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-bold">{formatNumber(feedbackData.total || 0)}</div>
+                  <div className="text-xs text-muted-foreground mt-2">All feedback entries</div>
+                </div>
+
+                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-xs sm:text-sm font-medium text-muted-foreground">With Ratings</div>
+                    <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-bold">{formatNumber(feedbackData.ratingsWithValue || 0)}</div>
+                  <div className="text-xs text-muted-foreground mt-2">
+                    {feedbackData.total > 0 
+                      ? `${((feedbackData.ratingsWithValue / feedbackData.total) * 100).toFixed(1)}% of total`
+                      : "0% of total"}
+                  </div>
+                </div>
+
+                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-xs sm:text-sm font-medium text-muted-foreground">Feedback Types</div>
+                    <Package className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-bold">{formatNumber(feedbackData.feedbackType?.length || 0)}</div>
+                  <div className="text-xs text-muted-foreground mt-2">Unique types</div>
+                </div>
+
+                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-xs sm:text-sm font-medium text-muted-foreground">Avg Rating</div>
+                    <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-bold">
+                    {feedbackData.ratingsWithValue > 0
+                      ? (
+                          feedbackData.rating.reduce((sum: number, r: any) => {
+                            const ratingNum = parseInt(r.name.split(" ")[0]);
+                            return sum + (r.count * ratingNum);
+                          }, 0) /
+                          feedbackData.ratingsWithValue
+                        ).toFixed(1)
+                      : "0.0"}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-2">Out of 5 stars</div>
+                </div>
+              </div>
+
+              {/* Feedback Type Charts */}
+              {feedbackData.feedbackType && feedbackData.feedbackType.length > 0 && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6">
+                  {/* Feedback Type Pie Chart */}
+                  {mounted && (
+                    <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                      <h3 className="text-base sm:text-lg font-semibold mb-4">Feedback by Type</h3>
+                      <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300}>
+                        <PieChart>
+                          <Pie
+                            data={feedbackData.feedbackType.map((item: any, index: number) => ({
+                              ...item,
+                              fill: COLORS[index % COLORS.length],
+                            }))}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            label={(props: any) => {
+                              const { name, percent } = props;
+                              return `${name}: ${(percent * 100).toFixed(0)}%`;
+                            }}
+                            outerRadius={windowWidth > 0 && windowWidth < 640 ? 80 : windowWidth > 0 && windowWidth < 1024 ? 90 : 100}
+                            innerRadius={windowWidth > 0 && windowWidth < 640 ? 30 : 0}
+                            dataKey="value"
+                            labelStyle={{ fill: '#ffffff', fontSize: windowWidth > 0 && windowWidth < 640 ? '10px' : '12px', fontWeight: 500 }}
+                            isAnimationActive={false}
+                          >
+                            {feedbackData.feedbackType.map((entry: any, index: number) => (
+                              <Cell 
+                                key={`cell-type-${index}-${entry.name}`}
+                                fill={COLORS[index % COLORS.length]}
+                                stroke={COLORS[index % COLORS.length]}
+                                strokeWidth={2}
+                              />
+                            ))}
+                          </Pie>
+                          <Tooltip 
+                            contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} 
+                            labelStyle={{ color: '#cbd5e1' }} 
+                            itemStyle={{ color: '#22c55e' }}
+                            formatter={(value: any, name: any, props: any) => [
+                              `${props.payload.count} (${props.payload.percentage.toFixed(1)}%)`,
+                              name
+                            ]}
+                          />
+                          <Legend 
+                            wrapperStyle={{ color: 'currentColor' }} 
+                            iconType="circle"
+                            formatter={(value: string, entry: any) => {
+                              const dataEntry = feedbackData.feedbackType.find((d: any) => d.name === value);
+                              const legendColor = dataEntry ? COLORS[feedbackData.feedbackType.indexOf(dataEntry) % COLORS.length] : entry.color || '#999';
+                              return <span style={{ color: legendColor }}>{value}</span>;
+                            }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+
+                  {/* Feedback Type Bar Chart */}
+                  <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                    <h3 className="text-base sm:text-lg font-semibold mb-4">Feedback Type Distribution</h3>
+                    <ResponsiveContainer width="100%" height={250}>
+                      <BarChart data={feedbackData.feedbackType.map((item: any, idx: number) => ({ ...item, _index: idx }))}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis dataKey="name" className="text-xs" angle={-45} textAnchor="end" height={100} tick={{ fill: '#64748b' }} />
+                        <YAxis className="text-xs" tick={{ fill: '#64748b' }} />
+                        <Tooltip 
+                          contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} 
+                          labelStyle={{ color: '#cbd5e1' }} 
+                          itemStyle={{ color: '#22c55e' }}
+                          formatter={(value: any, name: any, props: any) => [
+                            `${value} (${props.payload.percentage.toFixed(1)}%)`,
+                            name
+                          ]}
+                        />
+                        <Legend wrapperStyle={{ color: '#1e293b' }} />
+                        <Bar dataKey="count" name="Count" shape={(props: any) => {
+                          const { x, y, width, height, payload } = props;
+                          const idx = payload?._index ?? 0;
+                          return <rect x={x} y={y} width={width} height={height} fill={COLORS[idx % COLORS.length]} />;
+                        }} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+
+              {/* Rating Charts */}
+              {feedbackData.rating && feedbackData.ratingsWithValue > 0 && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6">
+                  {/* Rating Pie Chart */}
+                  {mounted && (
+                    <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                      <h3 className="text-base sm:text-lg font-semibold mb-4">Feedback by Rating</h3>
+                      <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300}>
+                        <PieChart>
+                          <Pie
+                            data={feedbackData.rating.map((item: any, index: number) => ({
+                              ...item,
+                              fill: COLORS[index % COLORS.length],
+                            }))}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            label={(props: any) => {
+                              const { name, percent } = props;
+                              return `${name}: ${(percent * 100).toFixed(0)}%`;
+                            }}
+                            outerRadius={windowWidth > 0 && windowWidth < 640 ? 80 : windowWidth > 0 && windowWidth < 1024 ? 90 : 100}
+                            innerRadius={windowWidth > 0 && windowWidth < 640 ? 30 : 0}
+                            dataKey="value"
+                            labelStyle={{ fill: '#ffffff', fontSize: windowWidth > 0 && windowWidth < 640 ? '10px' : '12px', fontWeight: 500 }}
+                            isAnimationActive={false}
+                          >
+                            {feedbackData.rating.map((entry: any, index: number) => (
+                              <Cell 
+                                key={`cell-rating-${index}-${entry.name}`}
+                                fill={COLORS[index % COLORS.length]}
+                                stroke={COLORS[index % COLORS.length]}
+                                strokeWidth={2}
+                              />
+                            ))}
+                          </Pie>
+                          <Tooltip 
+                            contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} 
+                            labelStyle={{ color: '#cbd5e1' }} 
+                            itemStyle={{ color: '#22c55e' }}
+                            formatter={(value: any, name: any, props: any) => [
+                              `${props.payload.count} (${props.payload.percentage.toFixed(1)}%)`,
+                              name
+                            ]}
+                          />
+                          <Legend 
+                            wrapperStyle={{ color: 'currentColor' }} 
+                            iconType="circle"
+                            formatter={(value: string, entry: any) => {
+                              const dataEntry = feedbackData.rating.find((d: any) => d.name === value);
+                              const legendColor = dataEntry ? COLORS[feedbackData.rating.indexOf(dataEntry) % COLORS.length] : entry.color || '#999';
+                              return <span style={{ color: legendColor }}>{value}</span>;
+                            }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+
+                  {/* Rating Bar Chart */}
+                  <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                    <h3 className="text-base sm:text-lg font-semibold mb-4">Rating Distribution</h3>
+                    <ResponsiveContainer width="100%" height={250}>
+                      <BarChart data={feedbackData.rating.map((item: any, idx: number) => ({ ...item, _index: idx }))}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis dataKey="name" className="text-xs" tick={{ fill: '#64748b' }} />
+                        <YAxis className="text-xs" tick={{ fill: '#64748b' }} />
+                        <Tooltip 
+                          contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} 
+                          labelStyle={{ color: '#cbd5e1' }} 
+                          itemStyle={{ color: '#22c55e' }}
+                          formatter={(value: any, name: any, props: any) => [
+                            `${value} (${props.payload.percentage.toFixed(1)}%)`,
+                            name
+                          ]}
+                        />
+                        <Legend wrapperStyle={{ color: '#1e293b' }} />
+                        <Bar dataKey="count" name="Count" shape={(props: any) => {
+                          const { x, y, width, height, payload } = props;
+                          const idx = payload?._index ?? 0;
+                          return <rect x={x} y={y} width={width} height={height} fill={COLORS[idx % COLORS.length]} />;
+                        }} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+
+              {/* Status Charts */}
+              {feedbackData.status && feedbackData.status.length > 0 && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6">
+                  {/* Status Pie Chart */}
+                  {mounted && (
+                    <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                      <h3 className="text-base sm:text-lg font-semibold mb-4">Feedback by Status</h3>
+                      <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300}>
+                        <PieChart>
+                          <Pie
+                            data={feedbackData.status.map((item: any, index: number) => ({
+                              ...item,
+                              fill: COLORS[index % COLORS.length],
+                            }))}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            label={(props: any) => {
+                              const { name, percent } = props;
+                              return `${name}: ${(percent * 100).toFixed(0)}%`;
+                            }}
+                            outerRadius={windowWidth > 0 && windowWidth < 640 ? 80 : windowWidth > 0 && windowWidth < 1024 ? 90 : 100}
+                            innerRadius={windowWidth > 0 && windowWidth < 640 ? 30 : 0}
+                            dataKey="value"
+                            labelStyle={{ fill: '#ffffff', fontSize: windowWidth > 0 && windowWidth < 640 ? '10px' : '12px', fontWeight: 500 }}
+                            isAnimationActive={false}
+                          >
+                            {feedbackData.status.map((entry: any, index: number) => (
+                              <Cell 
+                                key={`cell-status-${index}-${entry.name}`}
+                                fill={COLORS[index % COLORS.length]}
+                                stroke={COLORS[index % COLORS.length]}
+                                strokeWidth={2}
+                              />
+                            ))}
+                          </Pie>
+                          <Tooltip 
+                            contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} 
+                            labelStyle={{ color: '#cbd5e1' }} 
+                            itemStyle={{ color: '#22c55e' }}
+                            formatter={(value: any, name: any, props: any) => [
+                              `${props.payload.count} (${props.payload.percentage.toFixed(1)}%)`,
+                              name
+                            ]}
+                          />
+                          <Legend 
+                            wrapperStyle={{ color: 'currentColor' }} 
+                            iconType="circle"
+                            formatter={(value: string, entry: any) => {
+                              const dataEntry = feedbackData.status.find((d: any) => d.name === value);
+                              const legendColor = dataEntry ? COLORS[feedbackData.status.indexOf(dataEntry) % COLORS.length] : entry.color || '#999';
+                              return <span style={{ color: legendColor }}>{value}</span>;
+                            }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+
+                  {/* Status Bar Chart */}
+                  <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                    <h3 className="text-base sm:text-lg font-semibold mb-4">Status Distribution</h3>
+                    <ResponsiveContainer width="100%" height={250}>
+                      <BarChart data={feedbackData.status.map((item: any, idx: number) => ({ ...item, _index: idx }))}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis dataKey="name" className="text-xs" tick={{ fill: '#64748b' }} />
+                        <YAxis className="text-xs" tick={{ fill: '#64748b' }} />
+                        <Tooltip 
+                          contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} 
+                          labelStyle={{ color: '#cbd5e1' }} 
+                          itemStyle={{ color: '#22c55e' }}
+                          formatter={(value: any, name: any, props: any) => [
+                            `${value} (${props.payload.percentage.toFixed(1)}%)`,
+                            name
+                          ]}
+                        />
+                        <Legend wrapperStyle={{ color: '#1e293b' }} />
+                        <Bar dataKey="count" name="Count" shape={(props: any) => {
+                          const { x, y, width, height, payload } = props;
+                          const idx = payload?._index ?? 0;
+                          return <rect x={x} y={y} width={width} height={height} fill={COLORS[idx % COLORS.length]} />;
+                        }} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+
+              {/* Priority Charts */}
+              {feedbackData.priority && feedbackData.priority.length > 0 && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6">
+                  {/* Priority Pie Chart */}
+                  {mounted && (
+                    <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                      <h3 className="text-base sm:text-lg font-semibold mb-4">Feedback by Priority</h3>
+                      <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300}>
+                        <PieChart>
+                          <Pie
+                            data={feedbackData.priority.map((item: any, index: number) => ({
+                              ...item,
+                              fill: COLORS[index % COLORS.length],
+                            }))}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            label={(props: any) => {
+                              const { name, percent } = props;
+                              return `${name}: ${(percent * 100).toFixed(0)}%`;
+                            }}
+                            outerRadius={windowWidth > 0 && windowWidth < 640 ? 80 : windowWidth > 0 && windowWidth < 1024 ? 90 : 100}
+                            innerRadius={windowWidth > 0 && windowWidth < 640 ? 30 : 0}
+                            dataKey="value"
+                            labelStyle={{ fill: '#ffffff', fontSize: windowWidth > 0 && windowWidth < 640 ? '10px' : '12px', fontWeight: 500 }}
+                            isAnimationActive={false}
+                          >
+                            {feedbackData.priority.map((entry: any, index: number) => (
+                              <Cell 
+                                key={`cell-priority-${index}-${entry.name}`}
+                                fill={COLORS[index % COLORS.length]}
+                                stroke={COLORS[index % COLORS.length]}
+                                strokeWidth={2}
+                              />
+                            ))}
+                          </Pie>
+                          <Tooltip 
+                            contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} 
+                            labelStyle={{ color: '#cbd5e1' }} 
+                            itemStyle={{ color: '#22c55e' }}
+                            formatter={(value: any, name: any, props: any) => [
+                              `${props.payload.count} (${props.payload.percentage.toFixed(1)}%)`,
+                              name
+                            ]}
+                          />
+                          <Legend 
+                            wrapperStyle={{ color: 'currentColor' }} 
+                            iconType="circle"
+                            formatter={(value: string, entry: any) => {
+                              const dataEntry = feedbackData.priority.find((d: any) => d.name === value);
+                              const legendColor = dataEntry ? COLORS[feedbackData.priority.indexOf(dataEntry) % COLORS.length] : entry.color || '#999';
+                              return <span style={{ color: legendColor }}>{value}</span>;
+                            }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+
+                  {/* Priority Bar Chart */}
+                  <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                    <h3 className="text-base sm:text-lg font-semibold mb-4">Priority Distribution</h3>
+                    <ResponsiveContainer width="100%" height={250}>
+                      <BarChart data={feedbackData.priority.map((item: any, idx: number) => ({ ...item, _index: idx }))}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis dataKey="name" className="text-xs" tick={{ fill: '#64748b' }} />
+                        <YAxis className="text-xs" tick={{ fill: '#64748b' }} />
+                        <Tooltip 
+                          contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} 
+                          labelStyle={{ color: '#cbd5e1' }} 
+                          itemStyle={{ color: '#22c55e' }}
+                          formatter={(value: any, name: any, props: any) => [
+                            `${value} (${props.payload.percentage.toFixed(1)}%)`,
+                            name
+                          ]}
+                        />
+                        <Legend wrapperStyle={{ color: '#1e293b' }} />
+                        <Bar dataKey="count" name="Count" shape={(props: any) => {
+                          const { x, y, width, height, payload } = props;
+                          const idx = payload?._index ?? 0;
+                          return <rect x={x} y={y} width={width} height={height} fill={COLORS[idx % COLORS.length]} />;
+                        }} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+
+              {/* Detailed Statistics Table */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6">
+                {/* Feedback Type Details */}
+                {feedbackData.feedbackType && feedbackData.feedbackType.length > 0 && (
+                  <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                    <h3 className="text-base sm:text-lg font-semibold mb-4">Feedback Type Breakdown</h3>
+                    <div className="space-y-2">
+                      {feedbackData.feedbackType.map((item: any, index: number) => (
+                        <div key={item.name} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50 transition-colors">
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <div 
+                              className="flex-shrink-0 w-4 h-4 rounded-full" 
+                              style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium truncate">{item.name}</div>
+                            </div>
+                          </div>
+                          <div className="flex-shrink-0 text-sm font-semibold ml-2">
+                            {item.count} ({item.percentage.toFixed(1)}%)
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Priority Details */}
+                {feedbackData.priority && feedbackData.priority.length > 0 && (
+                  <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                    <h3 className="text-base sm:text-lg font-semibold mb-4">Priority Breakdown</h3>
+                    <div className="space-y-2">
+                      {feedbackData.priority.map((item: any, index: number) => (
+                        <div key={item.name} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50 transition-colors">
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <div 
+                              className="flex-shrink-0 w-4 h-4 rounded-full" 
+                              style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium truncate">{item.name}</div>
+                            </div>
+                          </div>
+                          <div className="flex-shrink-0 text-sm font-semibold ml-2">
+                            {item.count} ({item.percentage.toFixed(1)}%)
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="flex h-[60vh] items-center justify-center text-sm text-muted-foreground">
+              No feedback data available
+            </div>
+          )}
+        </div>
       )}
       {activeTab === "account_review" && (
         <div className="rounded-lg border p-6 text-sm text-muted-foreground">Empty</div>

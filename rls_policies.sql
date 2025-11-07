@@ -143,6 +143,50 @@ CREATE POLICY "Event owners can view event feedback" ON feedback
         )
     );
 
+-- Policy: Admins can view all feedback
+CREATE POLICY "Admins can view all feedback" ON feedback
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM profiles p 
+            WHERE p.id = auth.uid() 
+            AND p.account_type = 'admin'
+        )
+    );
+
+-- Policy: Admins can update all feedback
+CREATE POLICY "Admins can update all feedback" ON feedback
+    FOR UPDATE USING (
+        EXISTS (
+            SELECT 1 FROM profiles p 
+            WHERE p.id = auth.uid() 
+            AND p.account_type = 'admin'
+        )
+    )
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM profiles p 
+            WHERE p.id = auth.uid() 
+            AND p.account_type = 'admin'
+        )
+    );
+
+-- Policy: Admins can delete all feedback
+CREATE POLICY "Admins can delete all feedback" ON feedback
+    FOR DELETE USING (
+        EXISTS (
+            SELECT 1 FROM profiles p 
+            WHERE p.id = auth.uid() 
+            AND p.account_type = 'admin'
+        )
+    );
+
+-- Policy: Service role full access to feedback (for API routes)
+CREATE POLICY "Service role full access to feedback" ON feedback
+    FOR ALL
+    TO service_role
+    USING (true)
+    WITH CHECK (true);
+
 -- =====================================================
 -- 8. VERIFY RLS STATUS
 -- =====================================================
