@@ -2092,10 +2092,22 @@ export default function AdminPage() {
                 <div className="rounded-lg border p-4 sm:p-6 bg-card">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs sm:text-sm text-muted-foreground mb-1">Total Ratings</p>
-                      <p className="text-2xl sm:text-3xl font-bold">{ratingsData.total || 0}</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground mb-1">Total Stars</p>
+                      <p className="text-2xl sm:text-3xl font-bold">{ratingsData.totalStars || 0}</p>
+                      <p className="text-xs text-muted-foreground mt-1">from {ratingsData.total || 0} {ratingsData.total === 1 ? 'rating' : 'ratings'}</p>
                     </div>
                     <Star className="h-8 w-8 sm:h-10 sm:w-10 text-yellow-400" />
+                  </div>
+                </div>
+
+                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs sm:text-sm text-muted-foreground mb-1">Website Rating</p>
+                      <p className="text-2xl sm:text-3xl font-bold">{ratingsData.websiteRating || "0.0"}%</p>
+                      <p className="text-xs text-muted-foreground mt-1">Avg: {ratingsData.averageRating || "0.00"} / 5 stars</p>
+                    </div>
+                    <Star className="h-8 w-8 sm:h-10 sm:w-10 text-yellow-400 fill-yellow-400" />
                   </div>
                 </div>
 
@@ -2106,7 +2118,7 @@ export default function AdminPage() {
                       <p className="text-2xl sm:text-3xl font-bold">{ratingsData.averageRating || "0.00"}</p>
                       <p className="text-xs text-muted-foreground mt-1">out of 5 stars</p>
                     </div>
-                    <Star className="h-8 w-8 sm:h-10 sm:w-10 text-yellow-400 fill-yellow-400" />
+                    <Star className="h-8 w-8 sm:h-10 sm:w-10 text-yellow-400" />
                   </div>
                 </div>
 

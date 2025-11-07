@@ -174,7 +174,7 @@ export async function GET(request: NextRequest) {
       percentage: total > 0 ? ((ratingCounts[rating] || 0) / total) * 100 : 0,
     }));
 
-    // Calculate average rating
+    // Calculate average rating and total stars sum
     let totalRatingSum = 0;
     let ratedCount = 0;
     (ratingsRows || []).forEach((item: any) => {
@@ -184,6 +184,11 @@ export async function GET(request: NextRequest) {
       }
     });
     const averageRating = ratedCount > 0 ? totalRatingSum / ratedCount : 0;
+    const totalStars = totalRatingSum; // Sum of all stars
+    
+    // Calculate website rating percentage (average rating out of 5 stars converted to percentage)
+    // Formula: (averageRating / 5) * 100
+    const websiteRating = averageRating > 0 ? (averageRating / 5) * 100 : 0;
 
     // Suggestions statistics
     const withSuggestions = (ratingsRows || []).filter((item: any) => 
@@ -192,9 +197,11 @@ export async function GET(request: NextRequest) {
     const withoutSuggestions = total - withSuggestions;
 
     const payload = {
-      total,
+      total, // Count of rating records (how many people rated)
+      totalStars, // Sum of all stars
       rating: ratingData,
       averageRating: averageRating.toFixed(2),
+      websiteRating: websiteRating.toFixed(1), // Website rating as percentage
       ratedCount,
       withSuggestions,
       withoutSuggestions,
