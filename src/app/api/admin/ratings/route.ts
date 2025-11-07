@@ -125,6 +125,7 @@ export async function GET(request: NextRequest) {
           updated_at,
           profiles:user_id (
             id,
+            username,
             full_name,
             email
           )
@@ -212,7 +213,7 @@ export async function GET(request: NextRequest) {
         suggestion: item.suggestion,
         created_at: item.created_at,
         updated_at: item.updated_at,
-        user_name: item.profiles?.full_name || item.profiles?.email || "Unknown User",
+        user_name: item.profiles?.username || item.profiles?.full_name || item.profiles?.email || "Unknown User",
         user_email: item.profiles?.email || null,
       })),
       debug: { usedServiceRole: true },
