@@ -726,7 +726,7 @@ export default function AdminPage() {
   }
 
   return (
-    <>
+    <div className="w-full min-w-0 overflow-x-hidden">
       <div className="container mx-auto max-w-7xl py-4 sm:py-6 lg:py-8 px-4 sm:px-6">
       <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -813,7 +813,7 @@ export default function AdminPage() {
         </div>
       </div>
 
-      <div className="border-b mb-4 sm:mb-6 -mx-4 sm:mx-0 px-4 sm:px-0">
+      <div className="border-b mb-4 sm:mb-6 -mx-4 sm:-mx-6 md:-mx-6 lg:mx-0 px-4 sm:px-6 md:px-6 lg:px-0">
         <div 
           className="overflow-x-auto overflow-y-hidden"
           style={{ 
@@ -2454,6 +2454,6 @@ export default function AdminPage() {
         </DialogContent>
       </Dialog>
       </div>
-    </>
+    </div>
   );
 }
