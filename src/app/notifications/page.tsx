@@ -20,17 +20,20 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+type NotificationSource = 'notifications' | 'admin_notif';
+
 interface Notification {
   id: string;
   title: string;
   message: string;
-  type: 'info' | 'success' | 'warning' | 'error' | 'event' | 'event_joined' | 'event_created' | 'event_left' | 'invitation' | 'system';
+  type: 'info' | 'success' | 'warning' | 'error' | 'event' | 'event_joined' | 'event_created' | 'event_left' | 'invitation' | 'system' | 'account_deletion';
   level?: 'info' | 'success' | 'warning' | 'error'; // Optional level field for backward compatibility
   read_at: string | null;
   created_at: string;
   link_url: string | null;
   event_id: string | null;
   metadata: any;
+  source: NotificationSource;
 }
 
 export default function NotificationsPage() {
@@ -56,17 +59,46 @@ export default function NotificationsPage() {
         return;
       }
 
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const [core, admin] = await Promise.all([
+        supabase
+          .from('notifications')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('admin_notif')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false }),
+      ]);
 
-      if (error) throw error;
-      setNotifications(data || []);
+      if (core.error) throw core.error;
+      if (admin.error) throw admin.error;
+
+      const combined: Notification[] = [
+        ...((core.data ?? []).map((record: any) => ({
+          ...record,
+          title: record.title ?? '',
+          message: record.message ?? '',
+          type: (record.type ?? record.level ?? 'info') as Notification['type'],
+          metadata: record.metadata ?? {},
+          source: 'notifications' as NotificationSource,
+        })) as Notification[]),
+        ...((admin.data ?? []).map((record: any) => ({
+          ...record,
+          title: record.title ?? '',
+          message: record.message ?? '',
+          type: (record.type ?? record.level ?? 'info') as Notification['type'],
+          metadata: record.metadata ?? {},
+          source: 'admin_notif' as NotificationSource,
+        })) as Notification[]),
+      ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+      setNotifications(combined);
       
       // Debug: Log notification types to help with filtering
-      if (data && data.length > 0) {
-        const types = [...new Set(data.map(n => n.type || n.level || 'unknown'))];
+      if (combined.length > 0) {
+        const types = [...new Set(combined.map(n => n.type || n.level || 'unknown'))];
         console.log('Available notification types:', types);
       }
     } catch (error: any) {
@@ -77,18 +109,27 @@ export default function NotificationsPage() {
     }
   };
 
-  const markAsRead = async (id: string) => {
+  const markAsRead = async (notification: Notification) => {
     try {
-      setMarkingRead(id);
-      const { error } = await supabase.rpc('mark_notification_read', { p_id: id });
-      if (error) throw error;
+      setMarkingRead(notification.id);
+
+      if (notification.source === 'admin_notif') {
+        const { error } = await supabase
+          .from('admin_notif')
+          .update({ read_at: new Date().toISOString() })
+          .eq('id', notification.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.rpc('mark_notification_read', { p_id: notification.id });
+        if (error) throw error;
+      }
 
       setNotifications(prev => 
-        prev.map(n => n.id === id ? { ...n, read_at: new Date().toISOString() } : n)
+        prev.map(n => n.id === notification.id ? { ...n, read_at: new Date().toISOString() } : n)
       );
       
       // Trigger a custom event to update the header notification count
-      window.dispatchEvent(new CustomEvent('notificationRead', { detail: { id } }));
+      window.dispatchEvent(new CustomEvent('notificationRead', { detail: { id: notification.id, source: notification.source } }));
       
       toast.success('Notification marked as read');
     } catch (error: any) {
@@ -128,7 +169,17 @@ export default function NotificationsPage() {
       }
 
       console.log('Successfully marked notifications as read, updating UI...');
-      
+
+      // Ensure admin notifications are marked as read as well
+      const { error: adminUpdateError } = await supabase
+        .from('admin_notif')
+        .update({ read_at: new Date().toISOString() })
+        .is('read_at', null);
+
+      if (adminUpdateError) {
+        console.error('Error marking admin notifications as read:', adminUpdateError);
+      }
+
       // Reload notifications to get the updated state from the database
       await loadNotifications();
       
@@ -161,6 +212,7 @@ export default function NotificationsPage() {
       case 'invitation':
         return <Users className="w-5 h-5 text-purple-500" />;
       case 'system':
+      case 'account_deletion':
         return <Bell className="w-5 h-5 text-gray-500" />;
       default:
         return <Info className="w-5 h-5 text-blue-500" />;
@@ -315,6 +367,7 @@ export default function NotificationsPage() {
               <option value="event_joined">Event Joined</option>
               <option value="event_created">Event Created</option>
               <option value="event_left">Event Left</option>
+              <option value="account_deletion">Account Deletion</option>
             </select>
           </div>
         </div>
@@ -354,7 +407,7 @@ export default function NotificationsPage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => markAsRead(notification.id)}
+                    onClick={() => markAsRead(notification)}
                     disabled={markingRead === notification.id}
                     className="text-xs px-2 py-1 h-6 w-6 p-0"
                   >

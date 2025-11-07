@@ -12,6 +12,39 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
+type NotificationSource = "notifications" | "admin_notif";
+
+type UnifiedNotification = {
+  id: string;
+  title: string | null;
+  message: string | null;
+  type?: string | null;
+  level?: string | null;
+  link_url?: string | null;
+  event_id?: string | null;
+  metadata?: any;
+  read_at: string | null;
+  created_at: string;
+  source: NotificationSource;
+};
+
+const mapToUnifiedNotification = (record: any, source: NotificationSource): UnifiedNotification => ({
+  id: record.id,
+  title: record.title ?? null,
+  message: record.message ?? null,
+  type: record.type ?? null,
+  level: record.level ?? record.type ?? null,
+  link_url: record.link_url ?? null,
+  event_id: record.event_id ?? null,
+  metadata: record.metadata ?? {},
+  read_at: record.read_at ?? null,
+  created_at: record.created_at,
+  source,
+});
+
+const sortAndLimitNotifications = (items: UnifiedNotification[], limit: number) =>
+  [...items].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, limit);
+
 // Use shared singleton client from lib
 
 export function Header() {
@@ -21,10 +54,16 @@ export function Header() {
   const [isLoading, setIsLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
   const [notifOpen, setNotifOpen] = useState(false);
-  const [notifs, setNotifs] = useState<any[]>([]);
+  const [notifs, setNotifs] = useState<UnifiedNotification[]>([]);
   const [notifLoading, setNotifLoading] = useState(false);
   const [showRatingTooltip, setShowRatingTooltip] = useState(false);
   const unreadCount = notifs.filter((n) => !n.read_at).length;
+
+  useEffect(() => {
+    if (!user) {
+      setNotifs([]);
+    }
+  }, [user]);
 
   useEffect(() => {
     const getSession = async () => {
@@ -98,15 +137,38 @@ export function Header() {
   useEffect(() => {
     if (!user) return;
     let channel: any;
+    let adminChannel: any;
+
     const load = async (limit = 5) => {
       try {
         setNotifLoading(true);
-        const { data } = await supabase
+        const core = await supabase
           .from('notifications')
           .select('*')
+          .eq('user_id', user.id)
           .order('created_at', { ascending: false })
           .limit(limit);
-        setNotifs(data || []);
+
+        const admin = await supabase
+          .from('admin_notif')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(limit);
+
+        if (core.error) {
+          console.error('Failed to load notifications', core.error);
+        }
+        if (admin.error) {
+          console.error('Failed to load admin notifications', admin.error);
+        }
+
+        const combined = sortAndLimitNotifications([
+          ...((core.data ?? []).map((record) => mapToUnifiedNotification(record, 'notifications'))),
+          ...((admin.data ?? []).map((record) => mapToUnifiedNotification(record, 'admin_notif'))),
+        ], limit);
+
+        setNotifs(combined);
       } finally {
         setNotifLoading(false);
       }
@@ -118,19 +180,40 @@ export function Header() {
         const n = payload.new as any;
         // RLS ensures user sees only own when fetching; client-side guard to be safe
         if (n.user_id === user.id) {
-          setNotifs((prev) => [n, ...prev].slice(0, 5));
+          const unified = mapToUnifiedNotification(n, 'notifications');
+          setNotifs((prev) => sortAndLimitNotifications([
+            unified,
+            ...prev.filter((item) => !(item.id === unified.id && item.source === unified.source)),
+          ], 5));
         }
       })
       .subscribe();
-    return () => { if (channel) supabase.removeChannel(channel); };
+
+    adminChannel = supabase
+      .channel('realtime-admin-notifs')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'admin_notif' }, (payload) => {
+        const n = payload.new as any;
+        if (n.user_id === user.id) {
+          const unified = mapToUnifiedNotification(n, 'admin_notif');
+          setNotifs((prev) => sortAndLimitNotifications([
+            unified,
+            ...prev.filter((item) => !(item.id === unified.id && item.source === unified.source)),
+          ], 5));
+        }
+      })
+      .subscribe();
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+      if (adminChannel) supabase.removeChannel(adminChannel);
+    };
   }, [user?.id]);
 
   // Listen for notification read events from notifications page
   useEffect(() => {
     const handleNotificationRead = (event: CustomEvent) => {
-      const { id } = event.detail;
+      const { id, source } = event.detail;
       setNotifs(prev => 
-        prev.map(n => n.id === id ? { ...n, read_at: new Date().toISOString() } : n)
+        prev.map(n => n.id === id && n.source === source ? { ...n, read_at: new Date().toISOString() } : n)
       );
     };
 
@@ -204,26 +287,82 @@ export function Header() {
 
   const expandNotifications = async () => {
     if (!user) return;
-    const { data } = await supabase
-      .from('notifications')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(20);
-    setNotifs(data || []);
+    setNotifLoading(true);
+    try {
+      const core = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      const admin = await supabase
+        .from('admin_notif')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (core.error) {
+        console.error('Failed to expand notifications', core.error);
+      }
+      if (admin.error) {
+        console.error('Failed to expand admin notifications', admin.error);
+      }
+
+      setNotifs(sortAndLimitNotifications([
+        ...((core.data ?? []).map((record) => mapToUnifiedNotification(record, 'notifications'))),
+        ...((admin.data ?? []).map((record) => mapToUnifiedNotification(record, 'admin_notif'))),
+      ], 20));
+    } finally {
+      setNotifLoading(false);
+    }
   };
 
-  const markRead = async (id: string) => {
-    await supabase.rpc('mark_notification_read', { p_id: id });
-    setNotifs((prev) => prev.map((n) => n.id === id ? { ...n, read_at: new Date().toISOString() } : n));
+  const markRead = async (notification: UnifiedNotification) => {
+    const nowIso = new Date().toISOString();
+    if (notification.source === 'admin_notif') {
+      const { error } = await supabase
+        .from('admin_notif')
+        .update({ read_at: nowIso })
+        .eq('id', notification.id);
+      if (error) {
+        console.error('Failed to mark admin notification read', error);
+        return;
+      }
+    } else {
+      const { error } = await supabase.rpc('mark_notification_read', { p_id: notification.id });
+      if (error) {
+        console.error('Failed to mark notification read', error);
+        return;
+      }
+    }
+    setNotifs((prev) => prev.map((n) =>
+      n.id === notification.id && n.source === notification.source ? { ...n, read_at: nowIso } : n
+    ));
   };
 
   const markAllRead = async () => {
-    // Mark all unread as read for current user
+    if (!user) return;
     const nowIso = new Date().toISOString();
-    await supabase
+    const core = await supabase
       .from('notifications')
       .update({ read_at: nowIso })
+      .eq('user_id', user.id)
       .is('read_at', null);
+    if (core.error) {
+      console.error('Failed to mark notifications read', core.error);
+    }
+
+    const admin = await supabase
+      .from('admin_notif')
+      .update({ read_at: nowIso })
+      .eq('user_id', user.id)
+      .is('read_at', null);
+    if (admin.error) {
+      console.error('Failed to mark admin notifications read', admin.error);
+    }
+
     setNotifs((prev) => prev.map((n) => n.read_at ? n : { ...n, read_at: nowIso }));
   };
 
@@ -427,12 +566,12 @@ export function Header() {
                         key={n.id}
                         className={`w-full text-left p-3 border-b hover:bg-muted/40 ${!n.read_at ? 'bg-muted/20' : ''}`}
                         onClick={async () => {
-                          await markRead(n.id);
+                          await markRead(n);
                           if (n.link_url) router.push(n.link_url);
                         }}
                       >
-                        <div className="text-sm font-medium">{n.title}</div>
-                        <div className="text-xs text-slate-400 line-clamp-2">{n.message}</div>
+                        <div className="text-sm font-medium">{n.title ?? "Notification"}</div>
+                        <div className="text-xs text-slate-400 line-clamp-2">{n.message ?? ""}</div>
                       </button>
                     ))
                   )}

@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 type ActionType = "approve" | "deny";
 
@@ -13,31 +14,17 @@ function getEndOfMonthDate(): string {
   return end.toISOString();
 }
 
-async function insertNotificationsWithServiceKey(records: any[], serviceKey: string) {
+async function insertAdminNotifications(db: SupabaseClient<any, "public", any>, records: any[]) {
   if (!records.length) return;
-
-  const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/notifications`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      apikey: serviceKey,
-      Authorization: `Bearer ${serviceKey}`,
-      Prefer: "return=representation,bypass-rls=on",
-    },
-    body: JSON.stringify(records.map((record) => ({
+  const { error } = await db
+    .from("admin_notif")
+    .insert(records.map((record) => ({
       ...record,
       metadata: record.metadata ?? {},
-    })) ),
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Failed to insert notifications: ${response.status} ${response.statusText} - ${text}`);
-  }
-
-  const inserted = await response.json();
-  if (!Array.isArray(inserted) || inserted.length !== records.length) {
-    throw new Error("Failed to insert all notifications");
+    })));
+  if (error) {
+    console.error("admin_notif insert error", error);
+    throw error;
   }
 }
 
@@ -210,6 +197,7 @@ export async function POST(request: NextRequest) {
               ? new Date(scheduled).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
               : null;
             return {
+              admin_id: actingUserId,
               user_id: row.user_id!,
               type: "account_deletion",
               title: "Account deletion approved",
@@ -225,7 +213,7 @@ export async function POST(request: NextRequest) {
           });
 
         if (notifications.length > 0) {
-          await insertNotificationsWithServiceKey(notifications, serviceKey);
+          await insertAdminNotifications(db, notifications);
         }
       }
 
@@ -254,7 +242,11 @@ export async function POST(request: NextRequest) {
       }));
 
     if (denyNotifications.length > 0) {
-      await insertNotificationsWithServiceKey(denyNotifications, serviceKey);
+      const denyRecords = denyNotifications.map((n) => ({
+        ...n,
+        admin_id: actingUserId,
+      }));
+      await insertAdminNotifications(db, denyRecords);
     }
 
     const { error: deleteError } = await db
