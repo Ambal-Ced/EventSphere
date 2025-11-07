@@ -73,9 +73,6 @@ export async function PATCH(request: NextRequest) {
       p_feedback_id: id,
       p_status: status !== undefined ? status : null,
       p_admin_notes: admin_notes !== undefined ? admin_notes : null,
-    }).catch((err) => {
-      console.error("RPC call error:", err);
-      return { data: null, error: err };
     });
 
     if (error) {
