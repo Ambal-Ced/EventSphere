@@ -253,14 +253,12 @@ export const Sidebar = memo(() => {
   }, []);
 
   return (
-    <>
+    <div className={cn(open ? "w-64" : "w-16", "shrink-0")}
+      aria-label="Primary navigation">
       <div
         className={cn(
-          // Reserve lane at all sizes (no overlay). Width changes only from 16 to 64.
-          open
-            ? "sticky top-16 h-[calc(100vh-4rem)] w-64"
-            : "sticky top-16 h-[calc(100vh-4rem)] w-16",
-          "border-r bg-background transition-all"
+          open ? "fixed top-16 bottom-0 left-0 w-64" : "fixed top-16 bottom-0 left-0 w-16",
+          "border-r bg-background transition-all z-30"
         )}
         onMouseEnter={isTouch ? undefined : () => setOpen(true)}
         onMouseLeave={isTouch ? undefined : () => setOpen(false)}
@@ -268,7 +266,7 @@ export const Sidebar = memo(() => {
       >
         <SidebarContent isOpen={open} />
       </div>
-    </>
+    </div>
   );
 });
 

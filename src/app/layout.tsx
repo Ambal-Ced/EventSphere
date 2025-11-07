@@ -30,7 +30,7 @@ export default function RootLayout({
         <AuthProvider>
           <div className="flex flex-col min-h-screen">
             <Header />
-            <div className="flex flex-1">
+            <div className="flex flex-1 pt-16">
               {/* Sidebar enabled; reserves its own lane on >=768px and overlays on mobile */}
               <Sidebar />
               {/* Fixed gutter reserved (kept for consistent layout) */}
