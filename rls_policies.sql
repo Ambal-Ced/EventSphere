@@ -188,7 +188,48 @@ CREATE POLICY "Service role full access to feedback" ON feedback
     WITH CHECK (true);
 
 -- =====================================================
--- 8. VERIFY RLS STATUS
+-- 8. USER RATINGS TABLE POLICIES (if user_ratings table exists)
+-- =====================================================
+
+-- Enable RLS on user_ratings table
+ALTER TABLE user_ratings ENABLE ROW LEVEL SECURITY;
+
+-- Policy: Users can view their own rating
+CREATE POLICY "Users can view own rating" ON user_ratings
+    FOR SELECT USING (auth.uid() = user_id);
+
+-- Policy: Users can insert their own rating
+CREATE POLICY "Users can insert own rating" ON user_ratings
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- Policy: Users can update their own rating
+CREATE POLICY "Users can update own rating" ON user_ratings
+    FOR UPDATE USING (auth.uid() = user_id)
+    WITH CHECK (auth.uid() = user_id);
+
+-- Policy: Users can delete their own rating
+CREATE POLICY "Users can delete own rating" ON user_ratings
+    FOR DELETE USING (auth.uid() = user_id);
+
+-- Policy: Admins can view all ratings
+CREATE POLICY "Admins can view all ratings" ON user_ratings
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM profiles p 
+            WHERE p.id = auth.uid() 
+            AND p.account_type = 'admin'
+        )
+    );
+
+-- Policy: Service role full access to user_ratings (for API routes)
+CREATE POLICY "Service role full access to user_ratings" ON user_ratings
+    FOR ALL
+    TO service_role
+    USING (true)
+    WITH CHECK (true);
+
+-- =====================================================
+-- 9. VERIFY RLS STATUS
 -- =====================================================
 
 -- Check which tables have RLS enabled

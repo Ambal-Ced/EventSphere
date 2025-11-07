@@ -40,7 +40,7 @@ export default function AdminPage() {
   }, []);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
-  const [activeTab, setActiveTab] = useState<"eventtria" | "feedback" | "account_review">("eventtria");
+  const [activeTab, setActiveTab] = useState<"eventtria" | "feedback" | "account_review" | "rating">("eventtria");
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
   const [dateRange, setDateRange] = useState<"7d" | "30d" | "90d" | "all" | "custom">("30d");
@@ -623,6 +623,16 @@ export default function AdminPage() {
             }`}
           >
             Account Review
+          </button>
+          <button
+            onClick={() => setActiveTab("rating")}
+            className={`px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-t-md transition-colors whitespace-nowrap ${
+              activeTab === "rating"
+                ? "bg-background border-b-2 border-primary text-primary"
+                : "hover:text-primary text-muted-foreground"
+            }`}
+          >
+            Rating
           </button>
         </div>
       </div>
@@ -1576,6 +1586,9 @@ export default function AdminPage() {
         </div>
       )}
       {activeTab === "account_review" && (
+        <div className="rounded-lg border p-6 text-sm text-muted-foreground">Empty</div>
+      )}
+      {activeTab === "rating" && (
         <div className="rounded-lg border p-6 text-sm text-muted-foreground">Empty</div>
       )}
       </div>

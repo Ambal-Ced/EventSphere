@@ -7,7 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { User as AuthUser } from "@supabase/supabase-js"; // Supabase User type
 import { cn } from "@/lib/utils";
-import { Bell, MessageSquare, Loader2, Menu, X } from "lucide-react";
+import { Bell, MessageSquare, Loader2, Menu, X, Star } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -23,6 +23,7 @@ export function Header() {
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifs, setNotifs] = useState<any[]>([]);
   const [notifLoading, setNotifLoading] = useState(false);
+  const [showRatingTooltip, setShowRatingTooltip] = useState(false);
   const unreadCount = notifs.filter((n) => !n.read_at).length;
 
   useEffect(() => {
@@ -148,6 +149,59 @@ export function Header() {
     };
   }, []);
 
+  // Rating tooltip logic: show every 1-2 hours and for new users
+  useEffect(() => {
+    if (!user || !profile) return;
+
+    const checkShouldShowRatingTooltip = () => {
+      const storageKey = `rating_tooltip_${user.id}`;
+      const lastShown = localStorage.getItem(storageKey);
+      const now = Date.now();
+      
+      // Check if user is newly registered (account created within last 7 days)
+      const accountCreatedAt = profile.created_at ? new Date(profile.created_at).getTime() : null;
+      const isNewUser = accountCreatedAt && (now - accountCreatedAt) < 7 * 24 * 60 * 60 * 1000; // 7 days
+      
+      // Always show for new users (first time)
+      if (isNewUser && !lastShown) {
+        return true;
+      }
+      
+      // Show every 1-2 hours (randomized between 1-2 hours)
+      if (lastShown) {
+        const timeSinceLastShown = now - parseInt(lastShown);
+        const hoursSinceLastShown = timeSinceLastShown / (1000 * 60 * 60);
+        // Randomize between 1-2 hours to avoid showing at exact intervals
+        const shouldShowInterval = hoursSinceLastShown >= 1 + Math.random(); // 1-2 hours
+        return shouldShowInterval;
+      }
+      
+      // Show on first visit
+      return true;
+    };
+
+    // Check on mount and show if needed
+    if (checkShouldShowRatingTooltip()) {
+      setShowRatingTooltip(true);
+      const storageKey = `rating_tooltip_${user.id}`;
+      localStorage.setItem(storageKey, Date.now().toString());
+    }
+
+    // Set up interval to check every 30 minutes
+    const interval = setInterval(() => {
+      if (checkShouldShowRatingTooltip()) {
+        setShowRatingTooltip(true);
+        const storageKey = `rating_tooltip_${user.id}`;
+        localStorage.setItem(storageKey, Date.now().toString());
+      }
+    }, 30 * 60 * 1000); // Check every 30 minutes
+
+    return () => clearInterval(interval);
+  }, [user, profile]);
+
+  // Check if user is new (for always showing tooltip)
+  const isNewUser = profile?.created_at && (Date.now() - new Date(profile.created_at).getTime()) < 7 * 24 * 60 * 60 * 1000;
+
   const expandNotifications = async () => {
     if (!user) return;
     const { data } = await supabase
@@ -259,6 +313,82 @@ export function Header() {
           <div className="h-8 w-8 animate-pulse rounded-full bg-muted"></div>
         ) : user ? (
           <>
+            {/* Rating Star Icon */}
+            <div className="relative group hidden md:block">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-full hover:bg-muted/50 transition-colors"
+                aria-label="Rate us"
+                onClick={() => {
+                  router.push("/rating");
+                  setShowRatingTooltip(false);
+                  if (user) {
+                    const storageKey = `rating_tooltip_${user.id}`;
+                    localStorage.setItem(storageKey, Date.now().toString());
+                  }
+                }}
+              >
+                <Star className="h-5 w-5" />
+              </Button>
+
+              {/* Rating Tooltip - shows on hover, or always visible for new users when showRatingTooltip is true */}
+              {showRatingTooltip && (
+                <div className={`absolute right-0 top-full mt-2 transition-opacity duration-200 z-50 ${
+                  isNewUser ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                } ${!isNewUser ? 'pointer-events-none' : ''}`}>
+                  <div className={`bg-slate-900 text-white rounded-lg p-4 shadow-lg border border-slate-700 min-w-[250px] max-w-[300px] relative ${isNewUser ? '' : 'pointer-events-auto'}`}>
+                    {/* Close button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowRatingTooltip(false);
+                        if (user) {
+                          const storageKey = `rating_tooltip_${user.id}`;
+                          localStorage.setItem(storageKey, Date.now().toString());
+                        }
+                      }}
+                      className="absolute top-2 right-2 text-slate-400 hover:text-white transition-colors"
+                      aria-label="Close"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                    <div className="flex items-start gap-3 mb-2 pr-6">
+                      <Star className="h-5 w-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="font-medium text-sm mb-1">
+                          EventTria - Please Rate Us
+                        </p>
+                        <p className="text-xs text-slate-300 leading-relaxed">
+                          Let us know what we can do to improve our website. Your feedback helps us serve you better!
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex justify-end mt-3">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs h-7"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push("/rating");
+                          setShowRatingTooltip(false);
+                          if (user) {
+                            const storageKey = `rating_tooltip_${user.id}`;
+                            localStorage.setItem(storageKey, Date.now().toString());
+                          }
+                        }}
+                      >
+                        Rate Now
+                      </Button>
+                    </div>
+                  </div>
+                  {/* Arrow pointing up */}
+                  <div className="absolute -top-1 right-4 w-2 h-2 bg-slate-900 border-l border-t border-slate-700 transform rotate-45"></div>
+                </div>
+              )}
+            </div>
+
             <Popover open={notifOpen} onOpenChange={setNotifOpen}>
               <PopoverTrigger asChild>
                 {/* Desktop icon (PopoverTrigger requires a single child) */}
