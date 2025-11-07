@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
     if (allPending) {
       const { data: pendingRows, error: pendingError } = await db
         .from("account_deletion_requests")
-        .select("id, user_id, user_email, status")
+        .select("id, user_id, user_email, status, scheduled_deletion_date, cancelled_at")
         .eq("status", "pending");
       if (pendingError) {
         console.error("account-deletion update fetch pending error", pendingError);
@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
     } else {
       const { data: rows, error: rowsError } = await db
         .from("account_deletion_requests")
-        .select("id, user_id, user_email, status")
+        .select("id, user_id, user_email, status, scheduled_deletion_date, cancelled_at")
         .in("id", ids!);
       if (rowsError) {
         console.error("account-deletion update fetch selected error", rowsError);
@@ -141,21 +141,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, updated: 0, message: "No pending requests to update" });
     }
 
-    let scheduledDate: string | null = null;
-    if (action === "approve") {
-      scheduledDate = getEndOfMonthDate();
-    }
+    const scheduledDate = action === "approve" ? getEndOfMonthDate() : null;
 
-    const updatePayload: Record<string, any> = {
-      status: action === "approve" ? "approved" : "denied",
-      cancelled_at: action === "deny" ? new Date().toISOString() : null,
-      scheduled_deletion_date: action === "approve" ? scheduledDate : null,
-    };
+    const updateRows = targetRequests
+      .filter((row) => pendingIds.includes(row.id))
+      .map((row) => ({
+        id: row.id,
+        status: action === "approve" ? "approved" : "denied",
+        cancelled_at: action === "deny" ? new Date().toISOString() : row.cancelled_at ?? null,
+        scheduled_deletion_date: action === "approve" ? scheduledDate : row.scheduled_deletion_date,
+        updated_at: new Date().toISOString(),
+      }));
 
     const { data: updatedRows, error: updateError } = await db
       .from("account_deletion_requests")
-      .update(updatePayload)
-      .in("id", pendingIds)
+      .upsert(updateRows, { onConflict: "id" })
       .select("id, user_id, user_email, scheduled_deletion_date");
 
     if (updateError) {
