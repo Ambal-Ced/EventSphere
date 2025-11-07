@@ -6,7 +6,7 @@ import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 
-type StatusKey = "pending" | "scheduled" | "cancelled" | "deleted" | "completed" | "unknown";
+type StatusKey = "pending" | "scheduled" | "cancelled" | "deleted" | "completed" | "approved" | "denied" | "unknown";
 
 const NORMALIZED_STATUS: Record<string, StatusKey> = {
   pending: "pending",
@@ -17,6 +17,10 @@ const NORMALIZED_STATUS: Record<string, StatusKey> = {
   deleted: "deleted",
   complete: "completed",
   completed: "completed",
+  approved: "approved",
+  approval: "approved",
+  deny: "denied",
+  denied: "denied",
 };
 
 const MAX_REASON_BUCKETS = 6;
@@ -131,6 +135,8 @@ export async function GET(request: NextRequest) {
       cancelled: 0,
       deleted: 0,
       completed: 0,
+      approved: 0,
+      denied: 0,
       unknown: 0,
     };
 

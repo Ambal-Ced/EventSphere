@@ -18,7 +18,7 @@ const YAxis: any = dynamic(() => import("recharts").then(m => m.YAxis as any), {
 const CartesianGrid: any = dynamic(() => import("recharts").then(m => m.CartesianGrid as any), { ssr: false, loading: () => null }) as any;
 const Tooltip: any = dynamic(() => import("recharts").then(m => m.Tooltip as any), { ssr: false, loading: () => null }) as any;
 const Legend: any = dynamic(() => import("recharts").then(m => m.Legend as any), { ssr: false, loading: () => null }) as any;
-import { TrendingUp, Users, Calendar, DollarSign, Package, Activity, RefreshCw, Lightbulb, Star, ChevronDown, ChevronUp, FileText, X } from "lucide-react";
+import { TrendingUp, Users, Calendar, DollarSign, Package, Activity, RefreshCw, Lightbulb, Star, ChevronDown, ChevronUp, FileText, X, CheckCircle, Ban, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -67,6 +67,8 @@ export default function AdminPage() {
   const [accountDeletionError, setAccountDeletionError] = useState<string | null>(null);
   const [accountDeletionStatusFilter, setAccountDeletionStatusFilter] = useState<string>("all");
   const [accountDeletionSort, setAccountDeletionSort] = useState<"desc" | "asc">("desc");
+  const [updatingAccountDeletionId, setUpdatingAccountDeletionId] = useState<string | null>(null);
+  const [bulkUpdatingAccountDeletion, setBulkUpdatingAccountDeletion] = useState<"approve" | "deny" | null>(null);
   const [expandedFeedbackIds, setExpandedFeedbackIds] = useState<Set<string>>(new Set());
   const [notesDialogOpen, setNotesDialogOpen] = useState(false);
   const [selectedFeedbackId, setSelectedFeedbackId] = useState<string | null>(null);
@@ -366,6 +368,56 @@ export default function AdminPage() {
       return () => clearTimeout(timeoutId);
     }
   }, [isAdmin, activeTab, fetchAccountDeletionData]);
+
+  const handleAccountDeletionStatusUpdate = useCallback(async (
+    action: "approve" | "deny",
+    options?: { ids?: string[]; allPending?: boolean }
+  ) => {
+    const targetIds = options?.ids ?? [];
+    const isBulkAll = Boolean(options?.allPending);
+
+    if (!isBulkAll && targetIds.length === 0) {
+      return;
+    }
+
+    if (isBulkAll) {
+      setBulkUpdatingAccountDeletion(action);
+    } else if (targetIds.length === 1) {
+      setUpdatingAccountDeletionId(targetIds[0]);
+    } else {
+      setBulkUpdatingAccountDeletion(action);
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/admin/account-deletion-requests/update", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({
+          action,
+          ids: isBulkAll ? undefined : targetIds,
+          all_pending: isBulkAll,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || "Failed to update account deletion request");
+      }
+
+      toast.success(json.message || "Account deletion requests updated");
+      await fetchAccountDeletionData();
+    } catch (error: any) {
+      console.error("Error updating account deletion request:", error);
+      toast.error(error.message || "Failed to update account deletion request");
+    } finally {
+      setUpdatingAccountDeletionId(null);
+      setBulkUpdatingAccountDeletion(null);
+    }
+  }, [supabase, fetchAccountDeletionData]);
 
   // Toggle expand/collapse for feedback items
   const toggleFeedbackExpand = useCallback((feedbackId: string) => {
@@ -770,6 +822,11 @@ export default function AdminPage() {
     if (windowWidth > 0 && windowWidth < 1024) return 280;
     return 300;
   }, [windowWidth]);
+
+  const pendingAccountDeletionCount = useMemo(() => {
+    if (!accountDeletionData?.requests) return 0;
+    return (accountDeletionData.requests as any[]).filter((item) => (item.status || "").toLowerCase() === "pending").length;
+  }, [accountDeletionData]);
 
   if (loading) {
     return (
@@ -2280,6 +2337,33 @@ export default function AdminPage() {
                   <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
                     <h3 className="text-base sm:text-lg font-semibold">Deletion Requests</h3>
                     <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                      <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                        <Button
+                          onClick={() => handleAccountDeletionStatusUpdate("approve", { allPending: true })}
+                          disabled={pendingAccountDeletionCount === 0 || bulkUpdatingAccountDeletion !== null}
+                          className="flex items-center justify-center gap-2"
+                        >
+                          {bulkUpdatingAccountDeletion === "approve" ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <CheckCircle className="h-4 w-4" />
+                          )}
+                          Approve All Pending
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          onClick={() => handleAccountDeletionStatusUpdate("deny", { allPending: true })}
+                          disabled={pendingAccountDeletionCount === 0 || bulkUpdatingAccountDeletion !== null}
+                          className="flex items-center justify-center gap-2"
+                        >
+                          {bulkUpdatingAccountDeletion === "deny" ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Ban className="h-4 w-4" />
+                          )}
+                          Deny All Pending
+                        </Button>
+                      </div>
                       <select
                         value={accountDeletionStatusFilter}
                         onChange={(e) => setAccountDeletionStatusFilter(e.target.value)}
@@ -2288,9 +2372,11 @@ export default function AdminPage() {
                         <option value="all">All Statuses</option>
                         <option value="pending">Pending</option>
                         <option value="scheduled">Scheduled</option>
+                        <option value="approved">Approved</option>
                         <option value="cancelled">Cancelled</option>
                         <option value="deleted">Deleted</option>
                         <option value="completed">Completed</option>
+                        <option value="denied">Denied</option>
                         <option value="unknown">Unknown</option>
                       </select>
 
@@ -2352,9 +2438,11 @@ export default function AdminPage() {
                                       className={`text-xs font-semibold px-2 py-1 rounded capitalize ${
                                         status === "pending" ? "bg-blue-500/15 text-blue-500" :
                                         status === "scheduled" ? "bg-amber-500/15 text-amber-500" :
+                                        status === "approved" ? "bg-emerald-500/15 text-emerald-500" :
                                         status === "cancelled" ? "bg-red-500/15 text-red-500" :
                                         status === "deleted" ? "bg-emerald-500/15 text-emerald-500" :
                                         status === "completed" ? "bg-emerald-500/15 text-emerald-500" :
+                                        status === "denied" ? "bg-red-500/15 text-red-500" :
                                         "bg-muted text-muted-foreground"
                                       }`}
                                     >
@@ -2362,6 +2450,42 @@ export default function AdminPage() {
                                     </span>
                                   </div>
                                 </div>
+
+                                {status === "pending" && (
+                                  <div className="flex flex-wrap gap-2">
+                                    <Button
+                                      size="sm"
+                                      onClick={() => handleAccountDeletionStatusUpdate("approve", { ids: [item.id] })}
+                                      disabled={
+                                        updatingAccountDeletionId === item.id || bulkUpdatingAccountDeletion !== null
+                                      }
+                                      className="flex items-center gap-1"
+                                    >
+                                      {updatingAccountDeletionId === item.id && bulkUpdatingAccountDeletion === null ? (
+                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                      ) : (
+                                        <CheckCircle className="h-3 w-3" />
+                                      )}
+                                      Approve
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="destructive"
+                                      onClick={() => handleAccountDeletionStatusUpdate("deny", { ids: [item.id] })}
+                                      disabled={
+                                        updatingAccountDeletionId === item.id || bulkUpdatingAccountDeletion !== null
+                                      }
+                                      className="flex items-center gap-1"
+                                    >
+                                      {updatingAccountDeletionId === item.id && bulkUpdatingAccountDeletion === null ? (
+                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                      ) : (
+                                        <Ban className="h-3 w-3" />
+                                      )}
+                                      Deny
+                                    </Button>
+                                  </div>
+                                )}
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs sm:text-sm text-muted-foreground">
                                   <div>
