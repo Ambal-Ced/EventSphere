@@ -197,11 +197,16 @@ export async function POST(request: NextRequest) {
           });
 
         if (notifications.length > 0) {
-          const { error: notificationError } = await db
+          const { data: insertedNotifications, error: notificationError } = await db
             .from("notifications")
-            .insert(notifications.map((n) => ({ ...n, metadata: n.metadata ?? {} })));
+            .insert(notifications.map((n) => ({ ...n, metadata: n.metadata ?? {} })))
+            .select("id");
           if (notificationError) {
             console.error("account-deletion update notification error", notificationError);
+            throw notificationError;
+          }
+          if (!insertedNotifications || insertedNotifications.length !== notifications.length) {
+            throw new Error("Failed to create notifications for all approved requests");
           }
         }
       }
@@ -231,11 +236,16 @@ export async function POST(request: NextRequest) {
       }));
 
     if (denyNotifications.length > 0) {
-      const { error: denyNotificationError } = await db
+      const { data: insertedNotifications, error: denyNotificationError } = await db
         .from("notifications")
-        .insert(denyNotifications.map((n) => ({ ...n, metadata: n.metadata ?? {} })));
+        .insert(denyNotifications.map((n) => ({ ...n, metadata: n.metadata ?? {} })))
+        .select("id");
       if (denyNotificationError) {
         console.error("account-deletion deny notification error", denyNotificationError);
+        throw denyNotificationError;
+      }
+      if (!insertedNotifications || insertedNotifications.length !== denyNotifications.length) {
+        throw new Error("Failed to create notifications for all denied requests");
       }
     }
 
