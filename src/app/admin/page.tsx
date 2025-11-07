@@ -222,9 +222,15 @@ export default function AdminPage() {
       const url = new URL("/api/admin/feedback", window.location.origin);
       if (startDate) url.searchParams.set("start", startDate);
       if (endDate) url.searchParams.set("end", endDate);
+      // Add cache-busting parameter
+      url.searchParams.set("_t", Date.now().toString());
 
       const res = await fetch(url.toString(), {
-        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
+        headers: {
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+          'Cache-Control': 'no-cache',
+        },
+        cache: 'no-store',
       });
       const json = await res.json();
       if (res.ok) {
@@ -341,16 +347,36 @@ export default function AdminPage() {
         throw new Error(json.error || "Failed to close entry");
       }
 
-      // Update local state
+      // Update local state for feedback list
       setFeedbackData((prev: any) => {
         if (!prev?.feedbackList) return prev;
+        const updatedList = prev.feedbackList.map((item: any) =>
+          item.id === feedbackId
+            ? { ...item, status: "resolved" }
+            : item
+        );
+        
+        // Recalculate status statistics
+        const statusCounts: Record<string, number> = {};
+        updatedList.forEach((item: any) => {
+          const status = item.status || "unknown";
+          statusCounts[status] = (statusCounts[status] || 0) + 1;
+        });
+        
+        const total = updatedList.length;
+        const statusData = Object.entries(statusCounts)
+          .map(([name, count]) => ({
+            name: name.charAt(0).toUpperCase() + name.slice(1),
+            value: count,
+            count,
+            percentage: total > 0 ? (count / total) * 100 : 0,
+          }))
+          .sort((a, b) => b.count - a.count);
+        
         return {
           ...prev,
-          feedbackList: prev.feedbackList.map((item: any) =>
-            item.id === feedbackId
-              ? { ...item, status: "resolved" }
-              : item
-          ),
+          feedbackList: updatedList,
+          status: statusData,
         };
       });
 

@@ -59,7 +59,12 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Service role key not configured" }, { status: 500 });
     }
 
-    const adminClient = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey);
+    const adminClient = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    });
 
     // Use RPC function to bypass triggers and RLS
     // The function uses SECURITY DEFINER to run with elevated privileges
@@ -68,6 +73,9 @@ export async function PATCH(request: NextRequest) {
       p_feedback_id: id,
       p_status: status !== undefined ? status : null,
       p_admin_notes: admin_notes !== undefined ? admin_notes : null,
+    }).catch((err) => {
+      console.error("RPC call error:", err);
+      return { data: null, error: err };
     });
 
     if (error) {

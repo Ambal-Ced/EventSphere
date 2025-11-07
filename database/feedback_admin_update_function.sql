@@ -16,12 +16,24 @@ DECLARE
   v_user_id UUID;
   v_is_admin BOOLEAN;
   v_result JSONB;
+  v_current_role TEXT;
 BEGIN
   -- Get the current user ID (will be NULL for service role)
   v_user_id := auth.uid();
   
-  -- If user_id exists, check if user is admin
-  IF v_user_id IS NOT NULL THEN
+  -- Check current role from JWT claims
+  BEGIN
+    SELECT current_setting('request.jwt.claims', true)::json->>'role' INTO v_current_role;
+  EXCEPTION WHEN OTHERS THEN
+    v_current_role := NULL;
+  END;
+  
+  -- If it's service_role, allow the update without any checks
+  IF v_current_role = 'service_role' THEN
+    -- Service role operation - allow it directly, skip all checks
+    NULL; -- Continue to update
+  ELSIF v_user_id IS NOT NULL THEN
+    -- Check if user is admin
     SELECT account_type = 'admin' INTO v_is_admin
     FROM public.profiles
     WHERE id = v_user_id;
@@ -30,44 +42,62 @@ BEGIN
     IF v_is_admin IS NULL OR NOT v_is_admin THEN
       RAISE EXCEPTION 'Only admins can modify resolution fields';
     END IF;
+  ELSE
+    -- No user ID - could be service role, allow it
+    -- (service role operations don't have auth.uid())
+    NULL; -- Continue to update
   END IF;
-  -- If v_user_id IS NULL, it's a service role operation, which we allow
   
   -- Build update query dynamically
+  -- Execute update directly - SECURITY DEFINER should bypass triggers
+  -- But if triggers still fire, we'll use EXECUTE with dynamic SQL
   IF p_status IS NOT NULL AND p_admin_notes IS NOT NULL THEN
-    UPDATE public.feedback
-    SET 
-      status = p_status,
-      admin_notes = p_admin_notes,
-      updated_at = NOW()
-    WHERE id = p_feedback_id
-    RETURNING jsonb_build_object(
-      'id', id,
-      'status', status,
-      'admin_notes', admin_notes,
-      'updated_at', updated_at
+    EXECUTE format('
+      UPDATE public.feedback
+      SET 
+        status = %L,
+        admin_notes = %L,
+        updated_at = NOW()
+      WHERE id = %L
+      RETURNING jsonb_build_object(
+        ''id'', id,
+        ''status'', status,
+        ''admin_notes'', admin_notes,
+        ''updated_at'', updated_at
+      )',
+      p_status,
+      p_admin_notes,
+      p_feedback_id
     ) INTO v_result;
   ELSIF p_status IS NOT NULL THEN
-    UPDATE public.feedback
-    SET 
-      status = p_status,
-      updated_at = NOW()
-    WHERE id = p_feedback_id
-    RETURNING jsonb_build_object(
-      'id', id,
-      'status', status,
-      'updated_at', updated_at
+    EXECUTE format('
+      UPDATE public.feedback
+      SET 
+        status = %L,
+        updated_at = NOW()
+      WHERE id = %L
+      RETURNING jsonb_build_object(
+        ''id'', id,
+        ''status'', status,
+        ''updated_at'', updated_at
+      )',
+      p_status,
+      p_feedback_id
     ) INTO v_result;
   ELSIF p_admin_notes IS NOT NULL THEN
-    UPDATE public.feedback
-    SET 
-      admin_notes = p_admin_notes,
-      updated_at = NOW()
-    WHERE id = p_feedback_id
-    RETURNING jsonb_build_object(
-      'id', id,
-      'admin_notes', admin_notes,
-      'updated_at', updated_at
+    EXECUTE format('
+      UPDATE public.feedback
+      SET 
+        admin_notes = %L,
+        updated_at = NOW()
+      WHERE id = %L
+      RETURNING jsonb_build_object(
+        ''id'', id,
+        ''admin_notes'', admin_notes,
+        ''updated_at'', updated_at
+      )',
+      p_admin_notes,
+      p_feedback_id
     ) INTO v_result;
   ELSE
     RAISE EXCEPTION 'At least one field must be provided for update';

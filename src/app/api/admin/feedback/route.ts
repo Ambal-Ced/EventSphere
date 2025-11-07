@@ -62,11 +62,12 @@ export async function GET(request: NextRequest) {
       return query;
     };
 
-    // Fetch feedback data for analytics
+    // Fetch feedback data for analytics (include all statuses)
     const feedbackQuery = buildDateFilter(
       db
         .from("feedback")
         .select("feedback_type, rating, status, priority, created_at")
+        .order("created_at", { ascending: false })
     );
 
     const { data: feedbackRows, error: feedbackError } = await feedbackQuery;
