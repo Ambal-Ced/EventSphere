@@ -57,6 +57,10 @@ export default function AdminPage() {
   const [feedbackRatingFilter, setFeedbackRatingFilter] = useState<string>("all");
   const [feedbackStatusFilter, setFeedbackStatusFilter] = useState<string>("all");
   const [feedbackDateOrder, setFeedbackDateOrder] = useState<"desc" | "asc">("desc");
+  const [ratingsData, setRatingsData] = useState<any>(null);
+  const [loadingRatings, setLoadingRatings] = useState(false);
+  const [ratingsFilter, setRatingsFilter] = useState<string>("all");
+  const [ratingsDateOrder, setRatingsDateOrder] = useState<"desc" | "asc">("desc");
   const [expandedFeedbackIds, setExpandedFeedbackIds] = useState<Set<string>>(new Set());
   const [notesDialogOpen, setNotesDialogOpen] = useState(false);
   const [selectedFeedbackId, setSelectedFeedbackId] = useState<string | null>(null);
@@ -254,6 +258,64 @@ export default function AdminPage() {
       return () => clearTimeout(timeoutId);
     }
   }, [isAdmin, activeTab, dateRange, customStartDate, customEndDate, fetchFeedbackData]);
+
+  const fetchRatingsData = useCallback(async () => {
+    setLoadingRatings(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      // Calculate date range
+      let startDate: string | null = null;
+      let endDate: string | null = null;
+      
+      if (dateRange === "custom") {
+        if (customStartDate) {
+          startDate = customStartDate.toISOString();
+        }
+        if (customEndDate) {
+          endDate = new Date(customEndDate.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString(); // End of day
+        }
+      } else if (dateRange !== "all") {
+        const days = dateRange === "7d" ? 7 : dateRange === "30d" ? 30 : 90;
+        const date = new Date();
+        date.setDate(date.getDate() - days);
+        startDate = date.toISOString();
+      }
+
+      const url = new URL("/api/admin/ratings", window.location.origin);
+      if (startDate) url.searchParams.set("start", startDate);
+      if (endDate) url.searchParams.set("end", endDate);
+      // Add cache-busting parameter
+      url.searchParams.set("_t", Date.now().toString());
+
+      const res = await fetch(url.toString(), {
+        headers: {
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+          'Cache-Control': 'no-cache',
+        },
+        cache: 'no-store',
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setRatingsData(json);
+      } else {
+        console.error("Failed to fetch ratings data:", json);
+      }
+    } catch (error) {
+      console.error("Error fetching ratings data:", error);
+    } finally {
+      setLoadingRatings(false);
+    }
+  }, [dateRange, customStartDate, customEndDate, supabase]);
+
+  useEffect(() => {
+    if (isAdmin && activeTab === "rating") {
+      const timeoutId = setTimeout(() => {
+        fetchRatingsData();
+      }, 300);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [isAdmin, activeTab, dateRange, customStartDate, customEndDate, fetchRatingsData]);
 
   // Toggle expand/collapse for feedback items
   const toggleFeedbackExpand = useCallback((feedbackId: string) => {
@@ -1998,7 +2060,295 @@ export default function AdminPage() {
         <div className="rounded-lg border p-6 text-sm text-muted-foreground">Empty</div>
       )}
       {activeTab === "rating" && (
-        <div className="rounded-lg border p-6 text-sm text-muted-foreground">Empty</div>
+        <div>
+          {loadingRatings ? (
+            <div className="flex h-[60vh] items-center justify-center text-sm text-muted-foreground">
+              Loading ratings data...
+            </div>
+          ) : ratingsData ? (
+            <div>
+              {/* Summary Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs sm:text-sm text-muted-foreground mb-1">Total Ratings</p>
+                      <p className="text-2xl sm:text-3xl font-bold">{ratingsData.total || 0}</p>
+                    </div>
+                    <Star className="h-8 w-8 sm:h-10 sm:w-10 text-yellow-400" />
+                  </div>
+                </div>
+
+                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs sm:text-sm text-muted-foreground mb-1">Average Rating</p>
+                      <p className="text-2xl sm:text-3xl font-bold">{ratingsData.averageRating || "0.00"}</p>
+                      <p className="text-xs text-muted-foreground mt-1">out of 5 stars</p>
+                    </div>
+                    <Star className="h-8 w-8 sm:h-10 sm:w-10 text-yellow-400 fill-yellow-400" />
+                  </div>
+                </div>
+
+                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs sm:text-sm text-muted-foreground mb-1">With Suggestions</p>
+                      <p className="text-2xl sm:text-3xl font-bold">{ratingsData.withSuggestions || 0}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {ratingsData.total > 0 ? ((ratingsData.withSuggestions / ratingsData.total) * 100).toFixed(1) : 0}% of total
+                      </p>
+                    </div>
+                    <FileText className="h-8 w-8 sm:h-10 sm:w-10 text-blue-400" />
+                  </div>
+                </div>
+
+                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs sm:text-sm text-muted-foreground mb-1">Rated Users</p>
+                      <p className="text-2xl sm:text-3xl font-bold">{ratingsData.ratedCount || 0}</p>
+                      <p className="text-xs text-muted-foreground mt-1">with 1-5 stars</p>
+                    </div>
+                    <Users className="h-8 w-8 sm:h-10 sm:w-10 text-green-400" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Rating Charts */}
+              {ratingsData.rating && ratingsData.rating.length > 0 && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6">
+                  {/* Rating Pie Chart */}
+                  {mounted && (
+                    <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                      <h3 className="text-base sm:text-lg font-semibold mb-4">Rating Distribution</h3>
+                      <div className="flex items-center gap-4">
+                        <div className="flex-1" style={{ maxWidth: '60%' }}>
+                          <ResponsiveContainer width="100%" height={windowWidth > 0 && windowWidth < 640 ? 280 : 300}>
+                            <PieChart>
+                              <Pie
+                                data={ratingsData.rating.filter((item: any) => item.count > 0).map((item: any, index: number) => ({
+                                  ...item,
+                                  fill: COLORS[index % COLORS.length],
+                                }))}
+                                cx="50%"
+                                cy="50%"
+                                labelLine={false}
+                                outerRadius={windowWidth > 0 && windowWidth < 640 ? 80 : windowWidth > 0 && windowWidth < 1024 ? 90 : 100}
+                                innerRadius={windowWidth > 0 && windowWidth < 640 ? 30 : 0}
+                                dataKey="value"
+                                isAnimationActive={false}
+                              >
+                                {ratingsData.rating.filter((item: any) => item.count > 0).map((entry: any, index: number) => (
+                                  <Cell 
+                                    key={`cell-rating-${index}-${entry.name}`}
+                                    fill={COLORS[index % COLORS.length]}
+                                    stroke={COLORS[index % COLORS.length]}
+                                    strokeWidth={2}
+                                  />
+                                ))}
+                              </Pie>
+                              <Tooltip 
+                                contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} 
+                                labelStyle={{ color: '#cbd5e1' }} 
+                                itemStyle={{ color: '#22c55e' }}
+                                formatter={(value: any, name: any, props: any) => [
+                                  `${props.payload.count} (${props.payload.percentage.toFixed(1)}%)`,
+                                  name
+                                ]}
+                              />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <div className="flex-1 flex flex-col justify-center gap-2">
+                          {ratingsData.rating.filter((item: any) => item.count > 0).map((item: any, index: number) => (
+                            <div key={item.name} className="flex items-center gap-2">
+                              <div 
+                                className="w-3 h-3 rounded-full flex-shrink-0" 
+                                style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                              />
+                              <span className="text-sm font-medium">{item.name}:</span>
+                              <span className="text-sm text-muted-foreground ml-auto">{item.percentage.toFixed(1)}%</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Rating Bar Chart */}
+                  <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                    <h3 className="text-base sm:text-lg font-semibold mb-4">Rating Breakdown</h3>
+                    <ResponsiveContainer width="100%" height={250}>
+                      <BarChart data={ratingsData.rating.filter((item: any) => item.count > 0).map((item: any, idx: number) => ({ ...item, _index: idx }))}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis dataKey="name" className="text-xs" tick={{ fill: '#64748b' }} />
+                        <YAxis className="text-xs" tick={{ fill: '#64748b' }} />
+                        <Tooltip 
+                          contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} 
+                          labelStyle={{ color: '#cbd5e1' }} 
+                          itemStyle={{ color: '#22c55e' }}
+                          formatter={(value: any, name: any, props: any) => [
+                            `${value} (${props.payload.percentage.toFixed(1)}%)`,
+                            name
+                          ]}
+                        />
+                        <Legend wrapperStyle={{ color: '#1e293b' }} />
+                        <Bar dataKey="count" name="Count" shape={(props: any) => {
+                          const { x, y, width, height, payload } = props;
+                          const idx = payload?._index ?? 0;
+                          return <rect x={x} y={y} width={width} height={height} fill={COLORS[idx % COLORS.length]} />;
+                        }} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+
+              {/* Ratings List Section */}
+              {ratingsData.ratingsList && ratingsData.ratingsList.length > 0 && (
+                <div className="rounded-lg border p-4 sm:p-6 bg-card mt-4 sm:mt-6">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+                    <h3 className="text-base sm:text-lg font-semibold">Ratings List</h3>
+                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                      {/* Rating Filter */}
+                      <select
+                        value={ratingsFilter}
+                        onChange={(e) => setRatingsFilter(e.target.value)}
+                        className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                      >
+                        <option value="all">All Ratings</option>
+                        <option value="5">5 Stars</option>
+                        <option value="4">4 Stars</option>
+                        <option value="3">3 Stars</option>
+                        <option value="2">2 Stars</option>
+                        <option value="1">1 Star</option>
+                        <option value="0">No Rating</option>
+                      </select>
+
+                      {/* Date Order */}
+                      <select
+                        value={ratingsDateOrder}
+                        onChange={(e) => setRatingsDateOrder(e.target.value as "desc" | "asc")}
+                        className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                      >
+                        <option value="desc">Newest First</option>
+                        <option value="asc">Oldest First</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Filtered and Sorted Ratings List */}
+                  {(() => {
+                    let filtered = [...(ratingsData.ratingsList || [])];
+
+                    // Filter by rating
+                    if (ratingsFilter !== "all") {
+                      const ratingValue = parseInt(ratingsFilter);
+                      filtered = filtered.filter((item: any) => item.rating === ratingValue);
+                    }
+
+                    // Sort by date
+                    filtered.sort((a: any, b: any) => {
+                      const dateA = new Date(a.created_at).getTime();
+                      const dateB = new Date(b.created_at).getTime();
+                      return ratingsDateOrder === "desc" ? dateB - dateA : dateA - dateB;
+                    });
+
+                    return (
+                      <div>
+                        {filtered.length === 0 ? (
+                          <div className="text-center py-8 text-sm text-muted-foreground">
+                            No ratings match the selected filters
+                          </div>
+                        ) : (
+                          <>
+                            <div className="text-xs sm:text-sm text-muted-foreground mb-3">
+                              {filtered.length} rating {filtered.length === 1 ? 'entry' : 'entries'}
+                              {filtered.length > 10 && " (scroll to see all)"}
+                            </div>
+                            <div 
+                              className="overflow-y-auto space-y-3 pr-2 border rounded-md p-2"
+                              style={{ maxHeight: '800px' }}
+                            >
+                              {filtered.map((item: any) => (
+                                <div
+                                  key={item.id}
+                                  className="rounded-lg border p-4 bg-muted/30 hover:bg-muted/50 transition-colors"
+                                >
+                                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-start gap-2 mb-2">
+                                        <h4 className="font-semibold text-sm sm:text-base">{item.user_name}</h4>
+                                        {item.user_email && (
+                                          <span className="text-xs text-muted-foreground">({item.user_email})</span>
+                                        )}
+                                      </div>
+                                      {item.suggestion && (
+                                        <p className="text-xs sm:text-sm text-muted-foreground mb-2 whitespace-pre-wrap">
+                                          {item.suggestion}
+                                        </p>
+                                      )}
+                                      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                                        <span>
+                                          Rated on {new Date(item.created_at).toLocaleDateString()} {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                        {item.updated_at !== item.created_at && (
+                                          <span className="text-muted-foreground/70">
+                                            (Updated {new Date(item.updated_at).toLocaleDateString()})
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-3 flex-shrink-0">
+                                      {/* Rating Display */}
+                                      <div className="flex flex-col items-end gap-1">
+                                        <span className="text-xs font-medium text-muted-foreground">Rating</span>
+                                        {item.rating > 0 ? (
+                                          <div className="flex items-center gap-1">
+                                            {[1, 2, 3, 4, 5].map((star) => (
+                                              <Star
+                                                key={star}
+                                                className={`h-4 w-4 ${
+                                                  star <= item.rating
+                                                    ? "fill-yellow-400 text-yellow-400"
+                                                    : "text-muted-foreground"
+                                                }`}
+                                              />
+                                            ))}
+                                            <span className="text-xs font-semibold ml-1">{item.rating}</span>
+                                          </div>
+                                        ) : (
+                                          <span className="text-xs text-muted-foreground">No rating</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {(!ratingsData.ratingsList || ratingsData.ratingsList.length === 0) && (
+                <div className="rounded-lg border p-6 bg-card mt-4 sm:mt-6">
+                  <div className="text-center py-8 text-sm text-muted-foreground">
+                    No ratings data available
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex h-[60vh] items-center justify-center text-sm text-muted-foreground">
+              No ratings data available
+            </div>
+          )}
+        </div>
       )}
 
       {/* Admin Notes Dialog */}
