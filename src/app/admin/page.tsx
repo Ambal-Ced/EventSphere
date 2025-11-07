@@ -300,9 +300,11 @@ export default function AdminPage() {
         setRatingsData(json);
       } else {
         console.error("Failed to fetch ratings data:", json);
+        setRatingsData(null); // Reset to show empty state
       }
     } catch (error) {
       console.error("Error fetching ratings data:", error);
+      setRatingsData(null); // Reset to show empty state
     } finally {
       setLoadingRatings(false);
     }

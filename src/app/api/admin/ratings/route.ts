@@ -42,14 +42,21 @@ export async function GET(request: NextRequest) {
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     // Admin check via RPC to bypass RLS
-    const { data: isAdmin } = await supabase.rpc("admin_is_admin", { p_user_id: userId });
+    const { data: isAdmin, error: adminCheckError } = await supabase.rpc("admin_is_admin", { p_user_id: userId });
+    if (adminCheckError) {
+      console.error("Admin check error:", adminCheckError);
+      return NextResponse.json({ error: "Failed to verify admin status" }, { status: 500 });
+    }
     if (!isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
+    // Always use service role key for admin operations to bypass RLS
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const admin = serviceKey
-      ? createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey)
-      : null as any;
-    const db: any = admin ?? supabase;
+    if (!serviceKey) {
+      console.error("SUPABASE_SERVICE_ROLE_KEY is not set");
+      return NextResponse.json({ error: "Service role key not configured" }, { status: 500 });
+    }
+    
+    const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey);
 
     const { searchParams } = new URL(request.url);
     const start = searchParams.get("start");
@@ -71,7 +78,10 @@ export async function GET(request: NextRequest) {
     );
 
     const { data: ratingsRows, error: ratingsError } = await ratingsQuery;
-    if (ratingsError) throw ratingsError;
+    if (ratingsError) {
+      console.error("Error fetching ratings rows:", ratingsError);
+      throw ratingsError;
+    }
 
     // Fetch full ratings list with user info
     const ratingsListQuery = buildDateFilter(
@@ -94,7 +104,10 @@ export async function GET(request: NextRequest) {
     );
 
     const { data: ratingsList, error: ratingsListError } = await ratingsListQuery;
-    if (ratingsListError) throw ratingsListError;
+    if (ratingsListError) {
+      console.error("Error fetching ratings list:", ratingsListError);
+      throw ratingsListError;
+    }
 
     // Process data to create statistics
     const total = ratingsRows?.length || 0;
@@ -151,7 +164,7 @@ export async function GET(request: NextRequest) {
         user_name: item.profiles?.full_name || item.profiles?.email || "Unknown User",
         user_email: item.profiles?.email || null,
       })),
-      debug: { usedServiceRole: !!serviceKey },
+      debug: { usedServiceRole: true },
     };
 
     const res = NextResponse.json(payload);
