@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { Star } from "lucide-react";
+import { Star, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 
@@ -16,6 +17,7 @@ export default function RatingPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [submitted, setSubmitted] = useState(false);
+  const [showThankYouPopup, setShowThankYouPopup] = useState(false);
 
   // Fetch existing rating on mount
   useEffect(() => {
@@ -90,6 +92,7 @@ export default function RatingPage() {
       }
 
       setSubmitted(true);
+      setShowThankYouPopup(true);
     } catch (error: any) {
       console.error("Error submitting rating:", error);
       alert("Failed to submit rating. Please try again.");
@@ -199,6 +202,27 @@ export default function RatingPage() {
           </form>
         </div>
       </div>
+
+      {/* Thank You Popup */}
+      <Dialog open={showThankYouPopup} onOpenChange={setShowThankYouPopup}>
+        <DialogContent className="max-w-md text-center">
+          <DialogHeader>
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+              <CheckCircle className="h-10 w-10 text-green-600" />
+            </div>
+            <DialogTitle className="text-2xl font-semibold">Thank You!</DialogTitle>
+            <DialogDescription className="text-base text-muted-foreground mt-2">
+              We appreciate you taking the time to rate EventTria. Your feedback helps us improve and provide a better experience for everyone.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="mt-4">
+            <Button onClick={() => setShowThankYouPopup(false)} className="w-full">
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
