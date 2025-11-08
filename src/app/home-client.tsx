@@ -50,6 +50,13 @@ export default function HomeClient() {
   const [eventCountByDate, setEventCountByDate] = useState<Record<string, number>>({});
   const [eventsByDate, setEventsByDate] = useState<Record<string, { id: string; title: string; date: string }[]>>({});
   const [user, setUser] = useState<any>(null);
+  
+  // Track ongoing fetches to prevent duplicates
+  const fetchingRef = useRef<{ featuredEvents: boolean; categories: boolean; monthCounts: boolean }>({
+    featuredEvents: false,
+    categories: false,
+    monthCounts: false,
+  });
 
   // Add failsafe check
   const { 
@@ -122,7 +129,7 @@ export default function HomeClient() {
   const handleEmailChangeConfirmation = useCallback(async (hash: string) => {
     // Always show the popup immediately so UX doesn't depend on session success
     try {
-      console.log('Processing email change confirmation...', hash);
+      console.log('Processing email change confirmation...');
       
       // Extract tokens from hash
       const urlParams = new URLSearchParams(hash.substring(1));
@@ -258,22 +265,57 @@ export default function HomeClient() {
   }, [handlePasswordResetConfirmation, handleEmailChangeConfirmation, handleEmailChangeMessage]);
 
   useEffect(() => {
-    if (hasInitialized.current) return;
-    hasInitialized.current = true;
-    
-    // Only fetch data if user is logged in
-    if (user) {
-      fetchFeaturedEvents();
-      fetchCategories();
-    } else {
-      // If no user, set loading to false and clear any existing data
+    // Only fetch data if user is logged in and tab is visible
+    if (!user) {
       setIsLoading(false);
       setFeaturedEvents([]);
       setCategories([]);
+      return;
     }
+
+    // Check if tab is visible before fetching
+    if (document.hidden) {
+      // Tab is hidden, don't fetch yet - wait for visibility change
+      const handleVisibilityChange = () => {
+        if (!document.hidden && user) {
+          fetchFeaturedEvents();
+          // Categories are lazy loaded - only fetch when needed
+        }
+      };
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }
+
+    // Tab is visible, fetch data
+    let cancelled = false;
+    const abortController = new AbortController();
+
+    const fetchData = async () => {
+      if (cancelled) return;
+      await fetchFeaturedEvents(abortController.signal);
+      // Categories are lazy loaded - only fetch when needed
+    };
+
+    fetchData();
+
+    return () => {
+      cancelled = true;
+      abortController.abort();
+    };
   }, [user]);
 
-  const fetchFeaturedEvents = async () => {
+  const fetchFeaturedEvents = async (signal?: AbortSignal) => {
+    // Check if request was cancelled
+    if (signal?.aborted) return;
+    
+    // Prevent duplicate fetches
+    if (fetchingRef.current.featuredEvents) {
+      console.log('Featured events fetch already in progress, skipping...');
+      return;
+    }
+    
+    fetchingRef.current.featuredEvents = true;
+
     try {
       setIsLoading(true);
       const {
@@ -281,6 +323,7 @@ export default function HomeClient() {
         error: userError,
       } = await supabase.auth.getUser();
 
+      if (signal?.aborted) return;
       if (userError) throw userError;
 
       if (!user) {
@@ -297,10 +340,10 @@ export default function HomeClient() {
         supabase
           .from("events")
           .select("*")
-          .eq("user_id", user.id)
-          .not("status", "in", "('cancelled', 'archived')"),
+          .eq("user_id", user.id),
       ]);
 
+      if (signal?.aborted) return;
       if (collabError) throw collabError;
       if (ownError) throw ownError;
 
@@ -311,35 +354,67 @@ export default function HomeClient() {
         const { data: joinedData, error: joinedError } = await supabase
         .from("events")
         .select("*")
-          .in("id", joinedEventIds)
-          .not("status", "in", "('cancelled', 'archived')");
+          .in("id", joinedEventIds);
+        if (signal?.aborted) return;
         if (joinedError) throw joinedError;
         joinedEvents = joinedData || [];
       }
 
-      // Merge, de-duplicate, sort by created_at desc, and take top 8
+      if (signal?.aborted) return;
+
+      // Merge, de-duplicate, filter out cancelled/archived, sort by created_at desc, and take top 8
       const mapById = new Map<string, Event>();
       [...(ownEvents || []), ...joinedEvents].forEach((evt) => {
-        if (!mapById.has(evt.id)) mapById.set(evt.id, evt);
+        // Filter out cancelled and archived events (handle null/undefined status)
+        const status = (evt as any).status;
+        if (status !== 'cancelled' && status !== 'archived') {
+          if (!mapById.has(evt.id)) mapById.set(evt.id, evt);
+        }
       });
       const merged = Array.from(mapById.values()).sort((a, b) =>
         new Date(b.created_at as any).getTime() - new Date(a.created_at as any).getTime()
       );
 
+      if (signal?.aborted) return;
+      console.log('Featured events fetched:', merged.length, 'events');
       setFeaturedEvents(merged.slice(0, 8));
     } catch (err: any) {
+      if (signal?.aborted) return;
       console.error("Error fetching featured events:", err);
       setError("Failed to load featured events");
       setFeaturedEvents([]);
     } finally {
-      setIsLoading(false);
+      fetchingRef.current.featuredEvents = false;
+      if (!signal?.aborted) {
+        setIsLoading(false);
+      }
     }
   };
 
-  const fetchCategories = async () => {
-    try {
-      const { data, error } = await supabase.from("events").select("category");
+  // Lazy load categories - only fetch when needed (not on initial load)
+  const fetchCategories = async (signal?: AbortSignal) => {
+    // Check if request was cancelled
+    if (signal?.aborted) return;
 
+    // If categories already loaded, don't fetch again
+    if (categories.length > 0) return;
+    
+    // Prevent duplicate fetches
+    if (fetchingRef.current.categories) {
+      console.log('Categories fetch already in progress, skipping...');
+      return;
+    }
+    
+    fetchingRef.current.categories = true;
+
+    try {
+      // Only fetch category names, not all event data (much lighter query)
+      const { data, error } = await supabase
+        .from("events")
+        .select("category")
+        .limit(1000); // Limit to prevent fetching all events
+
+      if (signal?.aborted) return;
       if (error) throw error;
 
       // Count events by category and create category objects
@@ -349,6 +424,8 @@ export default function HomeClient() {
           acc[category] = (acc[category] || 0) + 1;
           return acc;
         }, {}) || {};
+
+      if (signal?.aborted) return;
 
       // Convert to array format with colors
       const categoryColors = [
@@ -373,6 +450,10 @@ export default function HomeClient() {
 
       setCategories(categoriesArray);
     } catch (err: any) {
+      if (signal?.aborted) {
+        fetchingRef.current.categories = false;
+        return;
+      }
       console.error("Error fetching categories:", err);
       // Fallback to default categories if database fails
       setCategories([
@@ -383,6 +464,8 @@ export default function HomeClient() {
         { name: "Arts & Culture", count: 0, color: "bg-pink-500" },
         { name: "Business", count: 0, color: "bg-yellow-500" },
       ]);
+    } finally {
+      fetchingRef.current.categories = false;
     }
   };
 
@@ -394,11 +477,31 @@ export default function HomeClient() {
     return `${yyyy}-${mm}-${dd}`;
   };
 
-  // Fetch counts for the visible month (own + joined events only)
+  // Fetch counts for the visible month (own + joined events only) - only when tab is visible
   useEffect(() => {
+    // Don't fetch if tab is hidden
+    if (document.hidden) {
+      return;
+    }
+
+    let cancelled = false;
+    const abortController = new AbortController();
+
     const fetchMonthCounts = async () => {
+      if (cancelled || abortController.signal.aborted) return;
+      
+      // Prevent duplicate fetches
+      if (fetchingRef.current.monthCounts) {
+        console.log('Month counts fetch already in progress, skipping...');
+        return;
+      }
+      
+      fetchingRef.current.monthCounts = true;
+
       try {
         const { data: { user } } = await supabase.auth.getUser();
+        if (cancelled || abortController.signal.aborted) return;
+        
         if (!user) {
           setEventCountByDate({});
           setEventsByDate({});
@@ -414,6 +517,9 @@ export default function HomeClient() {
           .from('event_collaborators')
           .select('event_id')
           .eq('user_id', user.id);
+        
+        if (cancelled || abortController.signal.aborted) return;
+        
         const joinedIds = (collabRows || []).map((r: any) => r.event_id);
         const joinedCsv = joinedIds.length > 0 ? joinedIds.join(',') : '';
 
@@ -433,6 +539,8 @@ export default function HomeClient() {
         }
 
         const { data: monthEvents, error: monthErr } = await query;
+        
+        if (cancelled || abortController.signal.aborted) return;
         if (monthErr) throw monthErr;
 
         const counts: Record<string, number> = {};
@@ -446,16 +554,28 @@ export default function HomeClient() {
           if (!grouped[key]) grouped[key] = [];
           grouped[key].push({ id: evt.id, title, date: evt.date });
         });
-        setEventCountByDate(counts);
-        setEventsByDate(grouped);
+        
+        if (!cancelled && !abortController.signal.aborted) {
+          setEventCountByDate(counts);
+          setEventsByDate(grouped);
+        }
       } catch (e) {
-        // Fail-soft: just clear counts
-        setEventCountByDate({});
-        setEventsByDate({});
+        if (!cancelled && !abortController.signal.aborted) {
+          // Fail-soft: just clear counts
+          setEventCountByDate({});
+          setEventsByDate({});
+        }
+      } finally {
+        fetchingRef.current.monthCounts = false;
       }
     };
 
     fetchMonthCounts();
+
+    return () => {
+      cancelled = true;
+      abortController.abort();
+    };
   }, [selectedDate]);
 
   const formatDate = (dateString: string) => {

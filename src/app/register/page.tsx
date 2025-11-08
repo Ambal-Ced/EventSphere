@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Metadata } from "next";
@@ -68,6 +68,16 @@ export default function RegisterPage() {
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const captchaRef = useRef<HCaptcha>(null);
 
+  // Load captcha token from sessionStorage on mount
+  useEffect(() => {
+    try {
+      const savedToken = sessionStorage.getItem('captcha_token_register');
+      if (savedToken) {
+        setCaptchaToken(savedToken);
+      }
+    } catch {}
+  }, []);
+
   const validate = () => {
     const newErrors: Record<string, string> = {};
     if (!formData.email) newErrors.email = "Email is required";
@@ -86,9 +96,41 @@ export default function RegisterPage() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    if (errors[name]) {
-      setErrors((prev) => ({ ...prev, [name]: "" }));
+    
+    // Real-time validation (text watcher)
+    const newErrors: Record<string, string> = { ...errors };
+    
+    if (name === "email") {
+      if (!value) {
+        newErrors.email = "Email is required";
+      } else if (!/\S+@\S+\.\S+/.test(value)) {
+        newErrors.email = "Email is invalid";
+      } else {
+        delete newErrors.email;
+      }
     }
+    
+    if (name === "password") {
+      if (!value) {
+        newErrors.password = "Password is required";
+      } else if (value.length < 6) {
+        newErrors.password = "Password must be at least 6 characters";
+      } else {
+        delete newErrors.password;
+      }
+    }
+    
+    if (name === "confirmPassword") {
+      if (!value) {
+        newErrors.confirmPassword = "Please confirm your password";
+      } else if (formData.password !== value) {
+        newErrors.confirmPassword = "Passwords do not match";
+      } else {
+        delete newErrors.confirmPassword;
+      }
+    }
+    
+    setErrors(newErrors);
   };
 
   const handleSelectChange = (name: string, value: string) => {
@@ -109,6 +151,14 @@ export default function RegisterPage() {
   // Captcha handlers
   const onCaptchaChange = (token: string | null) => {
     setCaptchaToken(token);
+    // Save to sessionStorage
+    try {
+      if (token) {
+        sessionStorage.setItem('captcha_token_register', token);
+      } else {
+        sessionStorage.removeItem('captcha_token_register');
+      }
+    } catch {}
     if (errors.captcha) {
       setErrors((prev) => ({ ...prev, captcha: "" }));
     }
@@ -116,10 +166,18 @@ export default function RegisterPage() {
 
   const onCaptchaExpired = () => {
     setCaptchaToken(null);
+    // Clear from sessionStorage
+    try {
+      sessionStorage.removeItem('captcha_token_register');
+    } catch {}
   };
 
   const onCaptchaError = () => {
     setCaptchaToken(null);
+    // Clear from sessionStorage
+    try {
+      sessionStorage.removeItem('captcha_token_register');
+    } catch {}
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -166,8 +224,17 @@ export default function RegisterPage() {
             setPostSignupOpen(true);
           }
         } else {
-          // Other signup errors
-          setErrors({ email: error.message });
+          // Other signup errors - check if it's a password validation error
+          const errorMessage = error.message || '';
+          if (errorMessage.toLowerCase().includes('password') || 
+              errorMessage.includes('Password should contain') ||
+              errorMessage.includes('at least one character')) {
+            // Route password validation errors to the password field
+            setErrors({ password: errorMessage });
+          } else {
+            // Route other errors to the email field
+            setErrors({ email: errorMessage });
+          }
         }
       } else if (data.user) {
         // Create a basic profile entry for the user
@@ -210,6 +277,10 @@ export default function RegisterPage() {
         }
 
         setPostSignupOpen(true);
+        // Clear captcha token from sessionStorage after successful registration
+        try {
+          sessionStorage.removeItem('captcha_token_register');
+        } catch {}
       }
     } catch (error: any) {
       console.error("Registration process error:", error);

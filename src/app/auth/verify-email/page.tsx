@@ -39,7 +39,7 @@ function VerifyEmailContent() {
           const hashType = urlParams.get('type');
           const hashMessage = urlParams.get('message');
 
-          console.log('Hash parameters:', { accessToken: accessToken ? 'present' : 'missing', refreshToken: refreshToken ? 'present' : 'missing', hashType, hashMessage });
+          console.log('Hash parameters:', { accessToken: accessToken ? 'present' : 'missing', refreshToken: refreshToken ? 'present' : 'missing', hashType, hashMessage: hashMessage ? 'present' : 'missing' });
 
           // Merge any prior confirmation state from localStorage
           try {
@@ -103,13 +103,19 @@ function VerifyEmailContent() {
               // Fallback: if not email_change, route to home or complete-profile depending on profile
               if (sessionData?.user) {
                 console.log('Regular email verification - checking profile for user:', sessionData.user.id);
+                
+                // FORCE SHOW SUCCESS
+                setStatus('success');
+                setMessage('Verification successful! Your email has been verified.');
+                clearTimeout(timeoutId);
+
                 const { data: profile, error: profileError } = await supabase
                   .from("profiles")
                   .select("*")
                   .eq("id", sessionData.user.id)
                   .single();
 
-                console.log("Hash-based profile check:", { profile, profileError, userId: sessionData.user.id });
+                console.log("Hash-based profile check:", { profile: profile ? 'exists' : 'missing', profileError: profileError ? 'error' : 'none', userId: sessionData.user.id });
 
                 const requiredFields = [
                   "username",
@@ -126,23 +132,12 @@ function VerifyEmailContent() {
                   return !value || value === null || value === undefined || value === "";
                 });
 
-                console.log("Hash-based profile incomplete:", isProfileIncomplete, "Required fields missing:", requiredFields.filter(field => {
-                  const value = profile?.[field];
-                  return !value || value === null || value === undefined || value === "";
-                }));
-
-                // For non-email-change flows, keep original behavior
-                if (profileError) {
-                  console.error("Hash-based profile error:", profileError);
-                  router.push("/complete-profile");
-                } else if (isProfileIncomplete) {
-                  console.log("Hash-based redirecting to complete-profile - profile incomplete");
-                  router.push("/complete-profile");
+                // Store redirect info but don't auto-redirect - let user see success message
+                if (profileError || isProfileIncomplete) {
+                  sessionStorage.setItem('verificationRedirect', '/complete-profile');
                 } else {
-                  console.log("Hash-based profile complete, redirecting to home");
-                  router.push("/");
+                  sessionStorage.setItem('verificationRedirect', '/');
                 }
-                clearTimeout(timeoutId);
                 return;
               } else {
                 console.log('No user found in session data after token setup');
@@ -226,14 +221,19 @@ function VerifyEmailContent() {
                 return;
               }
 
-              // Regular email verification flow
+              // Regular email verification flow - FORCE SHOW SUCCESS
+              setStatus('success');
+              setMessage('Verification successful! Your email has been verified.');
+              clearTimeout(timeoutId);
+
+              // Store profile check info for later use (don't redirect automatically)
               const { data: profile, error: profileError } = await supabase
                 .from("profiles")
                 .select("*")
                 .eq("id", session.user.id)
                 .single();
 
-              console.log("Profile check:", { profile, profileError, userId: session.user.id });
+              console.log("Profile check:", { profile: profile ? 'exists' : 'missing', profileError: profileError ? 'error' : 'none', userId: session.user.id });
 
               const requiredFields = [
                 "username",
@@ -251,23 +251,15 @@ function VerifyEmailContent() {
                 return !value || value === null || value === undefined || value === "";
               });
 
-              console.log("Profile incomplete:", isProfileIncomplete, "Required fields missing:", requiredFields.filter(field => {
-                const value = profile?.[field];
-                return !value || value === null || value === undefined || value === "";
-              }));
-
-              if (profileError) {
-                console.error("Profile error during verification:", profileError);
-                // If profile doesn't exist, redirect to complete-profile
-                router.push("/complete-profile");
-              } else if (isProfileIncomplete) {
-                console.log("Redirecting to complete-profile - profile incomplete");
-                router.push("/complete-profile");
+              // Store redirect info but don't auto-redirect - let user see success message
+              // User will click button to proceed
+              if (profileError || isProfileIncomplete) {
+                // Will redirect to complete-profile when user clicks button
+                sessionStorage.setItem('verificationRedirect', '/complete-profile');
               } else {
-                console.log("Profile complete, redirecting to home");
-                router.push("/");
+                // Will redirect to home when user clicks button
+                sessionStorage.setItem('verificationRedirect', '/');
               }
-              clearTimeout(timeoutId);
               return;
             }
           } catch (error) {
@@ -347,15 +339,21 @@ function VerifyEmailContent() {
         );
       
       case 'success':
+        const redirectPath = typeof window !== 'undefined' ? sessionStorage.getItem('verificationRedirect') || '/' : '/';
         return (
           <div className="text-center">
             <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-600" />
-            <h1 className="text-2xl font-bold mb-4 text-green-800">Email Change Confirmed</h1>
+            <h1 className="text-2xl font-bold mb-4 text-green-800">Verification Successful</h1>
             <p className="text-muted-foreground mb-6">
-              {message}
+              {message || 'Your email has been verified successfully!'}
             </p>
-            <Button onClick={() => router.push("/")}>
-              Go to Homepage
+            <Button onClick={() => {
+              if (typeof window !== 'undefined') {
+                sessionStorage.removeItem('verificationRedirect');
+              }
+              router.push(redirectPath);
+            }}>
+              Continue
             </Button>
           </div>
         );

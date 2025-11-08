@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
@@ -13,12 +13,22 @@ import HCaptcha from "@hcaptcha/react-hcaptcha";
 
 export default function ResetPage() {
   const router = useRouter();
-  const [form, setForm] = useState({ email: "", username: "", phone: "" });
+  const [form, setForm] = useState({ email: "" });
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const captchaRef = useRef<HCaptcha>(null);
+
+  // Load captcha token from sessionStorage on mount
+  useEffect(() => {
+    try {
+      const savedToken = sessionStorage.getItem('captcha_token_reset');
+      if (savedToken) {
+        setCaptchaToken(savedToken);
+      }
+    } catch {}
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -29,6 +39,14 @@ export default function ResetPage() {
   // Captcha handlers
   const onCaptchaChange = (token: string | null) => {
     setCaptchaToken(token);
+    // Save to sessionStorage
+    try {
+      if (token) {
+        sessionStorage.setItem('captcha_token_reset', token);
+      } else {
+        sessionStorage.removeItem('captcha_token_reset');
+      }
+    } catch {}
     if (error === "Please complete the captcha verification") {
       setError(null);
     }
@@ -36,10 +54,18 @@ export default function ResetPage() {
 
   const onCaptchaExpired = () => {
     setCaptchaToken(null);
+    // Clear from sessionStorage
+    try {
+      sessionStorage.removeItem('captcha_token_reset');
+    } catch {}
   };
 
   const onCaptchaError = () => {
     setCaptchaToken(null);
+    // Clear from sessionStorage
+    try {
+      sessionStorage.removeItem('captcha_token_reset');
+    } catch {}
     setError("Captcha error. Please try again.");
   };
 
@@ -56,27 +82,19 @@ export default function ResetPage() {
     }
     
     try {
-      // Verify profile details match
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("id, username, contact_no, email")
-        .eq("email", form.email)
-        .eq("username", form.username)
-        .eq("contact_no", form.phone)
-        .maybeSingle();
-
-      if (profileError) throw profileError;
-      if (!profile) {
-        setError("We couldn't verify these details. Please check and try again.");
-        return;
-      }
-
-      // Send password reset email
+      // Send password reset email (no need to verify profile - Supabase handles email verification)
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(
-        form.email
+        form.email,
+        {
+          redirectTo: `${window.location.origin}/auth/reset-password`,
+        }
       );
       if (resetError) throw resetError;
       setSuccess(true);
+      // Clear captcha token from sessionStorage after successful reset request
+      try {
+        sessionStorage.removeItem('captcha_token_reset');
+      } catch {}
     } catch (err: any) {
       setError(err.message || "Failed to start password reset.");
     } finally {
@@ -89,7 +107,7 @@ export default function ResetPage() {
       <div className="w-full max-w-md rounded-lg bg-background p-8 shadow-lg">
         <h1 className="mb-2 text-center text-3xl font-bold">Reset Password</h1>
         <p className="mb-8 text-center text-muted-foreground">
-          Confirm your details and we'll send a reset link to your email.
+          Enter your email address and we'll send a reset link to your email.
         </p>
 
         {success ? (
@@ -98,7 +116,7 @@ export default function ResetPage() {
               <div className="text-green-600 text-4xl mb-4">📧</div>
               <h2 className="text-xl font-semibold text-green-800 mb-2">Reset Link Sent!</h2>
               <p className="text-sm text-green-700 mb-4">
-                If the information matched, a password reset link has been sent to your email.
+                A password reset link has been sent to your email.
               </p>
               <p className="text-sm text-muted-foreground">
                 Please check your inbox and click the link to reset your password.
@@ -122,26 +140,7 @@ export default function ResetPage() {
                 value={form.email}
                 onChange={handleChange}
                 required
-              />
-            </div>
-            <div>
-              <Label htmlFor="username">Username</Label>
-              <Input
-                id="username"
-                name="username"
-                value={form.username}
-                onChange={handleChange}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="phone">Phone Number</Label>
-              <Input
-                id="phone"
-                name="phone"
-                value={form.phone}
-                onChange={handleChange}
-                required
+                placeholder="Enter your email address"
               />
             </div>
 

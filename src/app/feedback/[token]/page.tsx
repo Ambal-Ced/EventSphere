@@ -39,7 +39,7 @@ export default function PublicFeedbackPage() {
       try {
         // Clean and normalize the token
         const normalizedToken = token?.trim();
-        console.log("🔵 Checking feedback portal with token:", normalizedToken);
+        console.log("🔵 Checking feedback portal with token:", normalizedToken ? `${normalizedToken.substring(0, 8)}...` : 'missing');
         
         if (!normalizedToken) {
           console.warn("❌ No token provided");

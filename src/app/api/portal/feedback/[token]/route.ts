@@ -20,7 +20,7 @@ export async function GET(
       );
     }
 
-    console.log("🔵 API: Checking feedback portal with token:", token);
+    console.log("🔵 API: Checking feedback portal with token:", token ? `${token.substring(0, 8)}...` : 'missing');
 
     // Create a Supabase client with service role (bypasses RLS)
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;

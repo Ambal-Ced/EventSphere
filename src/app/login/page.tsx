@@ -20,6 +20,7 @@ export default function LoginPage() {
     email: "",
     password: "",
   });
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -34,25 +35,72 @@ export default function LoginPage() {
       const next = url.searchParams.get("next");
       if (next) setNextPath(next);
     } catch {}
+    
+    // Load captcha token from sessionStorage
+    try {
+      const savedToken = sessionStorage.getItem('captcha_token_login');
+      if (savedToken) {
+        setCaptchaToken(savedToken);
+      }
+    } catch {}
   }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    if (error) setError(null); // Clear error on input change
+    
+    // Real-time validation (text watcher)
+    const newErrors: Record<string, string> = { ...errors };
+    
+    if (name === "email") {
+      if (!value) {
+        newErrors.email = "Email is required";
+      } else if (!/\S+@\S+\.\S+/.test(value)) {
+        newErrors.email = "Email is invalid";
+      } else {
+        delete newErrors.email;
+      }
+    }
+    
+    if (name === "password") {
+      if (!value) {
+        newErrors.password = "Password is required";
+      } else {
+        delete newErrors.password;
+      }
+    }
+    
+    setErrors(newErrors);
+    if (error) setError(null); // Clear general error on input change
   };
 
   // Captcha handlers
   const onCaptchaChange = (token: string | null) => {
     setCaptchaToken(token);
+    // Save to sessionStorage
+    try {
+      if (token) {
+        sessionStorage.setItem('captcha_token_login', token);
+      } else {
+        sessionStorage.removeItem('captcha_token_login');
+      }
+    } catch {}
   };
 
   const onCaptchaExpired = () => {
     setCaptchaToken(null);
+    // Clear from sessionStorage
+    try {
+      sessionStorage.removeItem('captcha_token_login');
+    } catch {}
   };
 
   const onCaptchaError = () => {
     setCaptchaToken(null);
+    // Clear from sessionStorage
+    try {
+      sessionStorage.removeItem('captcha_token_login');
+    } catch {}
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -79,6 +127,10 @@ export default function LoginPage() {
         setError(signInError.message || "Invalid login credentials.");
       } else if (data.session) {
         console.log("Login successful!");
+        // Clear captcha token from sessionStorage after successful login
+        try {
+          sessionStorage.removeItem('captcha_token_login');
+        } catch {}
         // Check if user has a profile
         const { data: profile, error: profileError } = await supabase
           .from("profiles")
@@ -128,8 +180,11 @@ export default function LoginPage() {
               value={formData.email}
               onChange={handleInputChange}
               required
-              className={cn(error && "border-destructive", "text-sm sm:text-base")}
+              className={cn((error || errors.email) && "border-destructive", "text-sm sm:text-base")}
             />
+            {errors.email && (
+              <p className="text-xs text-destructive mt-1">{errors.email}</p>
+            )}
           </div>
           <div>
             <Label htmlFor="password" className="text-sm sm:text-base">Password</Label>
@@ -141,7 +196,7 @@ export default function LoginPage() {
                 value={formData.password}
                 onChange={handleInputChange}
                 required
-                className={cn("pr-10", error && "border-destructive")}
+                className={cn("pr-10", (error || errors.password) && "border-destructive")}
               />
               <button
                 type="button"
@@ -152,6 +207,9 @@ export default function LoginPage() {
                 {!showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
+            {errors.password && (
+              <p className="text-xs text-destructive mt-1">{errors.password}</p>
+            )}
           </div>
 
           {/* Captcha */}
