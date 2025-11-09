@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, Suspense } from "react";
+import { useState, useEffect, useCallback, Suspense, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 
@@ -287,7 +287,58 @@ export default function SingleEventPage() {
   ];
   const [isTypeMenuOpen, setIsTypeMenuOpen] = useState(false);
 
-  // (Sidebar sticky behavior is handled via CSS)
+  // Sidebar scroll behavior state
+  const [sidebarPosition, setSidebarPosition] = useState<'fixed' | 'sticky'>('fixed');
+  const sidebarRef = useRef<HTMLDivElement>(null);
+
+  // Handle sidebar scroll behavior when near bottom
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!sidebarRef.current || window.innerWidth < 1024) return; // Only on large screens
+
+      const sidebar = sidebarRef.current;
+      const sidebarRect = sidebar.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      const threshold = 150; // Distance from bottom to trigger change
+
+      // Calculate distance from sidebar bottom to viewport bottom
+      const distanceToBottom = viewportHeight - sidebarRect.bottom;
+      
+      // Calculate distance to document bottom
+      const scrollPosition = window.scrollY;
+      const documentHeight = document.documentElement.scrollHeight;
+      const distanceToDocumentBottom = documentHeight - (scrollPosition + viewportHeight);
+
+      // If sidebar bottom is near viewport bottom (within threshold) or near document bottom, switch to sticky
+      // This allows the sidebar to scroll up naturally, letting Event Actions go behind the header
+      if (distanceToBottom < threshold || distanceToDocumentBottom < threshold) {
+        setSidebarPosition('sticky');
+      } else {
+        setSidebarPosition('fixed');
+      }
+    };
+
+    // Use requestAnimationFrame for smoother performance
+    let ticking = false;
+    const onScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          handleScroll();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', handleScroll);
+    handleScroll(); // Initial check
+
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', handleScroll);
+    };
+  }, []);
 
   useEffect(() => {
     if (eventId) {
@@ -3075,7 +3126,10 @@ RECOMMENDATIONS:
           {/* Right Sidebar - Green Rectangle Concept (hidden when chat open) */}
           <div className="lg:col-span-1">
             {!showChat && (
-            <div className="lg:fixed lg:top-24 lg:right-4 lg:w-[320px] max-w-sm h-fit lg:h-[calc(100vh-6rem)] space-y-6 z-10 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto px-2">
+            <div 
+              ref={sidebarRef}
+              className={`${sidebarPosition === 'fixed' ? 'lg:fixed lg:top-24' : 'lg:sticky lg:top-24'} lg:right-4 lg:w-[320px] max-w-sm h-fit lg:h-[calc(100vh-6rem)] space-y-6 z-10 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto px-2 transition-all duration-300`}
+            >
               {/* Event Actions */}
               <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-6 flex flex-col">
                 <h3 className="text-xl font-semibold text-green-400 mb-6">
