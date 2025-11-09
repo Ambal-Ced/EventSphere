@@ -3075,7 +3075,7 @@ RECOMMENDATIONS:
           {/* Right Sidebar - Green Rectangle Concept (hidden when chat open) */}
           <div className="lg:col-span-1">
             {!showChat && (
-            <div className="fixed top-24 right-4 w-[280px] lg:w-[320px] max-w-sm h-[calc(100vh-6rem)] space-y-6 z-10 overflow-y-auto">
+            <div className="sticky top-24 space-y-6 z-10 self-start max-h-[calc(100vh-6rem)] overflow-y-auto px-2">
               {/* Event Actions */}
               <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-6 flex flex-col">
                 <h3 className="text-xl font-semibold text-green-400 mb-6">
@@ -3186,7 +3186,7 @@ RECOMMENDATIONS:
               </div>
 
               {/* Event Members/People */}
-              <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-6 max-h-[400px] flex flex-col">
+              <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-6 flex flex-col">
                 <h3 className="text-xl font-semibold text-purple-400 mb-6 flex-shrink-0">
                   Event Members
                 </h3>
