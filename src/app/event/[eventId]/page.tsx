@@ -287,14 +287,14 @@ export default function SingleEventPage() {
   ];
   const [isTypeMenuOpen, setIsTypeMenuOpen] = useState(false);
 
-  // Sidebar scroll behavior state
-  const [sidebarPosition, setSidebarPosition] = useState<'fixed' | 'sticky'>('fixed');
+  // Sidebar scroll behavior state - use transform for smooth movement
+  const [sidebarTransform, setSidebarTransform] = useState(0);
   const sidebarRef = useRef<HTMLDivElement>(null);
 
-  // Handle sidebar scroll behavior when near footer
+  // Handle sidebar scroll behavior when near footer - smooth gradual movement
   useEffect(() => {
-    let lastPosition: 'fixed' | 'sticky' = 'fixed';
     let rafId: number | null = null;
+    let lastTransform = 0;
 
     const handleScroll = () => {
       if (!sidebarRef.current || window.innerWidth < 1024) return; // Only on large screens
@@ -305,31 +305,39 @@ export default function SingleEventPage() {
       // Find footer element
       const footer = document.querySelector('footer');
       if (!footer) {
-        if (lastPosition !== 'fixed') {
-          setSidebarPosition('fixed');
-          lastPosition = 'fixed';
+        if (lastTransform !== 0) {
+          setSidebarTransform(0);
+          lastTransform = 0;
         }
         return;
       }
       
       const footerRect = footer.getBoundingClientRect();
       const footerTop = footerRect.top;
-      
-      // Calculate if sidebar bottom is about to touch footer
-      // Use 8px threshold - when only 8px left, allow smooth scrolling up
       const sidebarBottom = sidebarRect.bottom;
-      const stopThreshold = 8; // When only 8px left, allow smooth scroll up
       const distanceToFooter = footerTop - sidebarBottom;
-
-      // If sidebar bottom is within 8px of footer, switch to sticky
-      // This allows the sidebar to scroll up smoothly with the page when user continues scrolling
-      // When user scrolls up and distance increases, switch back to fixed
-      const newPosition = distanceToFooter <= stopThreshold ? 'sticky' : 'fixed';
       
-      // Only update if position changed to prevent blinking
-      if (newPosition !== lastPosition) {
-        setSidebarPosition(newPosition);
-        lastPosition = newPosition;
+      // When sidebar is within 150px of footer, start moving it up gradually
+      // The closer it gets, the more it moves up
+      // This allows it to go under the header while maintaining margin from footer
+      const startThreshold = 150; // Start moving up when 150px from footer
+      const minDistance = 8; // Minimum distance to maintain from footer
+      
+      let newTransform = 0;
+      
+      if (distanceToFooter < startThreshold) {
+        // Calculate how much to move up gradually
+        // When distance is 8px, move up by (startThreshold - minDistance) pixels
+        // This creates smooth gradual movement
+        const remainingDistance = distanceToFooter - minDistance;
+        const moveAmount = Math.max(0, startThreshold - minDistance - remainingDistance);
+        newTransform = -moveAmount; // Negative to move up
+      }
+
+      // Only update if transform changed (prevent unnecessary re-renders)
+      if (Math.abs(newTransform - lastTransform) > 0.1) {
+        setSidebarTransform(newTransform);
+        lastTransform = newTransform;
       }
     };
 
@@ -3145,7 +3153,8 @@ RECOMMENDATIONS:
             {!showChat && (
             <div 
               ref={sidebarRef}
-              className={`${sidebarPosition === 'fixed' ? 'lg:fixed lg:top-24' : 'lg:sticky lg:top-0'} lg:right-4 lg:w-[320px] max-w-sm h-fit lg:h-[calc(100vh-6rem)] space-y-6 z-10 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto px-2 transition-all duration-300 ease-in-out`}
+              className="lg:fixed lg:top-24 lg:right-4 lg:w-[320px] max-w-sm h-fit lg:h-[calc(100vh-6rem)] space-y-6 z-10 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto px-2 transition-transform duration-150 ease-out"
+              style={{ transform: `translateY(${sidebarTransform}px)` }}
             >
               {/* Event Actions */}
               <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-6 flex flex-col">
