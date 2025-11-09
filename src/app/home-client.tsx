@@ -364,24 +364,37 @@ export default function HomeClient() {
         setIsLoading(false);
         return;
       }
-      if (collabError) throw collabError;
-      if (ownError) throw ownError;
+      if (collabError) {
+        console.error('Error fetching collaborations:', collabError);
+        throw collabError;
+      }
+      if (ownError) {
+        console.error('Error fetching own events:', ownError);
+        throw ownError;
+      }
+
+      console.log('Own events:', ownEvents?.length || 0);
+      console.log('Collaborations:', collabRows?.length || 0);
 
       const joinedEventIds = (collabRows || []).map((r) => r.event_id);
 
       let joinedEvents: Event[] = [];
       if (joinedEventIds.length > 0) {
         const { data: joinedData, error: joinedError } = await supabase
-        .from("events")
-        .select("*")
+          .from("events")
+          .select("*")
           .in("id", joinedEventIds);
         if (signal?.aborted) {
           fetchingRef.current.featuredEvents = false;
           setIsLoading(false);
           return;
         }
-        if (joinedError) throw joinedError;
+        if (joinedError) {
+          console.error('Error fetching joined events:', joinedError);
+          throw joinedError;
+        }
         joinedEvents = joinedData || [];
+        console.log('Joined events:', joinedEvents.length);
       }
 
       if (signal?.aborted) {
@@ -390,12 +403,13 @@ export default function HomeClient() {
         return;
       }
 
-      // Merge, de-duplicate, filter out cancelled/archived, sort by created_at desc, and take top 8
+      // Merge, de-duplicate, sort by created_at desc, and take top 8
       const mapById = new Map<string, Event>();
       [...(ownEvents || []), ...joinedEvents].forEach((evt) => {
-        // Filter out cancelled and archived events (handle null/undefined status)
-        const status = (evt as any).status;
-        if (status !== 'cancelled' && status !== 'archived') {
+        // Events are already filtered by status in the query, but double-check
+        // Include events with null/undefined status as well
+        const status = (evt as any)?.status;
+        if (!status || (status !== 'cancelled' && status !== 'archived')) {
           if (!mapById.has(evt.id)) mapById.set(evt.id, evt);
         }
       });
@@ -409,6 +423,7 @@ export default function HomeClient() {
         return;
       }
       console.log('Featured events fetched:', merged.length, 'events');
+      console.log('Event IDs:', merged.map(e => e.id));
       setFeaturedEvents(merged.slice(0, 8));
       setError(null); // Clear any previous errors
     } catch (err: any) {
