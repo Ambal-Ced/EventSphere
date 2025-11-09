@@ -270,14 +270,19 @@ export default function HomeClient() {
       setIsLoading(false);
       setFeaturedEvents([]);
       setCategories([]);
+      fetchingRef.current.featuredEvents = false; // Reset flag when no user
       return;
     }
+
+    // Reset fetch flag when user changes
+    fetchingRef.current.featuredEvents = false;
 
     // Check if tab is visible before fetching
     if (document.hidden) {
       // Tab is hidden, don't fetch yet - wait for visibility change
       const handleVisibilityChange = () => {
         if (!document.hidden && user) {
+          fetchingRef.current.featuredEvents = false; // Reset before fetching
           fetchFeaturedEvents();
           // Categories are lazy loaded - only fetch when needed
         }
@@ -292,15 +297,21 @@ export default function HomeClient() {
 
     const fetchData = async () => {
       if (cancelled) return;
+      fetchingRef.current.featuredEvents = false; // Reset before fetching
       await fetchFeaturedEvents(abortController.signal);
       // Categories are lazy loaded - only fetch when needed
     };
 
-    fetchData();
+    // Small delay to ensure previous fetches are cleared
+    const timeoutId = setTimeout(() => {
+      fetchData();
+    }, 100);
 
     return () => {
       cancelled = true;
+      clearTimeout(timeoutId);
       abortController.abort();
+      fetchingRef.current.featuredEvents = false; // Reset on cleanup
     };
   }, [user]);
 
@@ -308,13 +319,23 @@ export default function HomeClient() {
     // Check if request was cancelled
     if (signal?.aborted) return;
     
-    // Prevent duplicate fetches
+    // Prevent duplicate fetches, but allow if previous fetch timed out or failed
     if (fetchingRef.current.featuredEvents) {
       console.log('Featured events fetch already in progress, skipping...');
+      // Wait a bit and check if it's still stuck
+      setTimeout(() => {
+        if (fetchingRef.current.featuredEvents) {
+          console.warn('Featured events fetch appears stuck, resetting and retrying...');
+          fetchingRef.current.featuredEvents = false;
+          // Retry after reset
+          fetchFeaturedEvents(signal);
+        }
+      }, 2000); // Wait 2 seconds, then check if still stuck
       return;
     }
     
     fetchingRef.current.featuredEvents = true;
+    console.log('fetchFeaturedEvents: Starting fetch...');
 
     // Add timeout to prevent infinite loading
     let timeoutId: NodeJS.Timeout | null = setTimeout(() => {
@@ -485,7 +506,8 @@ export default function HomeClient() {
         clearTimeout(timeoutId);
         timeoutId = null;
       }
-      // Always reset loading state and fetch flag
+      // Always reset loading state and fetch flag - CRITICAL
+      console.log('fetchFeaturedEvents: Resetting fetch flag');
       fetchingRef.current.featuredEvents = false;
       setIsLoading(false);
     }
