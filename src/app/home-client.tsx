@@ -341,14 +341,17 @@ export default function HomeClient() {
       if (userError) throw userError;
 
       if (!user) {
+        console.log('fetchFeaturedEvents: No user found');
         setFeaturedEvents([]);
         fetchingRef.current.featuredEvents = false;
         setIsLoading(false);
         return;
       }
 
+      console.log('fetchFeaturedEvents: Starting fetch for user:', user.id);
+
       // Fetch event IDs the user has joined (member or moderator)
-      const [{ data: collabRows, error: collabError }, { data: ownEvents, error: ownError }] = await Promise.all([
+      const [{ data: collabRows, error: collabError }, { data: ownEventsByUserId, error: ownError1 }, { data: ownEventsByOwnerId, error: ownError2 }] = await Promise.all([
         supabase
           .from("event_collaborators")
           .select("event_id")
@@ -357,6 +360,10 @@ export default function HomeClient() {
           .from("events")
           .select("*")
           .eq("user_id", user.id),
+        supabase
+          .from("events")
+          .select("*")
+          .eq("owner_id", user.id),
       ]);
 
       if (signal?.aborted) {
@@ -368,12 +375,26 @@ export default function HomeClient() {
         console.error('Error fetching collaborations:', collabError);
         throw collabError;
       }
-      if (ownError) {
-        console.error('Error fetching own events:', ownError);
-        throw ownError;
+      if (ownError1) {
+        console.error('Error fetching own events by user_id:', ownError1);
+      }
+      if (ownError2) {
+        console.error('Error fetching own events by owner_id:', ownError2);
       }
 
-      console.log('Own events:', ownEvents?.length || 0);
+      // Merge events from both user_id and owner_id queries
+      const ownEventsMap = new Map<string, Event>();
+      [...(ownEventsByUserId || []), ...(ownEventsByOwnerId || [])].forEach((evt) => {
+        if (!ownEventsMap.has(evt.id)) {
+          ownEventsMap.set(evt.id, evt);
+        }
+      });
+      const ownEvents = Array.from(ownEventsMap.values());
+
+      console.log('User ID:', user.id);
+      console.log('Own events by user_id:', ownEventsByUserId?.length || 0);
+      console.log('Own events by owner_id:', ownEventsByOwnerId?.length || 0);
+      console.log('Total own events (merged):', ownEvents.length);
       console.log('Collaborations:', collabRows?.length || 0);
 
       const joinedEventIds = (collabRows || []).map((r) => r.event_id);
@@ -405,12 +426,24 @@ export default function HomeClient() {
 
       // Merge, de-duplicate, sort by created_at desc, and take top 8
       const mapById = new Map<string, Event>();
-      [...(ownEvents || []), ...joinedEvents].forEach((evt) => {
+      const allEvents = [...(ownEvents || []), ...joinedEvents];
+      console.log('Total events before filtering:', allEvents.length);
+      console.log('Event statuses:', allEvents.map(e => ({ id: e.id, title: e.title, status: (e as any)?.status })));
+      
+      allEvents.forEach((evt) => {
         // Events are already filtered by status in the query, but double-check
         // Include events with null/undefined status as well
         const status = (evt as any)?.status;
+        console.log(`Event ${evt.id} (${evt.title}): status = ${status}`);
         if (!status || (status !== 'cancelled' && status !== 'archived')) {
-          if (!mapById.has(evt.id)) mapById.set(evt.id, evt);
+          if (!mapById.has(evt.id)) {
+            mapById.set(evt.id, evt);
+            console.log(`Added event ${evt.id} to map`);
+          } else {
+            console.log(`Skipped duplicate event ${evt.id}`);
+          }
+        } else {
+          console.log(`Filtered out event ${evt.id} due to status: ${status}`);
         }
       });
       const merged = Array.from(mapById.values()).sort((a, b) =>
@@ -424,8 +457,11 @@ export default function HomeClient() {
       }
       console.log('Featured events fetched:', merged.length, 'events');
       console.log('Event IDs:', merged.map(e => e.id));
+      console.log('Event titles:', merged.map(e => e.title));
+      console.log('Setting featured events...');
       setFeaturedEvents(merged.slice(0, 8));
       setError(null); // Clear any previous errors
+      console.log('Featured events set successfully');
     } catch (err: any) {
       if (signal?.aborted) {
         fetchingRef.current.featuredEvents = false;
