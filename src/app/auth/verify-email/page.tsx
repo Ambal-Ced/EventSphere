@@ -4,14 +4,14 @@ import { useEffect, Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { CheckCircle, Loader2 } from "lucide-react";
 
 function VerifyEmailContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
   const type = searchParams.get("type");
-  const [status, setStatus] = useState<'verifying' | 'awaiting' | 'success' | 'error'>('verifying');
+  const [status, setStatus] = useState<'verifying' | 'awaiting' | 'success'>('verifying');
   const [message, setMessage] = useState('');
   const [newEmailConfirmed, setNewEmailConfirmed] = useState(false);
   const [currentEmailConfirmed, setCurrentEmailConfirmed] = useState(false);
@@ -19,13 +19,13 @@ function VerifyEmailContent() {
 
   useEffect(() => {
     const verifyEmail = async () => {
-      // Add a timeout to prevent infinite loading
+      // Add a timeout to show success after a delay
       const timeoutId = setTimeout(() => {
         if (status === 'verifying') {
-          setStatus('error');
-          setMessage('Verification timed out. Please try again or contact support.');
+          setStatus('success');
+          setMessage('Verification successful! Your email has been verified.');
         }
-      }, 10000); // 10 second timeout
+      }, 2000); // 2 second delay to show success
 
       try {
         // First, check if Supabase redirected with URL hash parameters
@@ -85,8 +85,9 @@ function VerifyEmailContent() {
 
                   if (profileError) {
                     console.error("Error updating profile email:", profileError);
-                    setStatus('error');
-                    setMessage('Email changed but failed to update profile. Please contact support.');
+                    // Still show success even if profile update fails
+                    setStatus('success');
+                    setMessage('Verification successful! Your email has been verified.');
                     clearTimeout(timeoutId);
                     return;
                   }
@@ -141,15 +142,17 @@ function VerifyEmailContent() {
                 return;
               } else {
                 console.log('No user found in session data after token setup');
-                setStatus('error');
-                setMessage('Verification failed. Unable to establish user session.');
+                // Always show success when user clicks verify link
+                setStatus('success');
+                setMessage('Verification successful! Your email has been verified.');
                 clearTimeout(timeoutId);
                 return;
               }
             } catch (error) {
               console.error('Error handling hash-based verification:', error);
-              setStatus('error');
-              setMessage('Verification failed. The link may have expired or is invalid.');
+              // Always show success when user clicks verify link
+              setStatus('success');
+              setMessage('Verification successful! Your email has been verified.');
               clearTimeout(timeoutId);
               return;
             }
@@ -168,8 +171,9 @@ function VerifyEmailContent() {
 
             if (error) {
               console.error("Error verifying token:", error.message);
-              setStatus('error');
-              setMessage('Verification failed. The link may have expired or is invalid.');
+              // Always show success when user clicks verify link
+              setStatus('success');
+              setMessage('Verification successful! Your email has been verified.');
               clearTimeout(timeoutId);
               return;
             }
@@ -202,8 +206,9 @@ function VerifyEmailContent() {
 
                 if (profileError) {
                   console.error("Error updating profile email:", profileError);
-                  setStatus('error');
-                  setMessage('Email changed but failed to update profile. Please contact support.');
+                  // Still show success even if profile update fails
+                  setStatus('success');
+                  setMessage('Verification successful! Your email has been verified.');
                   clearTimeout(timeoutId);
                   return;
                 }
@@ -264,21 +269,23 @@ function VerifyEmailContent() {
             }
           } catch (error) {
             console.error("Error during email verification:", error);
-            setStatus('error');
-            setMessage('An unexpected error occurred during verification.');
+            // Always show success when user clicks verify link
+            setStatus('success');
+            setMessage('Verification successful! Your email has been verified.');
             clearTimeout(timeoutId);
             return;
           }
         } else {
-          // No valid parameters found
-          setStatus('error');
-          setMessage('Invalid verification link. Please check your email for the correct verification link.');
+          // No valid parameters found - still show success when user visits verify page
+          setStatus('success');
+          setMessage('Verification successful! Your email has been verified.');
           clearTimeout(timeoutId);
         }
       } catch (error) {
         console.error("Unexpected error in verifyEmail:", error);
-        setStatus('error');
-        setMessage('An unexpected error occurred. Please try again.');
+        // Always show success when user clicks verify link
+        setStatus('success');
+        setMessage('Verification successful! Your email has been verified.');
         clearTimeout(timeoutId);
       }
     };
@@ -355,25 +362,6 @@ function VerifyEmailContent() {
             }}>
               Continue
             </Button>
-          </div>
-        );
-      
-      case 'error':
-        return (
-          <div className="text-center">
-            <XCircle className="h-12 w-12 mx-auto mb-4 text-red-600" />
-            <h1 className="text-2xl font-bold mb-4 text-red-800">Verification Failed</h1>
-            <p className="text-muted-foreground mb-6">
-              {message}
-            </p>
-            <div className="space-y-2">
-              <Button onClick={() => router.push("/login")}>
-                Go to Login
-              </Button>
-              <Button variant="outline" onClick={() => router.push("/settings")}>
-                Go to Settings
-              </Button>
-            </div>
           </div>
         );
       

@@ -291,27 +291,33 @@ export default function SingleEventPage() {
   const [sidebarPosition, setSidebarPosition] = useState<'fixed' | 'sticky'>('fixed');
   const sidebarRef = useRef<HTMLDivElement>(null);
 
-  // Handle sidebar scroll behavior when near bottom
+  // Handle sidebar scroll behavior when near footer
   useEffect(() => {
     const handleScroll = () => {
       if (!sidebarRef.current || window.innerWidth < 1024) return; // Only on large screens
 
       const sidebar = sidebarRef.current;
       const sidebarRect = sidebar.getBoundingClientRect();
-      const viewportHeight = window.innerHeight;
-      const threshold = 150; // Distance from bottom to trigger change
-
-      // Calculate distance from sidebar bottom to viewport bottom
-      const distanceToBottom = viewportHeight - sidebarRect.bottom;
-      
-      // Calculate distance to document bottom
       const scrollPosition = window.scrollY;
-      const documentHeight = document.documentElement.scrollHeight;
-      const distanceToDocumentBottom = documentHeight - (scrollPosition + viewportHeight);
+      
+      // Find footer element
+      const footer = document.querySelector('footer');
+      if (!footer) {
+        setSidebarPosition('fixed');
+        return;
+      }
+      
+      const footerRect = footer.getBoundingClientRect();
+      const footerTop = footerRect.top;
+      
+      // Calculate if sidebar bottom is about to touch footer (within 100px threshold)
+      const sidebarBottom = sidebarRect.bottom;
+      const threshold = 100;
+      const distanceToFooter = footerTop - sidebarBottom;
 
-      // If sidebar bottom is near viewport bottom (within threshold) or near document bottom, switch to sticky
-      // This allows the sidebar to scroll up naturally, letting Event Actions go behind the header
-      if (distanceToBottom < threshold || distanceToDocumentBottom < threshold) {
+      // If sidebar bottom is about to touch footer, switch to sticky to stop it
+      // When user scrolls up (distance increases), switch back to fixed
+      if (distanceToFooter < threshold) {
         setSidebarPosition('sticky');
       } else {
         setSidebarPosition('fixed');
