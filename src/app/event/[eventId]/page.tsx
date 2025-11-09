@@ -293,47 +293,55 @@ export default function SingleEventPage() {
 
   // Handle sidebar scroll behavior when near footer
   useEffect(() => {
+    let lastPosition: 'fixed' | 'sticky' = 'fixed';
+    let rafId: number | null = null;
+
     const handleScroll = () => {
       if (!sidebarRef.current || window.innerWidth < 1024) return; // Only on large screens
 
       const sidebar = sidebarRef.current;
       const sidebarRect = sidebar.getBoundingClientRect();
-      const scrollPosition = window.scrollY;
       
       // Find footer element
       const footer = document.querySelector('footer');
       if (!footer) {
-        setSidebarPosition('fixed');
+        if (lastPosition !== 'fixed') {
+          setSidebarPosition('fixed');
+          lastPosition = 'fixed';
+        }
         return;
       }
       
       const footerRect = footer.getBoundingClientRect();
       const footerTop = footerRect.top;
       
-      // Calculate if sidebar bottom is about to touch footer (within 100px threshold)
+      // Calculate if sidebar bottom is about to touch footer
+      // Use 8px threshold - when only 8px left, allow smooth scrolling up
       const sidebarBottom = sidebarRect.bottom;
-      const threshold = 100;
+      const stopThreshold = 8; // When only 8px left, allow smooth scroll up
       const distanceToFooter = footerTop - sidebarBottom;
 
-      // If sidebar bottom is about to touch footer, switch to sticky to stop it
-      // When user scrolls up (distance increases), switch back to fixed
-      if (distanceToFooter < threshold) {
-        setSidebarPosition('sticky');
-      } else {
-        setSidebarPosition('fixed');
+      // If sidebar bottom is within 8px of footer, switch to sticky
+      // This allows the sidebar to scroll up smoothly with the page when user continues scrolling
+      // When user scrolls up and distance increases, switch back to fixed
+      const newPosition = distanceToFooter <= stopThreshold ? 'sticky' : 'fixed';
+      
+      // Only update if position changed to prevent blinking
+      if (newPosition !== lastPosition) {
+        setSidebarPosition(newPosition);
+        lastPosition = newPosition;
       }
     };
 
-    // Use requestAnimationFrame for smoother performance
-    let ticking = false;
+    // Use throttled scroll handler to prevent blinking
     const onScroll = () => {
-      if (!ticking) {
-        window.requestAnimationFrame(() => {
-          handleScroll();
-          ticking = false;
-        });
-        ticking = true;
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
       }
+      rafId = requestAnimationFrame(() => {
+        handleScroll();
+        rafId = null;
+      });
     };
 
     window.addEventListener('scroll', onScroll, { passive: true });
@@ -341,6 +349,9 @@ export default function SingleEventPage() {
     handleScroll(); // Initial check
 
     return () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', handleScroll);
     };
@@ -3134,7 +3145,7 @@ RECOMMENDATIONS:
             {!showChat && (
             <div 
               ref={sidebarRef}
-              className={`${sidebarPosition === 'fixed' ? 'lg:fixed lg:top-24' : 'lg:sticky lg:top-24'} lg:right-4 lg:w-[320px] max-w-sm h-fit lg:h-[calc(100vh-6rem)] space-y-6 z-10 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto px-2 transition-all duration-300`}
+              className={`${sidebarPosition === 'fixed' ? 'lg:fixed lg:top-24' : 'lg:sticky lg:top-0'} lg:right-4 lg:w-[320px] max-w-sm h-fit lg:h-[calc(100vh-6rem)] space-y-6 z-10 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto px-2 transition-all duration-300 ease-in-out`}
             >
               {/* Event Actions */}
               <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-6 flex flex-col">
