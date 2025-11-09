@@ -3153,7 +3153,7 @@ RECOMMENDATIONS:
             {!showChat && (
             <div 
               ref={sidebarRef}
-              className="lg:fixed lg:top-24 lg:right-4 lg:w-[320px] max-w-sm h-fit lg:h-[calc(100vh-6rem)] space-y-6 z-10 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto px-2 transition-transform duration-150 ease-out"
+              className="lg:fixed lg:top-28 lg:right-4 lg:w-[320px] max-w-sm h-fit lg:h-[calc(100vh-7rem)] space-y-6 z-10 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto px-2 transition-transform duration-150 ease-out"
               style={{ transform: `translateY(${sidebarTransform}px)` }}
             >
               {/* Event Actions */}
