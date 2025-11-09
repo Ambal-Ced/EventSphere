@@ -2273,7 +2273,7 @@ RECOMMENDATIONS:
 
       {/* Main Content with gutter */}
       <div className="w-full py-8 pr-3">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 relative">
           {/* Main Content Area - Takes 3 columns */}
           <div className="lg:col-span-3 space-y-6">
             {/* Event Title */}
@@ -3073,9 +3073,9 @@ RECOMMENDATIONS:
           </div>
 
           {/* Right Sidebar - Green Rectangle Concept (hidden when chat open) */}
-          <div className="lg:col-span-1 relative">
+          <div className="lg:col-span-1">
             {!showChat && (
-            <div className="sticky top-24 space-y-6 z-10 self-start max-h-[calc(100vh-6rem)] overflow-y-auto px-2">
+            <div className="lg:fixed lg:top-24 lg:right-4 lg:w-[320px] max-w-sm h-fit lg:h-[calc(100vh-6rem)] space-y-6 z-10 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto px-2">
               {/* Event Actions */}
               <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-6 flex flex-col">
                 <h3 className="text-xl font-semibold text-green-400 mb-6">
