@@ -11,6 +11,8 @@ import { Bell, MessageSquare, Loader2, Menu, X, Star } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useAuth } from "@/context/auth-context";
+import { UserDataAccess, NotificationDataAccess } from "@/lib/data-access-layer";
 
 type NotificationSource = "notifications" | "admin_notif";
 
@@ -50,8 +52,7 @@ const sortAndLimitNotifications = (items: UnifiedNotification[], limit: number) 
 export function Header() {
   const pathname = usePathname();
   const router = useRouter();
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { user, loading: authLoading } = useAuth(); // Use AuthContext instead of fetching session
   const [profile, setProfile] = useState<any>(null);
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifs, setNotifs] = useState<UnifiedNotification[]>([]);
@@ -62,30 +63,34 @@ export function Header() {
   useEffect(() => {
     if (!user) {
       setNotifs([]);
+      setProfile(null);
     }
   }, [user]);
 
+  // Fetch profile when user is available (using data access layer)
   useEffect(() => {
-    const getSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      setUser(session?.user ?? null);
+    if (!user?.id) {
+      setProfile(null);
+      return;
+    }
 
-      if (session?.user) {
-        // Fetch profile data including avatar_url
-        const { data: profileData } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", session.user.id)
-          .single();
+    let cancelled = false;
 
-        setProfile(profileData);
+    const fetchProfile = async () => {
+      try {
+        const profileData = await UserDataAccess.getProfile(user.id);
+        if (!cancelled) {
+          setProfile(profileData);
+        }
+      } catch (error) {
+        console.error("Error fetching profile:", error);
+        if (!cancelled) {
+          setProfile(null);
+        }
       }
-      setIsLoading(false);
     };
 
-    getSession();
+    fetchProfile();
 
     // Set up real-time subscription for profile changes
     const profileSubscription = supabase
@@ -105,33 +110,11 @@ export function Header() {
       )
       .subscribe();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          // Fetch profile data on auth state change
-          const { data: profileData } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", session.user.id)
-            .single();
-
-          setProfile(profileData);
-        } else {
-          setProfile(null);
-        }
-        // Redirect to login if user logs out from another tab
-        if (event === "SIGNED_OUT") {
-          router.push("/login");
-        }
-      }
-    );
-
     return () => {
+      cancelled = true;
       profileSubscription.unsubscribe();
-      authListener?.subscription.unsubscribe();
     };
-  }, [router, user?.id]);
+  }, [user?.id]);
 
   // Notifications: load latest and subscribe realtime
   useEffect(() => {
@@ -448,7 +431,7 @@ export function Header() {
 
       {/* Right side: Icons and User Menu/Login */}
       <div className="flex items-center gap-4">
-        {isLoading ? (
+        {authLoading ? (
           <div className="h-8 w-8 animate-pulse rounded-full bg-muted"></div>
         ) : user ? (
           <>

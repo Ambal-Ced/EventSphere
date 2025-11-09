@@ -4,12 +4,14 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { User } from "@supabase/supabase-js";
+import { useAuth } from "@/context/auth-context";
+import { UserDataAccess } from "@/lib/data-access-layer";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DatePicker } from "@/components/ui/date-picker";
-import { format, parseISO, differenceInYears } from "date-fns";
+import { formatDateISO, formatDateLong, differenceInYears } from "@/lib/date-utils";
 import {
   Calendar,
   Mail,
@@ -118,30 +120,24 @@ export default function ProfilePage() {
   });
   const [birthdayDate, setBirthdayDate] = useState<Date | undefined>(undefined);
 
-  // 1) Ensure we know the current user/session
+  // Use AuthContext instead of fetching session
+  const { user: contextUser, loading: authLoading } = useAuth();
+
+  // 1) Set user from context
   useEffect(() => {
-    let cancelled = false;
-    const init = async () => {
+    if (authLoading) {
       setIsLoading(true);
-      setError(null);
-      const {
-        data: { session },
-        error,
-      } = await supabase.auth.getSession();
-      if (error || !session) {
-        router.push("/login");
-        setIsLoading(false);
-        return;
-      }
-      if (!cancelled) {
-        setUser(session.user);
-      }
-    };
-    init();
-    return () => {
-      cancelled = true;
-    };
-  }, [router]);
+      return;
+    }
+    
+    if (!contextUser) {
+      router.push("/login");
+      setIsLoading(false);
+      return;
+    }
+    
+    setUser(contextUser);
+  }, [contextUser, authLoading, router]);
 
   // 2) Fetch profile when we have a user id
   useEffect(() => {
@@ -151,33 +147,20 @@ export default function ProfilePage() {
       setIsLoading(true);
       setError(null);
       try {
-        const { data: profileData, error: profileError } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", user.id)
-          .single();
-        if (profileError) {
-          if (profileError.code === "PGRST116") {
-            setError("Profile not found. Please complete your profile.");
-          } else {
-            throw profileError;
-          }
-          if (!cancelled) setProfile(null);
-        } else if (profileData) {
-          if (!cancelled) {
-            setProfile(profileData as FullProfileData);
-            setAvatarUrl(profileData.avatar_url);
-          }
-        } else {
-          if (!cancelled) {
-            setError("Profile data is unexpectedly empty.");
-            setProfile(null);
-          }
+        // Use data access layer
+        const profileData = await UserDataAccess.getProfile(user.id);
+        if (!cancelled) {
+          setProfile(profileData as FullProfileData);
+          setAvatarUrl(profileData.avatar_url);
         }
       } catch (err: any) {
         console.error("Error fetching profile:", err);
         if (!cancelled) {
-          setError(err.message || "An unexpected error occurred.");
+          if (err.code === "PGRST116") {
+            setError("Profile not found. Please complete your profile.");
+          } else {
+            setError(err.message || "An unexpected error occurred.");
+          }
           setProfile(null);
         }
       } finally {
@@ -235,7 +218,7 @@ export default function ProfilePage() {
     });
     try {
       setBirthdayDate(
-        profile.birthday ? parseISO(profile.birthday) : undefined
+        profile.birthday ? new Date(profile.birthday) : undefined
       );
     } catch (e) {
       console.error("Error parsing date for edit:", e);
@@ -280,7 +263,7 @@ export default function ProfilePage() {
     setBirthdayDate(date);
     setEditableProfile((prev) => ({
       ...prev,
-      birthday: date ? format(date, "yyyy-MM-dd") : null,
+      birthday: date ? formatDateISO(date) : null,
       // Age is calculated on save, not stored in editableProfile directly
     }));
   };
@@ -301,7 +284,7 @@ export default function ProfilePage() {
 
     setIsSaving(true);
     const calculatedAge = editableProfile.birthday
-      ? differenceInYears(new Date(), parseISO(editableProfile.birthday))
+      ? differenceInYears(new Date(), editableProfile.birthday)
       : null;
 
     // Construct the update payload ONLY with editable fields + calculated age + updated_at
@@ -512,7 +495,7 @@ export default function ProfilePage() {
 
   // -- Display Logic --
   const displayBirthday = profile.birthday
-    ? format(new Date(profile.birthday + "T00:00:00"), "PPP")
+    ? formatDateLong(profile.birthday)
     : "Not set";
   const displayFullNameString = `${profile.fname || ""} ${
     profile.mname || ""
@@ -621,7 +604,7 @@ export default function ProfilePage() {
           <h1 className="font-bold leading-tight break-words text-[clamp(1.25rem,4vw,2.25rem)]">{headerName}</h1>
           <p className="text-muted-foreground break-all max-w-full leading-snug">@{headerUsername}</p>
           <p className="text-sm text-muted-foreground break-words whitespace-normal leading-snug">
-            Joined: {format(new Date(profile.created_at), "PPP")}
+            Joined: {formatDateLong(profile.created_at)}
           </p>
         </div>
         <div className="mt-4 flex gap-2 md:mt-0 justify-center md:justify-end">
@@ -778,7 +761,7 @@ export default function ProfilePage() {
                       editableProfile.birthday
                         ? differenceInYears(
                             new Date(),
-                            parseISO(editableProfile.birthday)
+                            editableProfile.birthday
                           )
                         : ""
                     }

@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { DatePicker } from "@/components/ui/date-picker";
 import { cn } from "@/lib/utils";
-import { format, differenceInYears } from "date-fns";
+import { formatDateISO, differenceInYears } from "@/lib/date-utils";
 import { AccountStatusManager } from "@/lib/account-status-manager";
 import { DefaultSubscriptionManager } from "@/lib/default-subscription-manager";
 import { supabase } from "@/lib/supabase";
@@ -116,7 +116,7 @@ export default function CompleteProfilePage() {
   };
 
   const handleDateChange = (date: Date | undefined) => {
-    const age = date ? differenceInYears(new Date(), date).toString() : "";
+    const age = date ? differenceInYears(date, new Date()).toString() : "";
     setFormData((prev) => ({ ...prev, birthday: date, age }));
   };
 
@@ -145,7 +145,7 @@ export default function CompleteProfilePage() {
         address: formData.address,
         contact_no: formData.contact_no,
         birthday: formData.birthday
-          ? format(formData.birthday, "yyyy-MM-dd")
+          ? formatDateISO(formData.birthday)
           : null,
         age: formData.age ? parseInt(formData.age) : null,
         gender: formData.gender,

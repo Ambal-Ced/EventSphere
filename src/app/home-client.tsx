@@ -32,7 +32,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { Database } from "@/types/supabase";
-import { format as formatFns } from "date-fns";
+import { formatDatePattern, formatDateLong } from "@/lib/date-utils";
 import { useAccountStatusFailsafe } from "@/hooks/useAccountStatusFailsafe";
 import { AccountStatusFailsafePopup } from "@/components/ui/account-status-failsafe-popup";
 
@@ -617,6 +617,8 @@ export default function HomeClient() {
           fill
           className="object-cover"
           priority
+          sizes="100vw"
+          quality={85}
         />
         {/* Gradient Overlay */}
         <div className="absolute inset-0 bg-gradient-to-r from-purple-500/60 to-green-500/60 backdrop-blur-[2px]" />
@@ -638,18 +640,18 @@ export default function HomeClient() {
           <div className="flex-1 flex items-center justify-center rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-background border px-6 py-8 sm:py-10 md:py-14">
             <div className="text-center">
               <div className="uppercase tracking-widest text-sm text-muted-foreground mb-2">
-                {formatFns(selectedDate, "EEEE")} {/* Day of week */}
+                {formatDatePattern(selectedDate, "EEEE")} {/* Day of week */}
               </div>
               <div className="flex items-end justify-center gap-2 sm:gap-4">
                 <div className="text-5xl sm:text-6xl md:text-7xl font-extrabold leading-none">
-                  {formatFns(selectedDate, "d")}
+                  {formatDatePattern(selectedDate, "d")}
                 </div>
                 <div className="text-left pb-1">
                   <div className="text-xl sm:text-2xl md:text-3xl font-semibold">
-                    {formatFns(selectedDate, "MMMM")}
+                    {formatDatePattern(selectedDate, "MMMM")}
                   </div>
                   <div className="text-base sm:text-lg md:text-xl text-muted-foreground">
-                    {formatFns(selectedDate, "yyyy")}
+                    {formatDatePattern(selectedDate, "yyyy")}
                   </div>
                 </div>
               </div>
@@ -897,7 +899,7 @@ export default function HomeClient() {
               <Button
                 variant="outline"
                 className="mt-4"
-                onClick={fetchFeaturedEvents}
+                onClick={() => fetchFeaturedEvents()}
               >
                 Try Again
               </Button>
@@ -936,6 +938,7 @@ export default function HomeClient() {
                           className="w-full h-full object-cover brightness-75 transition-transform duration-300"
                           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                           priority={index < 4}
+                          quality={85}
                         />
                       </div>
                       <div className="p-3 sm:p-4">

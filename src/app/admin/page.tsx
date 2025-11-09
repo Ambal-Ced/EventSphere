@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import dynamic from "next/dynamic";
+import { useSessionCache } from "@/hooks/use-session-cache";
 // Lazy-load heavy Recharts components (client-only)
 const loadingBox = (h:number=300) => <div style={{height:h}} className="w-full animate-pulse rounded bg-muted/20"/>;
 const ResponsiveContainer: any = dynamic(() => import("recharts").then(m => m.ResponsiveContainer as any), { ssr: false, loading: () => loadingBox() }) as any;
@@ -158,9 +159,15 @@ export default function AdminPage() {
     };
   }, []);
 
+  // Use session cache to avoid multiple session fetches
+  const { user: cachedUser } = useSessionCache();
+
   const fetchAnalytics = useCallback(async () => {
+    if (!cachedUser) return;
+    
     setLoadingAnalytics(true);
     try {
+      // Get session for access token
       const { data: { session } } = await supabase.auth.getSession();
       
       // Calculate date range

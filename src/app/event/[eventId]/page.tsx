@@ -1,9 +1,23 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
-import { CohereClientV2 } from 'cohere-ai';
+import dynamic from "next/dynamic";
+
+// Dynamic imports for large packages
+const loadingChart = (h: number = 300) => <div style={{ height: h }} className="w-full animate-pulse rounded bg-muted" />;
+const ResponsiveContainer: any = dynamic(() => import("recharts").then(m => m.ResponsiveContainer as any), { ssr: false, loading: () => loadingChart() }) as any;
+const BarChart: any = dynamic(() => import("recharts").then(m => m.BarChart as any), { ssr: false }) as any;
+const Bar: any = dynamic(() => import("recharts").then(m => m.Bar as any), { ssr: false }) as any;
+const XAxis: any = dynamic(() => import("recharts").then(m => m.XAxis as any), { ssr: false }) as any;
+const YAxis: any = dynamic(() => import("recharts").then(m => m.YAxis as any), { ssr: false }) as any;
+const CartesianGrid: any = dynamic(() => import("recharts").then(m => m.CartesianGrid as any), { ssr: false }) as any;
+const Tooltip: any = dynamic(() => import("recharts").then(m => m.Tooltip as any), { ssr: false }) as any;
+const PieChart: any = dynamic(() => import("recharts").then(m => m.PieChart as any), { ssr: false }) as any;
+const Pie: any = dynamic(() => import("recharts").then(m => m.Pie as any), { ssr: false }) as any;
+const Cell: any = dynamic(() => import("recharts").then(m => m.Cell as any), { ssr: false }) as any;
+const LineChart: any = dynamic(() => import("recharts").then(m => m.LineChart as any), { ssr: false }) as any;
+const Line: any = dynamic(() => import("recharts").then(m => m.Line as any), { ssr: false }) as any;
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -2094,7 +2108,8 @@ Write 5 short paragraphs (1–3 sentences each), with bold labels, no lists:
 5) **Risks & Recommendations**: 2–3 prioritized actions.
 Constraints: 150–220 words total, no extra blank lines, no tables.`;
 
-      // Initialize Cohere client
+      // Initialize Cohere client (dynamically imported)
+      const { CohereClientV2 } = await import('cohere-ai');
       const cohere = new CohereClientV2({
         token: process.env.NEXT_PUBLIC_COHERE_API_KEY || 'TbnKkS2gKZIx4enseFsd5KIvfpnxqDhSmqK2pVmA',
       });
@@ -2436,6 +2451,8 @@ RECOMMENDATIONS:
                     alt={editingEvent.title}
                     fill
                     className="object-cover"
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 1200px"
+                  quality={85}
                   />
                   <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                     <div className="text-center">
@@ -2462,6 +2479,8 @@ RECOMMENDATIONS:
                   alt={event.title}
                   fill
                   className="object-cover"
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 1200px"
+                  quality={85}
                 />
               )}
             </div>
@@ -4391,7 +4410,7 @@ RECOMMENDATIONS:
                         <XAxis dataKey="name" tick={{ fill: '#9CA3AF', fontSize: 12 }} />
                         <YAxis tick={{ fill: '#9CA3AF', fontSize: 12 }} />
                         <Tooltip 
-                          formatter={(value, name) => {
+                          formatter={(value: any, name: any) => {
                             // name can be either the dataKey ('quantity' or 'cost') or the Bar name prop ('Quantity' or 'Cost')
                             const normalizedName = String(name).toLowerCase();
                             if (normalizedName === 'quantity' || normalizedName.includes('quantity')) {
@@ -4420,7 +4439,7 @@ RECOMMENDATIONS:
                       <XAxis dataKey="item" tick={{ fill: '#9CA3AF', fontSize: 12 }} />
                       <YAxis tick={{ fill: '#9CA3AF', fontSize: 12 }} />
                       <Tooltip 
-                        formatter={(value) => [`PHP ${Number(value).toFixed(2)}`, 'Cumulative Cost']}
+                        formatter={(value: any) => [`PHP ${Number(value).toFixed(2)}`, 'Cumulative Cost']}
                         labelStyle={{ color: '#F3F4F6' }}
                         contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151' }}
                       />

@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     const { action, email, newEmail } = await request.json();
 
     // Create a Supabase client for the API route, using cookies for session
-    const cookieStore = cookies();
+    const cookieStore = await cookies(); // Await cookies in Next.js 15
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,

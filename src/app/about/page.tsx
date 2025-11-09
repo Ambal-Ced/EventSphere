@@ -1,16 +1,6 @@
-"use client"; // Make it a Client Component
-
-import { useState, useEffect } from "react"; // Import hooks
-import { Metadata } from "next";
-import { cn } from "@/lib/utils"; // Import cn if needed for conditional classes
 import Link from "next/link";
-
-// Cannot export metadata from Client Component
-// export const metadata: Metadata = {
-//   title: "About EventTria",
-//   description:
-//     "Learn more about EventTria's mission, story, values, team, and how to contact us.",
-// };
+import { TeamCarousel } from "@/components/ui/team-carousel";
+import Image from "next/image";
 
 // Team Member Data
 const teamMembers = [
@@ -36,239 +26,105 @@ const teamMembers = [
 ];
 
 export default function AboutPage() {
-  const [currentMemberIndex, setCurrentMemberIndex] = useState(0);
-
-  // Effect to cycle through team members
-  useEffect(() => {
-    const intervalId = setInterval(() => {
-      setCurrentMemberIndex(
-        (prevIndex) => (prevIndex + 1) % teamMembers.length
-      );
-    }, 4000); // Change member every 4 seconds
-
-    // Cleanup interval on component unmount
-    return () => clearInterval(intervalId);
-  }, []); // Empty dependency array ensures effect runs only once on mount
-
   return (
-    <div className="container mx-auto max-w-4xl py-12 px-4">
-      <h1 className="text-center text-4xl font-bold mb-12">
-        About EventTria
-      </h1>
+    <div className="container mx-auto px-4 py-12 max-w-6xl">
+      {/* Hero Section */}
+      <div className="text-center mb-16">
+        <h1 className="text-5xl font-bold mb-4">About EventTria</h1>
+        <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+          We're building the future of event management, one event at a time.
+        </p>
+      </div>
 
       {/* Mission Section */}
-      <section className="mb-16 text-center">
-        <h2 className="text-3xl font-semibold mb-4">Our Mission</h2>
-        <p className="text-lg text-muted-foreground mb-4">
-          At EventTria, we're committed to transforming how people create,
-          manage, and experience events. Our mission is to provide a seamless
-          platform that connects event organizers with attendees, making the
-          entire event lifecycle simple and enjoyable.
-        </p>
-        <p className="text-lg text-muted-foreground">
-          We believe that everyone should have access to powerful event
-          management tools, whether you're organizing a small meetup or a large
-          conference. Our platform is designed to be intuitive, flexible, and
-          powerful enough to handle events of any size.
-        </p>
+      <section className="mb-16">
+        <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl p-8 md:p-12 border border-primary/20">
+          <h2 className="text-3xl font-bold mb-6 text-center">Our Mission</h2>
+          <p className="text-lg leading-relaxed text-center max-w-3xl mx-auto">
+            At EventTria, we believe that organizing events should be simple,
+            efficient, and enjoyable. Our mission is to empower event organizers
+            with powerful tools that streamline every aspect of event management,
+            from planning and promotion to execution and analysis.
+          </p>
+        </div>
       </section>
 
       {/* Story Section */}
-      <section className="mb-16 text-center">
-        <h2 className="text-3xl font-semibold mb-4">Our Story</h2>
-        <p className="text-lg text-muted-foreground mb-4">
-          EventTria was founded in 2024 by a group of passionate students who
-          recognized the challenges people face when organizing events. We saw an
-          opportunity to create a comprehensive platform that makes event
-          management accessible to everyone, regardless of their technical
-          expertise.
-        </p>
-        <p className="text-lg text-muted-foreground mb-4">
-          As students ourselves, we understand the importance of staying current
-          with technology trends. That's why we've integrated AI capabilities
-          and advanced analytics into our platform, helping event organizers
-          gain valuable insights into their events, track income, and make
-          data-driven decisions.
-        </p>
-        <p className="text-lg text-muted-foreground">
-          Today, EventTria empowers event organizers worldwide with
-          intelligent tools that adapt to modern trends, providing them with the
-          analytics and insights they need to create successful events while
-          simplifying the entire process.
-        </p>
+      <section className="mb-16">
+        <h2 className="text-3xl font-bold mb-6 text-center">Our Story</h2>
+        <div className="grid md:grid-cols-2 gap-8 items-center">
+          <div className="space-y-4">
+            <p className="text-lg leading-relaxed">
+              EventTria was born from a simple observation: event organizers
+              were struggling with fragmented tools and complex workflows. We
+              set out to create a unified platform that brings everything
+              together in one place.
+            </p>
+            <p className="text-lg leading-relaxed">
+              Today, EventTria serves thousands of event organizers worldwide,
+              helping them create memorable experiences for their attendees while
+              saving time and reducing stress.
+            </p>
+          </div>
+          <div className="relative h-64 rounded-lg overflow-hidden">
+            <Image
+              src="/images/template/eventtria.webp"
+              alt="EventTria Story"
+              fill
+              className="object-cover"
+              sizes="(max-width: 768px) 100vw, 50vw"
+            />
+          </div>
+        </div>
       </section>
 
       {/* Values Section */}
       <section className="mb-16">
-        <h2 className="text-3xl font-semibold mb-8">Our Values</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="bg-green-500/10 border border-green-500/20 p-6 rounded-lg hover:bg-green-500/20 hover:border-green-500/40 hover:scale-105 transition-all duration-300 cursor-pointer">
-            <h3 className="text-xl font-semibold mb-2 text-green-400">
-              Simplicity
-            </h3>
-            <p className="text-green-300">
-              We believe technology should make life easier, not more
-              complicated. Our platform is designed to be intuitive and easy to
-              use, without sacrificing power or flexibility.
+        <h2 className="text-3xl font-bold mb-8 text-center">Our Values</h2>
+        <div className="grid md:grid-cols-3 gap-6">
+          <div className="bg-card rounded-lg p-6 border">
+            <h3 className="text-xl font-semibold mb-3">Simplicity</h3>
+            <p className="text-muted-foreground">
+              We believe in making complex things simple. Our platform is
+              intuitive and easy to use, even for first-time event organizers.
             </p>
           </div>
-          <div className="bg-amber-500/10 border border-amber-500/20 p-6 rounded-lg hover:bg-amber-500/20 hover:border-amber-500/40 hover:scale-105 transition-all duration-300 cursor-pointer">
-            <h3 className="text-xl font-semibold mb-2 text-amber-400">
-              Innovation
-            </h3>
-            <p className="text-amber-300">
-              We're constantly exploring new ways to improve the event
-              experience, from enhanced analytics to virtual event integration.
+          <div className="bg-card rounded-lg p-6 border">
+            <h3 className="text-xl font-semibold mb-3">Reliability</h3>
+            <p className="text-muted-foreground">
+              Your events are important to us. We ensure our platform is
+              reliable, secure, and always available when you need it.
             </p>
           </div>
-          <div className="bg-green-500/10 border border-green-500/20 p-6 rounded-lg hover:bg-green-500/20 hover:border-green-500/40 hover:scale-105 transition-all duration-300 cursor-pointer">
-            <h3 className="text-xl font-semibold mb-2 text-green-400">
-              Community
-            </h3>
-            <p className="text-green-300">
-              We're building more than just a platform; we're creating a
-              community of event professionals who share ideas, best practices,
-              and support each other.
-            </p>
-          </div>
-          <div className="bg-amber-500/10 border border-amber-500/20 p-6 rounded-lg hover:bg-amber-500/20 hover:border-amber-500/40 hover:scale-105 transition-all duration-300 cursor-pointer">
-            <h3 className="text-xl font-semibold mb-2 text-amber-400">
-              Reliability
-            </h3>
-            <p className="text-amber-300">
-              Events are time-sensitive, and we understand the importance of a
-              reliable platform. We're committed to providing a service you can
-              count on, every time.
+          <div className="bg-card rounded-lg p-6 border">
+            <h3 className="text-xl font-semibold mb-3">Innovation</h3>
+            <p className="text-muted-foreground">
+              We're constantly improving and adding new features based on
+              feedback from our community of event organizers.
             </p>
           </div>
         </div>
       </section>
 
-      {/* Team Section - 3D Carousel */}
+      {/* Team Section */}
       <section className="mb-16">
-        <h2 className="text-4xl font-semibold mb-6 text-center">The Team</h2>
-        <p className="text-xl text-muted-foreground mb-16 text-center max-w-3xl mx-auto">
-          Our diverse team brings together expertise in event management,
-          software development, user experience design, and customer support.
-          We're united by our passion for creating exceptional event
-          experiences.
-        </p>
-        {/* 3D Carousel */}
-        <div className="relative flex items-center justify-center h-96 w-full mb-12 mt-560">
-          {teamMembers.map((member, index) => {
-            // Calculate position relative to the current member
-            const offset = index - currentMemberIndex;
-            let style =
-              "absolute top-1/2 left-1/2 transition-all duration-700 ease-in-out flex flex-col items-center";
-            let zIndex = 10 - Math.abs(offset);
-            let opacity = 1;
-            let transform = "";
-            if (offset === 0) {
-              // Center card: bigger and a little above
-              transform = "-translate-x-1/2 -translate-y-[70%] scale-105";
-              zIndex = 20;
-              opacity = 1;
-            } else if (
-              offset === -1 ||
-              (offset === teamMembers.length - 1 && currentMemberIndex === 0)
-            ) {
-              // Left card: smaller and a little lower
-              transform =
-                "-translate-x-[110%] translate-y-[10%] scale-90 rotate-y-8";
-              opacity = 0.7;
-            } else if (
-              offset === 1 ||
-              (offset === -(teamMembers.length - 1) &&
-                currentMemberIndex === teamMembers.length - 1)
-            ) {
-              // Right card: smaller and a little lower
-              transform =
-                "translate-x-[10%] translate-y-[10%] scale-90 -rotate-y-8";
-              opacity = 0.7;
-            } else {
-              // Hide other cards
-              opacity = 0;
-              zIndex = 0;
-            }
-            return (
-              <div
-                key={member.name}
-                className={`${style} w-64`}
-                style={{
-                  zIndex,
-                  opacity,
-                  pointerEvents: offset === 0 ? "auto" : "none",
-                  transform: `translate(-50%, -50%) ${
-                    offset === 0
-                      ? "scale(1.05)"
-                      : offset === -1 ||
-                        (offset === teamMembers.length - 1 &&
-                          currentMemberIndex === 0)
-                      ? "translateX(-115%) translateY(10%) scale(0.9) rotateY(8deg)"
-                      : offset === 1 ||
-                        (offset === -(teamMembers.length - 1) &&
-                          currentMemberIndex === teamMembers.length - 1)
-                      ? "translateX(115%) translateY(10%) scale(0.9) rotateY(-8deg)"
-                      : "scale(0.7)"
-                  }`,
-                  transition: "all 0.7s cubic-bezier(0.4, 0, 0.2, 1)",
-                }}
-              >
-                <Link
-                  href={member.portfolioUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block w-full h-full group"
-                >
-                  <div className="mx-auto h-48 w-48 rounded-2xl bg-muted mb-4 overflow-hidden flex items-center justify-center shadow-xl border-4 border-background group-hover:scale-105 transition-transform">
-                    {member.imageSrc && (
-                      <img
-                        src={member.imageSrc}
-                        alt={member.name}
-                        className="object-cover w-full h-full"
-                      />
-                    )}
-                  </div>
-                  <div className="w-full">
-                    <h3 className="text-xl font-semibold mb-1 text-center text-primary whitespace-nowrap max-w-full overflow-x-auto group-hover:underline">
-                      {member.name}
-                    </h3>
-                    <p className="text-lg text-muted-foreground text-center">
-                      {member.title}
-                    </p>
-                  </div>
-                </Link>
-              </div>
-            );
-          })}
-        </div>
+        <h2 className="text-3xl font-bold mb-8 text-center">Meet Our Team</h2>
+        <TeamCarousel members={teamMembers} />
       </section>
 
       {/* Contact Section */}
-      <section id="contact">
-        <h2 className="text-3xl font-semibold mb-4">Contact Us</h2>
-        <p className="text-lg text-muted-foreground mb-6">
-          We'd love to hear from you! Whether you have questions about our
-          platform, need help with your account, or want to share feedback, our
-          team is here to help.
-        </p>
-        <div className="bg-muted/30 p-6 rounded-lg">
-          <p className="mb-2">
-            <span className="font-semibold">Email:</span>{" "}
-            <a
-              href="mailto:trybyteanalytics@gmail.com"
-              className="text-green-500 hover:underline break-all text-sm sm:text-base"
-            >
-              trybyteanalytics@gmail.com
-            </a>
+      <section className="text-center">
+        <div className="bg-muted/30 rounded-lg p-8">
+          <h2 className="text-2xl font-semibold mb-4">Get in Touch</h2>
+          <p className="text-muted-foreground mb-6">
+            Have questions or feedback? We'd love to hear from you!
           </p>
-          <p className="mb-2">
-            <span className="font-semibold">Phone:</span> (123) 456-7890
-          </p>
-          <p>
-            <span className="font-semibold">Address:</span> 123 Event Street,
-            San Francisco, CA 94103
-          </p>
+          <Link
+            href="/contact"
+            className="inline-flex items-center justify-center rounded-md bg-primary px-6 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+          >
+            Contact Us
+          </Link>
         </div>
       </section>
     </div>

@@ -6,7 +6,6 @@ import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
 export default function PublicCheckinPage() {
   const params = useParams();
   // Handle token extraction - decode URL if needed

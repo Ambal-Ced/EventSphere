@@ -6,11 +6,12 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { token: string } }
+  { params }: { params: Promise<{ token: string }> }
 ) {
   try {
+    // Await params in Next.js 15
+    const { token: rawToken } = await params;
     // Decode token from URL
-    const rawToken = params.token;
     const token = decodeURIComponent(rawToken).trim();
     
     if (!token) {

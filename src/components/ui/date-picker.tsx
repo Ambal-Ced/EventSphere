@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { format, isValid as isValidDate } from "date-fns";
+import { formatDateISO, formatDateShort, isValidDate } from "@/lib/date-utils";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Calendar as CalendarIcon } from "lucide-react";
@@ -28,7 +28,7 @@ export function DatePicker({
   // Format date when it changes
   React.useEffect(() => {
     if (date) {
-      setInputValue(format(date, "MM/dd/yyyy"));
+      setInputValue(formatDateShort(date).replace(/\//g, '/'));
     }
   }, [date]);
 
@@ -79,7 +79,7 @@ export function DatePicker({
         <input
           type="hidden"
           name={name}
-          value={date ? format(date, "yyyy-MM-dd") : ""}
+          value={date ? formatDateISO(date) : ""}
           required={required}
           aria-hidden="true"
         />
@@ -114,7 +114,7 @@ export function DatePicker({
             onSelect={(d: Date | undefined) => {
               setDate(d);
               if (d) {
-                setInputValue(format(d, "MM/dd/yyyy"));
+                setInputValue(formatDateShort(d).replace(/\//g, '/'));
               }
               setOpen(false);
             }}

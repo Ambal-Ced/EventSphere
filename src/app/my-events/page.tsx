@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { format } from "date-fns";
+import { formatDateTime } from "@/lib/date-utils";
 import {
   CalendarDays,
   MapPin,
@@ -48,7 +49,20 @@ interface Event {
   // attendees: number;
 }
 
-export default function MyEventsPage() {
+// Static content that loads immediately
+function MyEventsStaticContent() {
+  return (
+    <div className="container mx-auto py-8 px-4">
+      {/* Header Section - Static */}
+      <div className="mb-8">
+        <h1 className="text-2xl max-[639px]:text-xl sm:text-3xl font-bold mb-3">My Events</h1>
+      </div>
+    </div>
+  );
+}
+
+// Dynamic content that streams in
+function MyEventsDynamicContent() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
@@ -276,9 +290,8 @@ export default function MyEventsPage() {
 
   return (
     <div className="container mx-auto py-8 px-4">
-      {/* Header Section */}
+      {/* Search and Filter Section - Dynamic */}
       <div className="mb-8">
-        <h1 className="text-2xl max-[639px]:text-xl sm:text-3xl font-bold mb-3">My Events</h1>
         <div className="flex flex-col max-[374px]:flex-col sm:flex-row gap-2 w-full sm:w-auto sm:justify-end">
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -406,10 +419,12 @@ export default function MyEventsPage() {
             >
               {event.image_url && (
                 <div className="absolute inset-0 z-0 opacity-10 transition-opacity group-hover:opacity-20">
-                  <img
+                  <Image
                     src={event.image_url}
                     alt={event.title}
-                    className="h-full w-full object-cover"
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                   />
                 </div>
               )}
@@ -424,7 +439,7 @@ export default function MyEventsPage() {
                   <div className="flex items-center text-xs max-[639px]:text-xs sm:text-sm text-muted-foreground">
                     <CalendarDays className="mr-1 max-[639px]:mr-1 sm:mr-2 h-3 max-[639px]:h-3 sm:h-4 w-3 max-[639px]:w-3 sm:w-4 flex-shrink-0" />
                     <span className="break-words">{event.date
-                      ? format(new Date(event.date), "PPP p")
+                      ? formatDateTime(event.date)
                       : "Date TBD"}</span>
                   </div>
                   <div className="flex items-center text-xs max-[639px]:text-xs sm:text-sm text-muted-foreground">
@@ -490,5 +505,34 @@ export default function MyEventsPage() {
         description="Please wait while we prepare the event creation form..."
       />
     </div>
+  );
+}
+
+// Loading component for dynamic sections
+function MyEventsDynamicLoading() {
+  return (
+    <div className="container mx-auto py-8 px-4">
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading events...</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Main page component with streaming
+export default function MyEventsPage() {
+  return (
+    <>
+      {/* Static content loads immediately */}
+      <MyEventsStaticContent />
+      
+      {/* Dynamic content with Suspense boundary */}
+      <Suspense fallback={<MyEventsDynamicLoading />}>
+        <MyEventsDynamicContent />
+      </Suspense>
+    </>
   );
 }

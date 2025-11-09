@@ -1,19 +1,6 @@
-"use client";
-
-import { Metadata } from "next";
+import { FAQsAccordion } from "@/components/ui/faqs-accordion";
 import { Button } from "@/components/ui/button";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-
-// Cannot export metadata from Client Component
-// export const metadata: Metadata = {
-//   title: "FAQs - EventTria",
-//   description: "Frequently asked questions about EventTria's platform and services.",
-// };
+import Link from "next/link";
 
 const faqs = [
   {
@@ -80,16 +67,7 @@ export default function FAQsPage() {
         contact our support team.
       </p>
 
-      <Accordion type="single" collapsible className="w-full mb-8">
-        {faqs.map((faq, index) => (
-          <AccordionItem key={index} value={`item-${index}`}>
-            <AccordionTrigger className="text-left text-lg font-medium">
-              {faq.question}
-            </AccordionTrigger>
-            <AccordionContent className="text-base leading-relaxed">{faq.answer}</AccordionContent>
-          </AccordionItem>
-        ))}
-      </Accordion>
+      <FAQsAccordion faqs={faqs} />
 
       <div className="bg-muted/30 rounded-lg p-6 sm:p-8 text-center">
         <h2 className="text-2xl font-semibold mb-4">Still have questions?</h2>
@@ -97,14 +75,9 @@ export default function FAQsPage() {
           If you couldn't find the answer to your question, please don't
           hesitate to reach out to our support team. We're here to help!
         </p>
-        <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4">
-          <a href="mailto:trybyteanalytics@gmail.com" className="w-full sm:w-auto">
-            <Button variant="default" className="w-full sm:w-auto">Email Support</Button>
-          </a>
-          <a href="/about#contact" className="w-full sm:w-auto">
-            <Button variant="outline" className="w-full sm:w-auto">Contact Us</Button>
-          </a>
-        </div>
+        <Button asChild>
+          <Link href="/contact">Contact Support</Link>
+        </Button>
       </div>
     </div>
   );

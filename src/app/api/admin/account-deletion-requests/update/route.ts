@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No request IDs provided" }, { status: 400 });
     }
 
-    const cookieStore = cookies();
+    const cookieStore = await cookies(); // Await cookies in Next.js 15
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,

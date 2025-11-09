@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import { DatePicker } from "@/components/ui/date-picker";
 import { cn } from "@/lib/utils";
-import { format, differenceInYears } from "date-fns";
+import { formatDateISO, differenceInYears } from "@/lib/date-utils";
 import { supabase } from "@/lib/supabase";
 import HCaptcha from "@hcaptcha/react-hcaptcha";
 

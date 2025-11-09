@@ -1,7 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { format } from 'date-fns';
+import { formatDateTime } from '@/lib/date-utils';
 import { CalendarDays, MapPin } from 'lucide-react';
 import { Database } from '@/types/supabase';
 
@@ -58,7 +58,7 @@ export const EventCard = React.memo<EventCardProps>(({ event, getDefaultImage, g
           {event.date && (
             <div className="flex items-center gap-1">
               <CalendarDays className="w-3 h-3" />
-              <span>{format(new Date(event.date), 'PPp')}</span>
+              <span>{formatDateTime(event.date)}</span>
             </div>
           )}
           {event.location && (

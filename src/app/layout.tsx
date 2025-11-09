@@ -12,8 +12,28 @@ import { CompleteProfileHandler } from "@/components/ui/complete-profile-handler
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "EventTria",
-  description: "Your event management platform",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://eventtria.com'),
+  title: "EventTria - Create and Manage Your Events",
+  description: "Plan events end-to-end: create events, add items and scripts, assign tasks, and track progress.",
+  openGraph: {
+    title: "EventTria - Create and Manage Your Events",
+    description: "Plan events end-to-end: create events, add items and scripts, assign tasks, and track progress.",
+    images: [
+      {
+        url: "/images/template/eventtria.webp",
+        width: 1200,
+        height: 630,
+        alt: "EventTria Logo",
+      },
+    ],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "EventTria - Create and Manage Your Events",
+    description: "Plan events end-to-end: create events, add items and scripts, assign tasks, and track progress.",
+    images: ["/images/template/eventtria.webp"],
+  },
 };
 
 // Pages that don't need the sidebar

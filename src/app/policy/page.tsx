@@ -3,7 +3,30 @@ import { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Policy & Terms - EventTria",
   description: "EventTria's policy and terms of service",
+  openGraph: {
+    title: "Policy & Terms - EventTria",
+    description: "EventTria's policy and terms of service",
+    images: [
+      {
+        url: "/images/template/eventtria.webp",
+        width: 1200,
+        height: 630,
+        alt: "EventTria - Policy & Terms",
+      },
+    ],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Policy & Terms - EventTria",
+    description: "EventTria's policy and terms of service",
+    images: ["/images/template/eventtria.webp"],
+  },
 };
+
+// Force static generation - policy page doesn't change often
+export const dynamic = 'force-static';
+export const revalidate = false; // Never revalidate, fully static
 
 export default function PolicyPage() {
   return (
