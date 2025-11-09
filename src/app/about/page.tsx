@@ -18,7 +18,7 @@ const teamMembers = [
   },
   {
     name: "Jude Maverick Manalo",
-    title: "Head of Product",
+    title: "COO & Head of Product",
     imageSrc: "/images/man3.webp",
     portfolioUrl:
       "https://www.linkedin.com/in/jude-maverick-manalo-20880432a/",
