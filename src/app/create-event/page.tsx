@@ -507,7 +507,7 @@ export default function CreateEventPage() {
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* Step 1: Event Details */}
         <div className="space-y-4">
-          <Label htmlFor="title">Event Title</Label>
+          <Label htmlFor="title">Event Title *</Label>
           <Input
             id="title"
             name="title"
@@ -534,7 +534,7 @@ export default function CreateEventPage() {
               />
             </div>
           </div>
-          <Label htmlFor="type">Type</Label>
+          <Label htmlFor="type">Type *</Label>
           <Select
             name="type"
             value={eventData.type}
@@ -554,7 +554,7 @@ export default function CreateEventPage() {
               ))}
             </SelectContent>
           </Select>
-          <Label htmlFor="description">Description</Label>
+          <Label htmlFor="description">Description *</Label>
           <textarea
             id="description"
             name="description"
@@ -566,7 +566,7 @@ export default function CreateEventPage() {
         </div>
         {/* Step 2: Location and Date */}
         <div className="space-y-4">
-          <Label htmlFor="location">Location</Label>
+          <Label htmlFor="location">Location *</Label>
           <Input
             id="location"
             name="location"
@@ -574,7 +574,7 @@ export default function CreateEventPage() {
             onChange={handleEventChange}
             required
           />
-          <Label htmlFor="date">Date</Label>
+          <Label htmlFor="date">Date *</Label>
           <DatePicker
             date={eventData.date}
             setDate={(date) => setEventData((prev) => ({ ...prev, date }))}
@@ -625,7 +625,7 @@ export default function CreateEventPage() {
               className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end border p-4 rounded-lg mb-2 bg-muted/20"
             >
               <div>
-                <Label>Item Name</Label>
+                <Label>Item Name *</Label>
                 <Input
                   value={item.item_name}
                   onChange={(e) =>
@@ -644,7 +644,7 @@ export default function CreateEventPage() {
                 />
               </div>
               <div>
-                <Label>Quantity</Label>
+                <Label>Quantity *</Label>
                 <Input
                   type="number"
                   min={1}
@@ -656,7 +656,7 @@ export default function CreateEventPage() {
                 />
               </div>
               <div>
-                <Label>Cost (PHP)</Label>
+                <Label>Cost (PHP) *</Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -689,8 +689,7 @@ export default function CreateEventPage() {
           {/* Markup Section */}
           <div className="space-y-4">
             <div className="flex items-center gap-2">
-              <Label className="text-base font-medium">Markup Type</Label>
-              <span className="text-sm text-slate-500">(Required)</span>
+              <Label className="text-base font-medium">Markup Type *</Label>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -710,7 +709,9 @@ export default function CreateEventPage() {
                 </Select>
               </div>
               <div>
+                <Label htmlFor="markup_value" className="sr-only">Markup Value *</Label>
                 <Input
+                  id="markup_value"
                   type="number"
                   step="0.01"
                   min="0"

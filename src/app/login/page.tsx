@@ -172,7 +172,7 @@ export default function LoginPage() {
             </div>
           )}
           <div>
-            <Label htmlFor="email" className="text-sm sm:text-base">Email</Label>
+            <Label htmlFor="email" className="text-sm sm:text-base">Email *</Label>
             <Input
               id="email"
               name="email"
@@ -187,7 +187,7 @@ export default function LoginPage() {
             )}
           </div>
           <div>
-            <Label htmlFor="password" className="text-sm sm:text-base">Password</Label>
+            <Label htmlFor="password" className="text-sm sm:text-base">Password *</Label>
             <div className="relative">
               <Input
                 id="password"

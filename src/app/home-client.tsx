@@ -44,7 +44,7 @@ export default function HomeClient() {
   const [categories, setCategories] = useState<
     { name: string; count: number; color: string }[]
   >([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false); // Start as false, set to true when fetching
   const [error, setError] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [eventCountByDate, setEventCountByDate] = useState<Record<string, number>>({});
@@ -316,6 +316,16 @@ export default function HomeClient() {
     
     fetchingRef.current.featuredEvents = true;
 
+    // Add timeout to prevent infinite loading
+    let timeoutId: NodeJS.Timeout | null = setTimeout(() => {
+      if (fetchingRef.current.featuredEvents) {
+        console.warn('Featured events fetch timed out, resetting...');
+        fetchingRef.current.featuredEvents = false;
+        setIsLoading(false);
+        setError(null); // Don't show error for timeout, just stop loading
+      }
+    }, 15000); // 15 second timeout
+
     try {
       setIsLoading(true);
       const {
@@ -323,11 +333,17 @@ export default function HomeClient() {
         error: userError,
       } = await supabase.auth.getUser();
 
-      if (signal?.aborted) return;
+      if (signal?.aborted) {
+        fetchingRef.current.featuredEvents = false;
+        setIsLoading(false);
+        return;
+      }
       if (userError) throw userError;
 
       if (!user) {
         setFeaturedEvents([]);
+        fetchingRef.current.featuredEvents = false;
+        setIsLoading(false);
         return;
       }
 
@@ -343,7 +359,11 @@ export default function HomeClient() {
           .eq("user_id", user.id),
       ]);
 
-      if (signal?.aborted) return;
+      if (signal?.aborted) {
+        fetchingRef.current.featuredEvents = false;
+        setIsLoading(false);
+        return;
+      }
       if (collabError) throw collabError;
       if (ownError) throw ownError;
 
@@ -355,12 +375,20 @@ export default function HomeClient() {
         .from("events")
         .select("*")
           .in("id", joinedEventIds);
-        if (signal?.aborted) return;
+        if (signal?.aborted) {
+          fetchingRef.current.featuredEvents = false;
+          setIsLoading(false);
+          return;
+        }
         if (joinedError) throw joinedError;
         joinedEvents = joinedData || [];
       }
 
-      if (signal?.aborted) return;
+      if (signal?.aborted) {
+        fetchingRef.current.featuredEvents = false;
+        setIsLoading(false);
+        return;
+      }
 
       // Merge, de-duplicate, filter out cancelled/archived, sort by created_at desc, and take top 8
       const mapById = new Map<string, Event>();
@@ -375,19 +403,40 @@ export default function HomeClient() {
         new Date(b.created_at as any).getTime() - new Date(a.created_at as any).getTime()
       );
 
-      if (signal?.aborted) return;
+      if (signal?.aborted) {
+        fetchingRef.current.featuredEvents = false;
+        setIsLoading(false);
+        return;
+      }
       console.log('Featured events fetched:', merged.length, 'events');
       setFeaturedEvents(merged.slice(0, 8));
+      setError(null); // Clear any previous errors
     } catch (err: any) {
-      if (signal?.aborted) return;
+      if (signal?.aborted) {
+        fetchingRef.current.featuredEvents = false;
+        setIsLoading(false);
+        return;
+      }
       console.error("Error fetching featured events:", err);
-      setError("Failed to load featured events");
+      // Check if it's a network error - don't show error for network issues
+      const isNetworkError = err?.message?.includes('fetch') || 
+                             err?.message?.includes('timeout') ||
+                             err?.message?.includes('network') ||
+                             err?.name === 'NetworkError';
+      
+      if (!isNetworkError) {
+        setError("Failed to load featured events");
+      }
       setFeaturedEvents([]);
     } finally {
-      fetchingRef.current.featuredEvents = false;
-      if (!signal?.aborted) {
-        setIsLoading(false);
+      // Clear timeout
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
       }
+      // Always reset loading state and fetch flag
+      fetchingRef.current.featuredEvents = false;
+      setIsLoading(false);
     }
   };
 
@@ -629,6 +678,40 @@ export default function HomeClient() {
           <p className="mb-6 text-sm sm:text-base md:text-lg max-w-[680px] [text-wrap:balance]">
             Create events, add items and scripts, assign tasks, and track progress
           </p>
+        </div>
+      </section>
+
+      {/* Create and Manage Your Events Section */}
+      <section className="container mx-auto px-4 py-12 md:py-20">
+        <div className="text-center max-w-3xl mx-auto mb-12">
+          <h2 className="text-4xl md:text-5xl font-bold mb-6">
+            Create and Manage Your Events
+          </h2>
+          <p className="text-xl text-muted-foreground mb-8">
+            Plan events end-to-end: create events, add items and scripts, assign tasks, and track progress.
+          </p>
+        </div>
+
+        {/* Features Grid */}
+        <div className="grid md:grid-cols-3 gap-6 mb-16">
+          <div className="bg-card rounded-lg p-6 border">
+            <h3 className="text-xl font-semibold mb-3">Easy Event Creation</h3>
+            <p className="text-muted-foreground">
+              Create events quickly with our intuitive interface. Add details, set dates, and manage everything in one place.
+            </p>
+          </div>
+          <div className="bg-card rounded-lg p-6 border">
+            <h3 className="text-xl font-semibold mb-3">Smart Management</h3>
+            <p className="text-muted-foreground">
+              Organize items, scripts, and tasks efficiently. Track progress and collaborate with your team seamlessly.
+            </p>
+          </div>
+          <div className="bg-card rounded-lg p-6 border">
+            <h3 className="text-xl font-semibold mb-3">Powerful Analytics</h3>
+            <p className="text-muted-foreground">
+              Get insights into your events with AI-powered analytics. Make data-driven decisions to improve your events.
+            </p>
+          </div>
         </div>
       </section>
 

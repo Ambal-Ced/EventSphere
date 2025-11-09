@@ -1,3 +1,5 @@
+import { LoadingWithFallback } from "@/components/ui/loading-with-fallback";
+
 export default function EventsLoading() {
   return (
     <div className="container mx-auto px-4 py-8">
@@ -20,6 +22,9 @@ export default function EventsLoading() {
           ))}
         </div>
       </div>
+      
+      {/* Fallback for stuck loading */}
+      <LoadingWithFallback message="Loading events..." />
     </div>
   );
 }

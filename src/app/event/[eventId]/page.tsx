@@ -316,7 +316,6 @@ export default function SingleEventPage() {
         data: { user },
       } = await supabase.auth.getUser();
       if (user && event) {
-        console.log("Auth effect: User authenticated, checking access");
         checkUserAccess();
       }
     };
@@ -328,7 +327,6 @@ export default function SingleEventPage() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_IN" && session?.user && event) {
-        console.log("Auth effect: User signed in, checking access");
         checkUserAccess();
       }
     });
@@ -344,7 +342,6 @@ export default function SingleEventPage() {
           data: { user },
         } = await supabase.auth.getUser();
         if (user && event.user_id === user.id && !isOwner) {
-          console.log("Fallback check: Setting user as owner");
           setIsOwner(true);
           setUserRole("owner");
         }
@@ -366,9 +363,6 @@ export default function SingleEventPage() {
         .single();
 
       if (eventError) throw eventError;
-
-      console.log("fetchEvent: Event data received:", eventData);
-      console.log("fetchEvent: Event creator_id:", eventData?.user_id);
 
       // Fetch owner's profile separately
       if (eventData?.user_id) {
@@ -479,7 +473,6 @@ export default function SingleEventPage() {
           .eq("event_id", event.id)
           .order("created_at", { ascending: true });
         if (error) throw error;
-        console.log("Loaded chat messages:", data);
         setChatMessages(data || []);
 
         // Build user cache for message authors
@@ -895,13 +888,7 @@ export default function SingleEventPage() {
 
   // Update event status
   const handleUpdateStatus = async () => {
-    console.log("handleUpdateStatus called with:", {
-      event: event?.id,
-      selectedStatus,
-    });
-
     if (!event || !selectedStatus) {
-      console.log("Early return - missing event or selectedStatus");
       return;
     }
 
@@ -909,13 +896,11 @@ export default function SingleEventPage() {
 
     // Add a timeout to prevent infinite loading
     const timeoutId = setTimeout(() => {
-      console.log("Status update timeout - forcing reset");
       setIsUpdatingStatus(false);
       toast.error("Status update timed out. Please try again.");
     }, 30000); // 30 seconds timeout
 
     try {
-      console.log("Starting status update for event:", event.id);
 
       let updateData: any = { status: selectedStatus };
 
@@ -928,7 +913,6 @@ export default function SingleEventPage() {
 
         // Delete image from storage bucket if it exists
         if (event.image_url) {
-          console.log("Deleting event image for cancelled event");
           await deleteEventImage(event.image_url, event.user_id, supabase);
         }
       }
@@ -941,7 +925,6 @@ export default function SingleEventPage() {
         };
       }
 
-      console.log("Updating event with data:", updateData);
 
       const { error } = await supabase
         .from("events")
@@ -953,7 +936,6 @@ export default function SingleEventPage() {
         throw error;
       }
 
-      console.log("Event status updated successfully in database");
 
       // Clear timeout since we succeeded
       clearTimeout(timeoutId);
@@ -3093,7 +3075,7 @@ RECOMMENDATIONS:
           {/* Right Sidebar - Green Rectangle Concept (hidden when chat open) */}
           <div className="lg:col-span-1">
             {!showChat && (
-            <div className="sticky top-24 h-fit space-y-6 z-10 self-start">
+            <div className="sticky top-24 h-fit space-y-6 z-10 self-start max-h-[calc(100vh-6rem)] overflow-y-auto">
               {/* Event Actions */}
               <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-6 flex flex-col">
                 <h3 className="text-xl font-semibold text-green-400 mb-6">
@@ -3342,12 +3324,13 @@ RECOMMENDATIONS:
 
             <div className="space-y-4">
               <div>
-                <Label className="text-white">Role for Invited User</Label>
+                <Label className="text-white">Role for Invited User *</Label>
                 <Select
                   value={inviteRole}
                   onValueChange={(value: "moderator" | "member") =>
                     setInviteRole(value)
                   }
+                  required
                 >
                   <SelectTrigger className="bg-slate-700 border-amber-500/30 text-white">
                     <SelectValue />

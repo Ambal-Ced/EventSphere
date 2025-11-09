@@ -16,8 +16,26 @@ export const supabase: SupabaseClient<Database> =
       persistSession: true,
       autoRefreshToken: true,
       storageKey: "eventsphere.auth",
+      detectSessionInUrl: true,
+      // Increase timeout for slow networks
+      flowType: 'pkce',
     },
-    global: { headers: { "x-client": "eventtria-web" } },
+    global: { 
+      headers: { "x-client": "eventtria-web" },
+      // Add fetch timeout handling
+      fetch: (url, options = {}) => {
+        // Create an AbortController with timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+        
+        return fetch(url, {
+          ...options,
+          signal: controller.signal,
+        }).finally(() => {
+          clearTimeout(timeoutId);
+        });
+      },
+    },
   });
 
 if (process.env.NODE_ENV !== "production") {

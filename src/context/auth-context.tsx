@@ -51,24 +51,74 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
+    let retryCount = 0;
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY = 1000; // 1 second
 
-    // Check active sessions and sets the user
-    const initializeAuth = async () => {
+    // Check active sessions with retry logic for network issues
+    const initializeAuth = async (attempt = 1): Promise<void> => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
         if (mounted) {
           if (error) {
-            console.error("Session error:", error);
-            setUser(null);
+            // Only log out on auth errors, not network errors
+            // Network errors (like timeout) should retry
+            const isNetworkError = error.message?.includes('fetch') || 
+                                   error.message?.includes('timeout') ||
+                                   error.message?.includes('network') ||
+                                   error.name === 'NetworkError';
+            
+            if (isNetworkError && attempt < MAX_RETRIES) {
+              // Retry on network errors
+              retryCount = attempt;
+              setTimeout(() => {
+                if (mounted) {
+                  initializeAuth(attempt + 1);
+                }
+              }, RETRY_DELAY * attempt);
+              return;
+            }
+            
+            // Only set user to null on actual auth errors (not network issues)
+            if (!isNetworkError) {
+              console.error("Session error:", error);
+              setUser(null);
+            }
+            // On network errors after retries, keep current user state
+            setLoading(false);
           } else {
             setUser(session?.user ?? null);
+            setLoading(false);
+            retryCount = 0; // Reset retry count on success
           }
-          setLoading(false);
         }
-      } catch (err) {
+      } catch (err: any) {
         if (mounted) {
-          console.error("Failed to get session:", err);
-          setUser(null);
+          // Check if it's a network error
+          const isNetworkError = err?.message?.includes('fetch') || 
+                                 err?.message?.includes('timeout') ||
+                                 err?.message?.includes('network') ||
+                                 err?.name === 'NetworkError' ||
+                                 err?.code === 'ECONNRESET' ||
+                                 err?.code === 'ETIMEDOUT';
+          
+          if (isNetworkError && attempt < MAX_RETRIES) {
+            // Retry on network errors
+            retryCount = attempt;
+            setTimeout(() => {
+              if (mounted) {
+                initializeAuth(attempt + 1);
+              }
+            }, RETRY_DELAY * attempt);
+            return;
+          }
+          
+          // Only log out on non-network errors
+          if (!isNetworkError) {
+            console.error("Failed to get session:", err);
+            setUser(null);
+          }
+          // On network errors after retries, keep current user state
           setLoading(false);
         }
       }
@@ -83,6 +133,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (mounted) {
         setUser(session?.user ?? null);
         setLoading(false);
+        retryCount = 0; // Reset retry count on auth state change
       }
     });
 

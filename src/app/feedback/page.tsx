@@ -234,12 +234,13 @@ export default function FeedbackPage() {
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <Label htmlFor="feedback_type">Type</Label>
+            <Label htmlFor="feedback_type">Type *</Label>
             <select
               id="feedback_type"
               name="feedback_type"
               value={form.feedback_type}
               onChange={handleChange}
+              required
               className="mt-1 w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
             >
               <option value="bug_report">Bug Report</option>
@@ -250,12 +251,13 @@ export default function FeedbackPage() {
             </select>
           </div>
           <div>
-            <Label htmlFor="rating">Rating</Label>
+            <Label htmlFor="rating">Rating *</Label>
             <select
               id="rating"
               name="rating"
               value={form.rating}
               onChange={handleChange}
+              required
               className="mt-1 w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
             >
               {[1, 2, 3, 4, 5].map((r) => (
@@ -268,18 +270,19 @@ export default function FeedbackPage() {
         </div>
 
         <div>
-          <Label htmlFor="title">Title</Label>
+          <Label htmlFor="title">Title *</Label>
           <Input
             id="title"
             name="title"
             value={form.title}
             onChange={handleChange}
             placeholder="Short summary"
+            required
           />
         </div>
 
         <div>
-          <Label htmlFor="description">Description</Label>
+          <Label htmlFor="description">Description *</Label>
           <textarea
             id="description"
             name="description"

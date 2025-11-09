@@ -424,6 +424,15 @@ export function Header() {
           >
             Pricing
           </Link>
+          <Link prefetch={true}
+            href="/contact"
+            className={cn(
+              "text-lg font-medium transition-colors hover:text-primary",
+              pathname === "/contact" ? "text-primary" : "text-muted-foreground"
+            )}
+          >
+            Contact
+          </Link>
         </div>
       </nav>
 
@@ -660,6 +669,7 @@ export function Header() {
             <Link prefetch={true} href="/about" className={cn("text-base", pathname === "/about" ? "text-primary" : "text-muted-foreground")} onClick={()=>setMobileOpen(false)}>About</Link>
             <Link prefetch={true} href="/faqs" className={cn("text-base", pathname === "/faqs" ? "text-primary" : "text-muted-foreground")} onClick={()=>setMobileOpen(false)}>FAQs</Link>
             <Link prefetch={true} href="/pricing" className={cn("text-base", pathname === "/pricing" ? "text-primary" : "text-muted-foreground")} onClick={()=>setMobileOpen(false)}>Pricing</Link>
+            <Link prefetch={true} href="/contact" className={cn("text-base", pathname === "/contact" ? "text-primary" : "text-muted-foreground")} onClick={()=>setMobileOpen(false)}>Contact</Link>
             
             {/* Show notifications only for authenticated users */}
             {user && (

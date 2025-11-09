@@ -29,6 +29,7 @@ import {
 import { EventCreatedLimitsCard } from "@/components/ui/event-created-limits-card";
 import { LimitExceededWarningCard } from "@/components/ui/limit-exceeded-warning-card";
 import { LoadingPopup } from "@/components/ui/loading-popup";
+import { LoadingWithFallback } from "@/components/ui/loading-with-fallback";
 
 // Interface matching the events table structure (adjust if needed)
 interface Event {
@@ -512,12 +513,7 @@ function MyEventsDynamicContent() {
 function MyEventsDynamicLoading() {
   return (
     <div className="container mx-auto py-8 px-4">
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading events...</p>
-        </div>
-      </div>
+      <LoadingWithFallback message="Loading events..." />
     </div>
   );
 }

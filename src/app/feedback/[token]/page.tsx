@@ -226,7 +226,7 @@ export default function PublicFeedbackPage() {
             <Input type="email" value={email} onChange={(e)=>setEmail(e.target.value)} />
           </div>
           <div>
-            <Label>Rating (1-5)</Label>
+            <Label>Rating (1-5) *</Label>
             <Input
               type="number"
               min={1}
@@ -244,8 +244,8 @@ export default function PublicFeedbackPage() {
             />
           </div>
           <div>
-            <Label>Sentiment</Label>
-            <Select value={sentiment} onValueChange={(v: any) => setSentiment(v)}>
+            <Label>Sentiment *</Label>
+            <Select value={sentiment} onValueChange={(v: any) => setSentiment(v)} required>
               <SelectTrigger>
                 <SelectValue placeholder="Select sentiment" />
               </SelectTrigger>
