@@ -190,11 +190,11 @@ export async function GET(request: NextRequest) {
       byDay[day].revenue_cents += r.net_amount_cents ?? 0;
     });
 
-    // Subtract cancelled transactions from revenue
+    // Subtract cancelled transactions from revenue (ensure it doesn't go negative)
     (cancelledTxRows ?? []).forEach((r: any) => {
       const day = new Date(r.created_at).toISOString().slice(0, 10);
       if (!byDay[day]) byDay[day] = { events: 0, transactions: 0, revenue_cents: 0, users: 0, subscriptions: 0, active_subscriptions: 0 };
-      byDay[day].revenue_cents -= r.net_amount_cents ?? 0;
+      byDay[day].revenue_cents = Math.max(0, (byDay[day].revenue_cents || 0) - (r.net_amount_cents ?? 0));
     });
 
     // Process users
@@ -239,7 +239,7 @@ export async function GET(request: NextRequest) {
     (cancelledTxRows ?? []).forEach((tx: any) => {
       const planName = tx.plan_name || "Unknown";
       if (subscriptionBreakdown[planName]) {
-        subscriptionBreakdown[planName].revenue_cents -= tx.net_amount_cents ?? 0;
+        subscriptionBreakdown[planName].revenue_cents = Math.max(0, (subscriptionBreakdown[planName].revenue_cents || 0) - (tx.net_amount_cents ?? 0));
       }
     });
 
@@ -336,7 +336,7 @@ export async function GET(request: NextRequest) {
           date,
           events: v.events,
           transactions: v.transactions,
-          revenue_cents: v.revenue_cents,
+          revenue_cents: Math.max(0, v.revenue_cents || 0), // Ensure revenue never goes negative
           users: v.users,
           subscriptions: v.subscriptions,
           active_subscriptions: v.active_subscriptions,
