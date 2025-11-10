@@ -1032,10 +1032,10 @@ export default function HomeClient() {
 
       {/* Featured Events Section - CSS Marquee - Only show when user is logged in */}
       {user && (
-        <section>
-          <div className="mb-6 flex items-center justify-between">
-            <h2 className="text-3xl font-bold">Featured Events</h2>
-            <Button variant="ghost" className="gap-2" asChild>
+        <section className="container mx-auto px-4 py-8 sm:py-12">
+          <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+            <h2 className="text-2xl sm:text-3xl font-bold">Featured Events</h2>
+            <Button variant="ghost" className="gap-2 w-full sm:w-auto" asChild>
               <Link href="/events">
                 View All <ArrowRight className="h-4 w-4" />
               </Link>
@@ -1069,14 +1069,14 @@ export default function HomeClient() {
             </div>
           ) : (
             /* Outer container for overflow and hover pause */
-            <div className="group w-full overflow-hidden">
+            <div className="group w-full overflow-x-hidden -mx-4 sm:-mx-0 px-4 sm:px-0">
               {/* Inner track with animation */}
               <div className="flex w-max animate-marquee group-hover:[animation-play-state:paused] min-w-0">
                 {featuredEvents.map((event, index) => (
                   // Individual event card
                   <div
                     key={`${event.id}-${index}`}
-                    className="w-72 sm:w-80 flex-shrink-0 px-2 sm:px-3"
+                    className="w-[280px] sm:w-72 md:w-80 flex-shrink-0 px-2 sm:px-3"
                   >
                     <Link
                       href={`/event/${event.id}`}
@@ -1098,21 +1098,21 @@ export default function HomeClient() {
                         />
                       </div>
                       <div className="p-3 sm:p-4">
-                        <h3 className="mb-2 text-lg sm:text-xl font-semibold line-clamp-1">
+                        <h3 className="mb-2 text-base sm:text-lg md:text-xl font-semibold line-clamp-1">
                           {event.title}
                         </h3>
-                        <p className="text-xs sm:text-sm text-gray-400 line-clamp-2 mb-3 h-8 sm:h-10">
+                        <p className="text-xs sm:text-sm text-gray-400 line-clamp-2 mb-3 min-h-[2rem] sm:min-h-[2.5rem]">
                           {event.description}
                         </p>
-                        <div className="flex items-center gap-2 text-xs text-gray-400">
+                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs text-gray-400">
                           <div className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            {formatDate(event.date)}
+                            <Calendar className="h-3 w-3 flex-shrink-0" />
+                            <span className="truncate">{formatDate(event.date)}</span>
                           </div>
-                          <span className="opacity-50">|</span>
-                          <div className="flex items-center gap-1">
-                            <MapPin className="h-3 w-3" />
-                            {event.location}
+                          <span className="opacity-50 hidden sm:inline">|</span>
+                          <div className="flex items-center gap-1 min-w-0">
+                            <MapPin className="h-3 w-3 flex-shrink-0" />
+                            <span className="truncate">{event.location}</span>
                           </div>
                         </div>
                       </div>

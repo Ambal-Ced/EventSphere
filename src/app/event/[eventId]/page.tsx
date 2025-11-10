@@ -2348,10 +2348,10 @@ RECOMMENDATIONS:
       </div>
 
       {/* Main Content with gutter */}
-      <div className="w-full py-8 pr-3">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 relative">
+      <div className="w-full py-4 sm:py-6 lg:py-8 px-4 sm:px-6 lg:px-0 lg:pr-3">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8 relative max-w-7xl mx-auto">
           {/* Main Content Area - Takes 3 columns */}
-          <div className="lg:col-span-3 space-y-6">
+          <div className="lg:col-span-3 space-y-4 sm:space-y-6">
             {/* Event Title */}
             <div className="text-center">
               {isEditingEvent ? (
@@ -2501,7 +2501,7 @@ RECOMMENDATIONS:
             </div>
 
             {/* Event Image */}
-            <div className="relative w-full h-64 sm:h-72 md:h-80 rounded-lg overflow-hidden bg-slate-700 mx-2 sm:mx-3 md:mx-4">
+            <div className="relative w-full h-48 sm:h-64 md:h-72 lg:h-80 rounded-lg overflow-hidden bg-slate-700 mx-0 sm:mx-2 md:mx-3 lg:mx-4">
               {isEditingEvent ? (
                 <div className="relative w-full h-full">
                   <Image
@@ -2545,7 +2545,7 @@ RECOMMENDATIONS:
 
             {/* Event Description */}
             <div className="rounded-lg p-4 sm:p-6">
-              <h3 className="text-xl font-semibold text-amber-400 mb-2">
+              <h3 className="text-lg sm:text-xl font-semibold text-amber-400 mb-2 sm:mb-3">
                 Event Description
               </h3>
               <div className="mb-4">
@@ -2785,7 +2785,7 @@ RECOMMENDATIONS:
                   );
                 })()}
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
                 {/* Add New Item Box (only editors) */}
                 {canEdit && (
                   <div
@@ -2909,9 +2909,9 @@ RECOMMENDATIONS:
             </div>
 
             {/* Event Script */}
-            <div className="p-6">
-              <h3 className="text-xl font-semibold text-white mb-4">Event Script</h3>
-              <div className="grid grid-cols-1 gap-6">
+            <div className="p-4 sm:p-6">
+              <h3 className="text-lg sm:text-xl font-semibold text-white mb-3 sm:mb-4">Event Script</h3>
+              <div className="grid grid-cols-1 gap-4 sm:gap-6">
                 <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
                   <h4 className="text-lg font-semibold text-amber-400 mb-3">
                     Event Script
@@ -3084,9 +3084,9 @@ RECOMMENDATIONS:
         )}
 
             {/* Analytics Section */}
-            <div className="p-6">
-              <h3 className="text-xl font-semibold text-white mb-4">Event Analytics</h3>
-              <div className="grid grid-cols-1 gap-6">
+            <div className="p-4 sm:p-6">
+              <h3 className="text-lg sm:text-xl font-semibold text-white mb-3 sm:mb-4">Event Analytics</h3>
+              <div className="grid grid-cols-1 gap-4 sm:gap-6">
                 <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
                   <h4 className="text-lg font-semibold text-green-400 mb-3 flex items-center gap-2">
                     <BarChart3 className="w-5 h-5" />
@@ -3149,19 +3149,19 @@ RECOMMENDATIONS:
           </div>
 
           {/* Right Sidebar - Green Rectangle Concept (hidden when chat open) */}
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-1 w-full">
             {!showChat && (
             <div 
               ref={sidebarRef}
-              className="lg:fixed lg:top-30 lg:right-4 lg:w-[320px] max-w-sm h-fit lg:h-[calc(100vh-9rem)] space-y-6 z-10 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto px-2 transition-transform duration-150 ease-out"
+              className="w-full lg:fixed lg:top-30 lg:right-4 lg:w-[320px] max-w-full lg:max-w-sm h-fit lg:h-[calc(100vh-9rem)] space-y-4 sm:space-y-6 z-10 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto px-2 sm:px-4 lg:px-2 transition-transform duration-150 ease-out"
               style={{ transform: `translateY(${sidebarTransform}px)` }}
             >
               {/* Event Actions */}
-              <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-6 flex flex-col">
-                <h3 className="text-xl font-semibold text-green-400 mb-6">
+              <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4 sm:p-6 flex flex-col">
+                <h3 className="text-lg sm:text-xl font-semibold text-green-400 mb-4 sm:mb-6">
                   Event Actions
                 </h3>
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   <Button
                     variant="outline"
                     className="w-full justify-start border-green-500/30 text-green-400 hover:bg-green-500/20 hover:text-green-300"
@@ -3266,12 +3266,12 @@ RECOMMENDATIONS:
               </div>
 
               {/* Event Members/People */}
-              <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-6 flex flex-col">
-                <h3 className="text-xl font-semibold text-purple-400 mb-6 flex-shrink-0">
+              <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-4 sm:p-6 flex flex-col">
+                <h3 className="text-lg sm:text-xl font-semibold text-purple-400 mb-4 sm:mb-6 flex-shrink-0">
                   Event Members
                 </h3>
                 <div className="flex-1 flex flex-col min-h-0">
-                  <div className="space-y-4 flex-1 overflow-y-auto">
+                  <div className="space-y-3 sm:space-y-4 flex-1 overflow-y-auto">
                   {(() => {
                     // Create a combined list with owner first, then collaborators sorted by joined_at
                     const allMembers = [];
