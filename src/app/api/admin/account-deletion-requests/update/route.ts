@@ -170,6 +170,8 @@ export async function POST(request: NextRequest) {
 
       const updateRows = pendingRows.map((row) => ({
         id: row.id,
+        user_id: row.user_id, // Include user_id to prevent null constraint violation
+        user_email: row.user_email, // Include user_email
         status: "approved",
         cancelled_at: null,
         scheduled_deletion_date: scheduledDate,
