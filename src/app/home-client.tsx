@@ -729,7 +729,7 @@ export default function HomeClient() {
 
   return (
     <>
-    <div className="flex flex-col gap-12 w-full overflow-x-hidden max-w-full">
+    <div className="flex flex-col gap-12 w-full max-w-full overflow-x-hidden">
       {/* Hero Section */}
       <section className="relative min-h-[360px] h-[420px] sm:h-[480px] md:h-[500px] w-full overflow-hidden rounded-3xl">
         {/* Background Image */}
@@ -755,7 +755,7 @@ export default function HomeClient() {
       </section>
 
       {/* Create and Manage Your Events Section */}
-      <section className="container mx-auto px-4 py-12 md:py-20">
+      <section className="container mx-auto px-4 py-12 md:py-20 w-full max-w-full overflow-x-hidden">
         <div className="text-center max-w-3xl mx-auto mb-12">
           <h2 className="text-4xl md:text-5xl font-bold mb-6">
             Create and Manage Your Events
@@ -789,7 +789,7 @@ export default function HomeClient() {
       </section>
 
       {/* Large Calendar Section */}
-      <section className="rounded-3xl border bg-card p-6 md:p-10">
+      <section className="rounded-3xl border bg-card p-6 md:p-10 w-full max-w-full overflow-x-hidden">
         <h2 className="text-3xl font-bold mb-6 text-center">Event Calendar</h2>
         <div className="flex flex-col lg:flex-row items-stretch gap-6">
           {/* Big date display */}
@@ -926,13 +926,13 @@ export default function HomeClient() {
       </section>
 
       {/* How to Use EventTria Section */}
-      <section>
+      <section className="w-full max-w-full overflow-x-hidden">
         <h2 className="text-center text-3xl font-bold mb-12">
           How to Use EventTria
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* Step 1 */}
-          <div className="flex flex-col items-center text-center p-6 rounded-xl border border-green-500/10 hover:bg-green-500/5 hover:border-green-500/20 hover:scale-105 transition-all duration-300 cursor-pointer">
+          <div className="flex flex-col items-center text-center p-6 rounded-xl border border-green-500/10 hover:bg-green-500/5 hover:border-green-500/20 transition-all duration-300 cursor-pointer">
             <div className="mb-4 p-4 rounded-full bg-green-500/10">
               <Calendar className="h-8 w-8 text-green-500" />
             </div>
@@ -944,7 +944,7 @@ export default function HomeClient() {
             </p>
           </div>
           {/* Step 2 */}
-          <div className="flex flex-col items-center text-center p-6 rounded-xl border border-amber-500/10 hover:bg-amber-500/5 hover:border-amber-500/20 hover:scale-105 transition-all duration-300 cursor-pointer">
+          <div className="flex flex-col items-center text-center p-6 rounded-xl border border-amber-500/10 hover:bg-amber-500/5 hover:border-amber-500/20 transition-all duration-300 cursor-pointer">
             <div className="mb-4 p-4 rounded-full bg-amber-500/10">
               <Plus className="h-8 w-8 text-amber-500" />
             </div>
@@ -956,7 +956,7 @@ export default function HomeClient() {
             </p>
           </div>
           {/* Step 3 */}
-          <div className="flex flex-col items-center text-center p-6 rounded-xl border border-green-500/10 hover:bg-green-500/5 hover:border-green-500/20 hover:scale-105 transition-all duration-300 cursor-pointer">
+          <div className="flex flex-col items-center text-center p-6 rounded-xl border border-green-500/10 hover:bg-green-500/5 hover:border-green-500/20 transition-all duration-300 cursor-pointer">
             <div className="mb-4 p-4 rounded-full bg-green-500/10">
               <Edit className="h-8 w-8 text-green-500" />
             </div>
@@ -968,7 +968,7 @@ export default function HomeClient() {
             </p>
           </div>
           {/* Step 4 */}
-          <div className="flex flex-col items-center text-center p-6 rounded-xl border border-amber-500/10 hover:bg-amber-500/5 hover:border-amber-500/20 hover:scale-105 transition-all duration-300 cursor-pointer">
+          <div className="flex flex-col items-center text-center p-6 rounded-xl border border-amber-500/10 hover:bg-amber-500/5 hover:border-amber-500/20 transition-all duration-300 cursor-pointer">
             <div className="mb-4 p-4 rounded-full bg-amber-500/10">
               <Clock className="h-8 w-8 text-amber-500" />
             </div>
@@ -980,7 +980,7 @@ export default function HomeClient() {
             </p>
           </div>
           {/* Step 5 */}
-          <div className="flex flex-col items-center text-center p-6 rounded-xl border border-green-500/10 hover:bg-green-500/5 hover:border-green-500/20 hover:scale-105 transition-all duration-300 cursor-pointer">
+          <div className="flex flex-col items-center text-center p-6 rounded-xl border border-green-500/10 hover:bg-green-500/5 hover:border-green-500/20 transition-all duration-300 cursor-pointer">
             <div className="mb-4 p-4 rounded-full bg-green-500/10">
               <ListPlus className="h-8 w-8 text-green-500" />
             </div>
@@ -992,7 +992,7 @@ export default function HomeClient() {
             </p>
           </div>
           {/* Step 6 */}
-          <div className="flex flex-col items-center text-center p-6 rounded-xl border border-amber-500/10 hover:bg-amber-500/5 hover:border-amber-500/20 hover:scale-105 transition-all duration-300 cursor-pointer">
+          <div className="flex flex-col items-center text-center p-6 rounded-xl border border-amber-500/10 hover:bg-amber-500/5 hover:border-amber-500/20 transition-all duration-300 cursor-pointer">
             <div className="mb-4 p-4 rounded-full bg-amber-500/10">
               <Tag className="h-8 w-8 text-amber-500" />
             </div>
@@ -1004,7 +1004,7 @@ export default function HomeClient() {
             </p>
           </div>
           {/* Step 7 */}
-          <div className="flex flex-col items-center text-center p-6 rounded-xl border border-green-500/10 hover:bg-green-500/5 hover:border-green-500/20 hover:scale-105 transition-all duration-300 cursor-pointer">
+          <div className="flex flex-col items-center text-center p-6 rounded-xl border border-green-500/10 hover:bg-green-500/5 hover:border-green-500/20 transition-all duration-300 cursor-pointer">
             <div className="mb-4 p-4 rounded-full bg-green-500/10">
               <CheckCircle className="h-8 w-8 text-green-500" />
             </div>
@@ -1016,7 +1016,7 @@ export default function HomeClient() {
             </p>
           </div>
           {/* Step 8 */}
-          <div className="flex flex-col items-center text-center p-6 rounded-xl border border-amber-500/10 hover:bg-amber-500/5 hover:border-amber-500/20 hover:scale-105 transition-all duration-300 cursor-pointer">
+          <div className="flex flex-col items-center text-center p-6 rounded-xl border border-amber-500/10 hover:bg-amber-500/5 hover:border-amber-500/20 transition-all duration-300 cursor-pointer">
             <div className="mb-4 p-4 rounded-full bg-amber-500/10">
               <CheckSquare className="h-8 w-8 text-amber-500" />
             </div>
@@ -1032,8 +1032,8 @@ export default function HomeClient() {
 
       {/* Featured Events Section - CSS Marquee - Only show when user is logged in */}
       {user && (
-        <section className="w-full max-w-full overflow-x-hidden">
-          <div className="container mx-auto px-4 py-8 sm:py-12 w-full max-w-7xl">
+        <section className="w-full max-w-full overflow-x-hidden relative">
+          <div className="container mx-auto px-4 py-8 sm:py-12 w-full max-w-7xl overflow-x-hidden">
             <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
               <h2 className="text-2xl sm:text-3xl font-bold">Featured Events</h2>
               <Button variant="ghost" className="gap-2 w-full sm:w-auto" asChild>
@@ -1070,21 +1070,21 @@ export default function HomeClient() {
               </div>
             ) : (
               /* Outer container for overflow and hover pause */
-              <div className="group relative w-full overflow-x-hidden overflow-y-visible">
+              <div className="group relative w-full overflow-x-hidden overflow-y-visible isolate">
                 {/* Inner track with animation */}
                 <div className="flex w-max animate-marquee group-hover:[animation-play-state:paused] will-change-transform">
                   {/* Duplicate events for seamless loop */}
                   {[...featuredEvents, ...featuredEvents].map((event, index) => (
-                  // Individual event card
+                  // Individual event card - Fixed size to prevent overflow
                   <div
                     key={`${event.id}-${index}`}
-                    className="w-[280px] sm:w-72 md:w-80 flex-shrink-0 px-2 sm:px-3"
+                    className="w-[280px] sm:w-[320px] md:w-[360px] flex-shrink-0 px-2 sm:px-3"
                   >
                     <Link
                       href={`/event/${event.id}`}
-                      className="block group/card relative overflow-hidden rounded-xl border bg-card transition-all duration-300 hover:shadow-lg hover:scale-105"
+                      className="block group/card relative overflow-hidden rounded-xl border bg-card transition-all duration-300 hover:shadow-lg h-full flex flex-col"
                     >
-                      <div className="aspect-video relative">
+                      <div className="aspect-video relative w-full flex-shrink-0 overflow-hidden">
                         <Image
                           src={
                             event.image_url ||
@@ -1094,27 +1094,27 @@ export default function HomeClient() {
                           width={800}
                           height={450}
                           className="w-full h-full object-cover brightness-75 transition-transform duration-300"
-                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                          sizes="(max-width: 640px) 280px, (max-width: 768px) 320px, 360px"
                           priority={index < 4}
                           quality={85}
                         />
                       </div>
-                      <div className="p-3 sm:p-4">
-                        <h3 className="mb-2 text-base sm:text-lg md:text-xl font-semibold line-clamp-1">
+                      <div className="p-3 sm:p-4 flex flex-col flex-1 min-h-0 overflow-hidden">
+                        <h3 className="mb-2 text-base sm:text-lg font-semibold line-clamp-1 flex-shrink-0">
                           {event.title}
                         </h3>
-                        <p className="text-xs sm:text-sm text-gray-400 line-clamp-2 mb-3 min-h-[2rem] sm:min-h-[2.5rem]">
-                          {event.description}
+                        <p className="text-xs sm:text-sm text-gray-400 line-clamp-2 mb-3 h-[2.5rem] sm:h-[3rem] flex-shrink-0 overflow-hidden">
+                          {event.description || "No description available"}
                         </p>
-                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs text-gray-400">
-                          <div className="flex items-center gap-1">
+                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs text-gray-400 mt-auto flex-shrink-0">
+                          <div className="flex items-center gap-1 min-w-0">
                             <Calendar className="h-3 w-3 flex-shrink-0" />
-                            <span className="truncate">{formatDate(event.date)}</span>
+                            <span className="truncate max-w-[120px] sm:max-w-[150px]">{formatDate(event.date)}</span>
                           </div>
-                          <span className="opacity-50 hidden sm:inline">|</span>
+                          <span className="opacity-50 hidden sm:inline flex-shrink-0">|</span>
                           <div className="flex items-center gap-1 min-w-0">
                             <MapPin className="h-3 w-3 flex-shrink-0" />
-                            <span className="truncate">{event.location}</span>
+                            <span className="truncate max-w-[100px] sm:max-w-[140px]">{event.location}</span>
                           </div>
                         </div>
                       </div>
@@ -1129,7 +1129,7 @@ export default function HomeClient() {
       )}
 
       {/* Call to Action Section */}
-      <section className="rounded-3xl bg-gradient-to-r from-primary/10 via-primary/5 to-background p-8 text-center">
+      <section className="rounded-3xl bg-gradient-to-r from-primary/10 via-primary/5 to-background p-8 text-center w-full max-w-full overflow-x-hidden">
         <h2 className="text-3xl font-bold mb-4">Ready to Get Started?</h2>
         <p className="text-lg text-muted-foreground mb-6">
           Join thousands of event organizers and attendees on EventTria
