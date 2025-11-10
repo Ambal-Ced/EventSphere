@@ -111,50 +111,43 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch full ratings list with user info
-    // Try with profiles join first, fallback to without if it fails
-    let ratingsList: any[] = [];
+    // First, fetch ratings without join
     const ratingsListQuery = buildDateFilter(
       db
         .from("user_ratings")
-        .select(`
-          id,
-          user_id,
-          rating,
-          suggestion,
-          created_at,
-          updated_at,
-          profiles:user_id (
-            id,
-            username,
-            fname,
-            lname,
-            mname,
-            suffix,
-            email
-          )
-        `)
+        .select("id, user_id, rating, suggestion, created_at, updated_at")
         .order("created_at", { ascending: false })
     );
 
-    const { data: ratingsListWithProfiles, error: ratingsListError } = await ratingsListQuery;
+    const { data: ratingsListData, error: ratingsListError } = await ratingsListQuery;
     
     if (ratingsListError) {
-      console.error("Error fetching ratings list with profiles:", ratingsListError);
-      // Fallback: fetch without profiles join
-      const fallbackQuery = buildDateFilter(
-        db
-          .from("user_ratings")
-          .select("id, user_id, rating, suggestion, created_at, updated_at")
-          .order("created_at", { ascending: false })
-      );
-      const { data: fallbackData, error: fallbackError } = await fallbackQuery;
-      if (fallbackError) {
-        console.error("Error fetching ratings list (fallback):", fallbackError);
-        throw fallbackError;
+      console.error("Error fetching ratings list:", ratingsListError);
+      throw ratingsListError;
+    }
+
+    const ratingsList = ratingsListData || [];
+    
+    // Get unique user IDs from ratings
+    const userIds = [...new Set(ratingsList.map((item: any) => item.user_id).filter(Boolean))];
+    
+    // Fetch profiles for all users in one query
+    let profilesMap: Record<string, any> = {};
+    if (userIds.length > 0) {
+      const { data: profilesData, error: profilesError } = await db
+        .from("profiles")
+        .select("id, username, fname, lname, mname, suffix, email")
+        .in("id", userIds);
+      
+      if (profilesError) {
+        console.error("Error fetching profiles:", profilesError);
+        // Continue without profiles if fetch fails
+      } else {
+        // Create a map of user_id -> profile
+        (profilesData || []).forEach((profile: any) => {
+          profilesMap[profile.id] = profile;
+        });
       }
-      ratingsList = fallbackData || [];
-    } else {
-      ratingsList = ratingsListWithProfiles || [];
     }
 
     // Process data to create statistics
@@ -209,26 +202,34 @@ export async function GET(request: NextRequest) {
       ratedCount,
       withSuggestions,
       withoutSuggestions,
-      ratingsList: (ratingsList || []).map((item: any) => ({
-        id: item.id,
-        user_id: item.user_id,
-        rating: item.rating,
-        suggestion: item.suggestion,
-        created_at: item.created_at,
-        updated_at: item.updated_at,
-        user_name: (() => {
-          // Construct full name from fname, mname, lname, suffix
-          const profile = item.profiles;
-          if (!profile) return "Unknown User";
-          
+      ratingsList: (ratingsList || []).map((item: any) => {
+        // Get profile from the map we created
+        const profile = item.user_id ? profilesMap[item.user_id] : null;
+        
+        // Construct user name
+        let userName = "Unknown User";
+        if (profile) {
+          // Try to construct full name from fname, mname, lname, suffix
           const fullName = `${profile.fname || ""} ${profile.mname || ""} ${profile.lname || ""} ${profile.suffix || ""}`.trim();
-          if (fullName) return fullName;
-          
-          // Fallback to username, then email
-          return profile.username || profile.email || "Unknown User";
-        })(),
-        user_email: item.profiles?.email || null,
-      })),
+          if (fullName) {
+            userName = fullName;
+          } else {
+            // Fallback to username, then email
+            userName = profile.username || profile.email || "Unknown User";
+          }
+        }
+        
+        return {
+          id: item.id,
+          user_id: item.user_id,
+          rating: item.rating,
+          suggestion: item.suggestion,
+          created_at: item.created_at,
+          updated_at: item.updated_at,
+          user_name: userName,
+          user_email: profile?.email || null,
+        };
+      }),
       debug: { usedServiceRole: true },
     };
 
