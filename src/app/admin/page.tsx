@@ -1201,7 +1201,9 @@ export default function AdminPage() {
                 <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0 overflow-hidden">
                   <h3 className="text-base sm:text-lg font-semibold mb-4">Most Popular Subscriptions</h3>
                   <ResponsiveContainer width="100%" height={250}>
-                    <BarChart data={(analyticsData.subscription_breakdown || []).map((item: any, idx: number) => ({ ...item, _index: idx }))}>
+                    <BarChart data={(analyticsData.subscription_breakdown || [])
+                      .filter((item: any) => item.name !== "Free" && item.name !== "Trial Subscriber")
+                      .map((item: any, idx: number) => ({ ...item, _index: idx }))}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis dataKey="name" className="text-xs" tick={{ fill: '#64748b' }} />
                       <YAxis className="text-xs" tick={{ fill: '#64748b' }} />
@@ -1220,7 +1222,9 @@ export default function AdminPage() {
                 <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0 overflow-hidden">
                   <h3 className="text-base sm:text-lg font-semibold mb-4">Revenue by Subscription Plan</h3>
                   <ResponsiveContainer width="100%" height={250}>
-                    <BarChart data={(analyticsData.subscription_breakdown || []).map((item: any, idx: number) => ({ ...item, _index: idx }))}>
+                    <BarChart data={(analyticsData.subscription_breakdown || [])
+                      .filter((item: any) => item.name !== "Free" && item.name !== "Trial Subscriber")
+                      .map((item: any, idx: number) => ({ ...item, _index: idx }))}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis dataKey="name" className="text-xs" tick={{ fill: '#64748b' }} />
                       <YAxis className="text-xs" tick={{ fill: '#64748b' }} tickFormatter={(value: unknown) => `₱${(Number(value as number) / 100).toFixed(0)}`} />
