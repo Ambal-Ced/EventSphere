@@ -729,7 +729,7 @@ export default function HomeClient() {
 
   return (
     <>
-    <div className="flex flex-col gap-12 w-full max-w-full overflow-x-hidden">
+    <div className="flex flex-col gap-12 w-full max-w-full overflow-x-hidden" style={{ width: '100%', maxWidth: '100vw' }}>
       {/* Hero Section */}
       <section className="relative min-h-[360px] h-[420px] sm:h-[480px] md:h-[500px] w-full overflow-hidden rounded-3xl">
         {/* Background Image */}
@@ -1032,8 +1032,8 @@ export default function HomeClient() {
 
       {/* Featured Events Section - CSS Marquee - Only show when user is logged in */}
       {user && (
-        <section className="w-full max-w-full overflow-x-hidden relative">
-          <div className="container mx-auto px-4 py-8 sm:py-12 w-full max-w-7xl overflow-x-hidden">
+        <section className="w-full max-w-full overflow-x-hidden relative" style={{ width: '100%', maxWidth: '100vw' }}>
+          <div className="container mx-auto px-4 py-8 sm:py-12 w-full max-w-7xl">
             <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
               <h2 className="text-2xl sm:text-3xl font-bold">Featured Events</h2>
               <Button variant="ghost" className="gap-2 w-full sm:w-auto" asChild>
@@ -1069,10 +1069,13 @@ export default function HomeClient() {
                 </Button>
               </div>
             ) : (
-              /* Outer container for overflow and hover pause */
-              <div className="group relative w-full overflow-x-hidden overflow-y-visible isolate">
+              /* Outer container for overflow and hover pause - must clip overflow */
+              <div className="group relative w-full overflow-x-hidden overflow-y-visible isolate" style={{ maxWidth: '100%', width: '100%' }}>
                 {/* Inner track with animation */}
-                <div className="flex w-max animate-marquee group-hover:[animation-play-state:paused] will-change-transform">
+                <div 
+                  className="flex animate-marquee group-hover:[animation-play-state:paused] will-change-transform"
+                  style={{ width: 'max-content' }}
+                >
                   {/* Duplicate events for seamless loop */}
                   {[...featuredEvents, ...featuredEvents].map((event, index) => (
                   // Individual event card - Fixed size to prevent overflow

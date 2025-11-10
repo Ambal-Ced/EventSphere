@@ -55,11 +55,11 @@ export default function RootLayout({
               <Sidebar />
               {/* Fixed gutter reserved (kept for consistent layout) */}
               <div className="w-3 shrink-0" aria-hidden />
-              <main className="flex-1 flex flex-col">
+              <main className="flex-1 flex flex-col overflow-x-hidden max-w-full">
                 {/* Minimal, symmetric horizontal padding so pages are near full-width.
                     Sidebar controls overall left offset; we avoid extra margins here. */}
                 {/* Fixed right gutter to mirror the left spacer */}
-                <div className="pr-3 flex-1">
+                <div className="pr-3 flex-1 overflow-x-hidden max-w-full w-full">
                   {children}
                 </div>
                 <Footer />
