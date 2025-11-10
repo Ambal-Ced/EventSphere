@@ -134,10 +134,12 @@ export async function GET(request: NextRequest) {
     const { data: plansRows, error: plansError } = await plansResult;
     if (plansError) throw plansError;
 
-    // Calculate revenue: (sum of all paid) - (sum of all cancelled)
+    // Calculate revenue: [(sum of all paid + sum of all cancelled) - (sum of all cancelled)]
+    // Formula: (totalpaid + totalcancelled) - totalcancelled = totalpaid - totalcancelled
     // Example: (159 + 300) - 159 = 300
     const totalAllRevenue = (paidTxRows ?? []).reduce((sum: number, tx: any) => sum + (tx.net_amount_cents ?? 0), 0);
     const totalCancelledRevenue = (cancelledTxRows ?? []).reduce((sum: number, tx: any) => sum + (tx.net_amount_cents ?? 0), 0);
+    // Formula: [(totalpaid + totalcancelled) - totalcancelled] = totalpaid - totalcancelled
     const totalRevenue = Math.max(0, totalAllRevenue - totalCancelledRevenue);
 
     // Calculate revenue statistics from paid transactions only (for mean/median/mode)
@@ -251,10 +253,12 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // Subtract cancelled transactions from revenue (ensure it doesn't go negative)
+    // Subtract cancelled transactions from revenue using formula: [(paid + cancelled) - cancelled]
+    // Formula: (paid + cancelled) - cancelled = paid - cancelled
     (cancelledTxRows ?? []).forEach((r: any) => {
       const day = new Date(r.created_at).toISOString().slice(0, 10);
       if (!byDay[day]) byDay[day] = { events: 0, transactions: 0, revenue_cents: 0, users: 0, subscriptions: 0, active_subscriptions: 0, small_event_org_transactions: 0, large_event_org_transactions: 0 };
+      // Formula: [(paid + cancelled) - cancelled] = paid - cancelled
       byDay[day].revenue_cents = Math.max(0, (byDay[day].revenue_cents || 0) - (r.net_amount_cents ?? 0));
     });
 
@@ -304,7 +308,8 @@ export async function GET(request: NextRequest) {
       subscriptionBreakdown[planName].count += 1;
     });
 
-    // Calculate revenue per subscription plan (paid - cancelled)
+    // Calculate revenue per subscription plan: [(sum of all paid + sum of all cancelled) - (sum of all cancelled)]
+    // Formula: (totalpaid + totalcancelled) - totalcancelled = totalpaid - totalcancelled
     // Note: Trial Subscriber category should not have revenue (trialing subscriptions don't generate transactions)
     (paidTxRows ?? []).forEach((tx: any) => {
       const planName = tx.plan_name || "Unknown";
@@ -317,6 +322,7 @@ export async function GET(request: NextRequest) {
       const planName = tx.plan_name || "Unknown";
       // Skip revenue calculation for "Trial Subscriber" category
       if (subscriptionBreakdown[planName] && planName !== "Trial Subscriber") {
+        // Formula: [(paid + cancelled) - cancelled] = paid - cancelled
         subscriptionBreakdown[planName].revenue_cents = Math.max(0, (subscriptionBreakdown[planName].revenue_cents || 0) - (tx.net_amount_cents ?? 0));
       }
     });
