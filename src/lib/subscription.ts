@@ -719,8 +719,15 @@ export class SubscriptionService {
 
     if (overallTransactionResult.error) {
       console.error('❌ Error creating overall_transaction record:', overallTransactionResult.error);
+      console.error('❌ Overall transaction error details:', {
+        message: overallTransactionResult.error.message,
+        code: overallTransactionResult.error.code,
+        details: overallTransactionResult.error.details,
+        hint: overallTransactionResult.error.hint
+      });
       // Don't throw here - we want transactions to succeed even if overall_transaction fails
       // This ensures the subscription process continues
+      // However, log the error for debugging
     }
 
     console.log('✅ Transaction record created successfully:', transactionResult.data);

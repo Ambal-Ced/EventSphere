@@ -45,6 +45,17 @@ CREATE POLICY "Users can view own overall_transaction" ON overall_transaction
   FOR SELECT
   USING (auth.uid() = user_id);
 
+-- Policy: Users can insert their own transactions
+CREATE POLICY "Users can insert own overall_transaction" ON overall_transaction
+  FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+-- Policy: Users can update their own transactions (if needed)
+CREATE POLICY "Users can update own overall_transaction" ON overall_transaction
+  FOR UPDATE
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
 -- Add comment to table
 COMMENT ON TABLE overall_transaction IS 'Persistent transaction records that survive account deletion. Mirrors transactions table structure.';
 
