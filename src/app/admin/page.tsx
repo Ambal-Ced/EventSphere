@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import dynamic from "next/dynamic";
 import { useSessionCache } from "@/hooks/use-session-cache";
@@ -21,7 +21,7 @@ const YAxis: any = dynamic(() => import("recharts").then(m => m.YAxis as any), {
 const CartesianGrid: any = dynamic(() => import("recharts").then(m => m.CartesianGrid as any), { ssr: false, loading: () => null }) as any;
 const Tooltip: any = dynamic(() => import("recharts").then(m => m.Tooltip as any), { ssr: false, loading: () => null }) as any;
 const Legend: any = dynamic(() => import("recharts").then(m => m.Legend as any), { ssr: false, loading: () => null }) as any;
-import { TrendingUp, Users, Calendar, DollarSign, Package, Activity, RefreshCw, Lightbulb, Star, ChevronDown, ChevronUp, FileText, X, CheckCircle, Ban, Loader2 } from "lucide-react";
+import { TrendingUp, Users, Calendar, DollarSign, Package, Activity, RefreshCw, Lightbulb, Star, ChevronDown, ChevronUp, FileText, X, CheckCircle, Ban, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -191,9 +191,15 @@ export default function AdminPage() {
       const url = new URL("/api/admin/analytics", window.location.origin);
       if (startDate) url.searchParams.set("start", startDate);
       if (endDate) url.searchParams.set("end", endDate);
+      // Add cache-busting parameter
+      url.searchParams.set("_t", Date.now().toString());
 
       const res = await fetch(url.toString(), {
-        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
+        headers: {
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+          'Cache-Control': 'no-cache',
+        },
+        cache: 'no-store',
       });
       const json = await res.json();
       if (res.ok) {
@@ -206,7 +212,7 @@ export default function AdminPage() {
     } finally {
       setLoadingAnalytics(false);
     }
-  }, [dateRange, customStartDate, customEndDate]);
+  }, [cachedUser, dateRange, customStartDate, customEndDate]);
 
   useEffect(() => {
     if (isAdmin) {
@@ -427,6 +433,150 @@ export default function AdminPage() {
       setBulkUpdatingAccountDeletion(null);
     }
   }, [supabase, fetchAccountDeletionData]);
+
+  // Real-time subscriptions for live updates
+  const analyticsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const feedbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const ratingsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const accountDeletionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    let analyticsChannel: any;
+    let feedbackChannel: any;
+    let ratingsChannel: any;
+    let accountDeletionChannel: any;
+
+    // Subscribe to events and transactions for analytics (EventTria tab)
+    if (activeTab === "eventtria") {
+      analyticsChannel = supabase
+        .channel("admin-analytics-realtime")
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "events",
+          },
+          () => {
+            // Debounce refresh to avoid too many requests
+            if (analyticsTimeoutRef.current) clearTimeout(analyticsTimeoutRef.current);
+            analyticsTimeoutRef.current = setTimeout(() => {
+              fetchAnalytics();
+            }, 2000);
+          }
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "transactions",
+          },
+          () => {
+            // Debounce refresh to avoid too many requests
+            if (analyticsTimeoutRef.current) clearTimeout(analyticsTimeoutRef.current);
+            analyticsTimeoutRef.current = setTimeout(() => {
+              fetchAnalytics();
+            }, 2000);
+          }
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "profiles",
+          },
+          () => {
+            // Debounce refresh to avoid too many requests
+            if (analyticsTimeoutRef.current) clearTimeout(analyticsTimeoutRef.current);
+            analyticsTimeoutRef.current = setTimeout(() => {
+              fetchAnalytics();
+            }, 2000);
+          }
+        )
+        .subscribe();
+    }
+
+    // Subscribe to feedback for Feedback tab
+    if (activeTab === "feedback") {
+      feedbackChannel = supabase
+        .channel("admin-feedback-realtime")
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "feedback",
+          },
+          () => {
+            // Debounce refresh to avoid too many requests
+            if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
+            feedbackTimeoutRef.current = setTimeout(() => {
+              fetchFeedbackData();
+            }, 1000);
+          }
+        )
+        .subscribe();
+    }
+
+    // Subscribe to ratings for Rating tab
+    if (activeTab === "rating") {
+      ratingsChannel = supabase
+        .channel("admin-ratings-realtime")
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "ratings",
+          },
+          () => {
+            // Debounce refresh to avoid too many requests
+            if (ratingsTimeoutRef.current) clearTimeout(ratingsTimeoutRef.current);
+            ratingsTimeoutRef.current = setTimeout(() => {
+              fetchRatingsData();
+            }, 1000);
+          }
+        )
+        .subscribe();
+    }
+
+    // Subscribe to account deletion requests for Users tab
+    if (activeTab === "users") {
+      accountDeletionChannel = supabase
+        .channel("admin-account-deletion-realtime")
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "account_deletion_requests",
+          },
+          () => {
+            // Debounce refresh to avoid too many requests
+            if (accountDeletionTimeoutRef.current) clearTimeout(accountDeletionTimeoutRef.current);
+            accountDeletionTimeoutRef.current = setTimeout(() => {
+              fetchAccountDeletionData();
+            }, 1000);
+          }
+        )
+        .subscribe();
+    }
+
+    return () => {
+      if (analyticsTimeoutRef.current) clearTimeout(analyticsTimeoutRef.current);
+      if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
+      if (ratingsTimeoutRef.current) clearTimeout(ratingsTimeoutRef.current);
+      if (accountDeletionTimeoutRef.current) clearTimeout(accountDeletionTimeoutRef.current);
+      if (analyticsChannel) supabase.removeChannel(analyticsChannel);
+      if (feedbackChannel) supabase.removeChannel(feedbackChannel);
+      if (ratingsChannel) supabase.removeChannel(ratingsChannel);
+      if (accountDeletionChannel) supabase.removeChannel(accountDeletionChannel);
+    };
+  }, [isAdmin, activeTab, fetchAnalytics, fetchFeedbackData, fetchRatingsData, fetchAccountDeletionData]);
 
   // Toggle expand/collapse for feedback items
   const toggleFeedbackExpand = useCallback((feedbackId: string) => {
@@ -2493,6 +2643,19 @@ export default function AdminPage() {
                                         <Ban className="h-3 w-3" />
                                       )}
                                       Deny
+                                    </Button>
+                                  </div>
+                                )}
+
+                                {status === "approved" && (
+                                  <div className="flex flex-wrap gap-2">
+                                    <Button
+                                      size="sm"
+                                      variant="destructive"
+                                      className="flex items-center gap-1"
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                      Delete Approved Account
                                     </Button>
                                   </div>
                                 )}
