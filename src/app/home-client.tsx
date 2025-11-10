@@ -1032,7 +1032,7 @@ export default function HomeClient() {
 
       {/* Featured Events Section - CSS Marquee - Only show when user is logged in */}
       {user && (
-        <section className="container mx-auto px-4 py-8 sm:py-12">
+        <section className="container mx-auto px-4 py-8 sm:py-12 w-full max-w-7xl">
           <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
             <h2 className="text-2xl sm:text-3xl font-bold">Featured Events</h2>
             <Button variant="ghost" className="gap-2 w-full sm:w-auto" asChild>
@@ -1069,10 +1069,11 @@ export default function HomeClient() {
             </div>
           ) : (
             /* Outer container for overflow and hover pause */
-            <div className="group w-full overflow-x-hidden -mx-4 sm:-mx-0 px-4 sm:px-0">
+            <div className="group relative w-full overflow-x-hidden overflow-y-visible -mx-4 sm:mx-0">
               {/* Inner track with animation */}
-              <div className="flex w-max animate-marquee group-hover:[animation-play-state:paused] min-w-0">
-                {featuredEvents.map((event, index) => (
+              <div className="flex w-max animate-marquee group-hover:[animation-play-state:paused] will-change-transform">
+                {/* Duplicate events for seamless loop */}
+                {[...featuredEvents, ...featuredEvents].map((event, index) => (
                   // Individual event card
                   <div
                     key={`${event.id}-${index}`}

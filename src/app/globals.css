@@ -89,6 +89,10 @@
     }
   }
 
+  .animate-marquee {
+    animation: marquee 30s linear infinite;
+  }
+
   /* Optional: Add a slower version if needed */
   /* @keyframes marquee-slow {
     0% { transform: translateX(0%); }
