@@ -295,6 +295,13 @@ export async function GET(request: NextRequest) {
       ? (deltaUsers / usersSevenDaysAgo) * 100
       : (deltaUsers > 0 ? 100 : 0);
 
+    // Calculate active vs non-active users
+    // Active users = users with subscriptions (any status: active, trialing, cancelled, etc.)
+    // Non-active users = users without any subscriptions
+    const userIdsWithSubscriptions = new Set((subsRows ?? []).map((sub: any) => sub.user_id));
+    const activeUsers = userIdsWithSubscriptions.size;
+    const nonActiveUsers = Math.max(0, totalUsers - activeUsers);
+
     // Conversion rate (active paid subscriptions / total users)
     const conversionRate = totalUsers > 0 ? (activeSubscriptions / totalUsers) * 100 : 0;
 
@@ -368,6 +375,13 @@ export async function GET(request: NextRequest) {
           if (b.name === "Trial Subscriber") return 1;
           return b.count - a.count;
         }),
+      user_activity: {
+        active_users: activeUsers,
+        non_active_users: nonActiveUsers,
+        total_users: totalUsers,
+        active_percentage: totalUsers > 0 ? (activeUsers / totalUsers) * 100 : 0,
+        non_active_percentage: totalUsers > 0 ? (nonActiveUsers / totalUsers) * 100 : 0,
+      },
       additional_metrics: {
         user_growth_rate: userGrowthRate,
         conversion_rate: conversionRate,
