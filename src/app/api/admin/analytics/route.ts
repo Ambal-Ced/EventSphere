@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
     const paidTxQuery = buildDateFilter(
       db
         .from("overall_transaction")
-        .select("id, net_amount_cents, created_at, plan_name")
+        .select("id, net_amount_cents, created_at, plan_name, subscription_id")
         .eq("status", "paid")
         .eq("transaction_type", "purchase")
     );
@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
     const cancelledTxQuery = buildDateFilter(
       db
         .from("overall_transaction")
-        .select("id, net_amount_cents, created_at, plan_name")
+        .select("id, net_amount_cents, created_at, plan_name, subscription_id")
         .eq("status", "cancelled")
         .eq("transaction_type", "cancellation")
     );
@@ -188,18 +188,66 @@ export async function GET(request: NextRequest) {
     });
 
     // Process transactions (paid only for transaction count)
+    // First, count all paid transactions by plan and by day
+    // Also create a map to track paid transactions by subscription_id for matching cancellations
+    const paidTxBySubscription: Map<string, { day: string; planName: string }> = new Map();
+    
     (paidTxRows ?? []).forEach((r: any) => {
       const day = new Date(r.created_at).toISOString().slice(0, 10);
       if (!byDay[day]) byDay[day] = { events: 0, transactions: 0, revenue_cents: 0, users: 0, subscriptions: 0, active_subscriptions: 0, small_event_org_transactions: 0, large_event_org_transactions: 0 };
       byDay[day].transactions += 1;
       byDay[day].revenue_cents += r.net_amount_cents ?? 0;
       
-      // Count transactions by plan
+      // Count all paid transactions by plan (even if they might be cancelled later)
       const planName = r.plan_name || "";
-      if (planName.includes("Small Event Org")) {
+      if (planName.includes("Small Event Org") && !planName.includes("Cancelled")) {
         byDay[day].small_event_org_transactions += 1;
-      } else if (planName.includes("Large Event Org")) {
+        // Store for matching cancellations
+        if (r.subscription_id) {
+          paidTxBySubscription.set(r.subscription_id, { day, planName: "Small Event Org" });
+        }
+      } else if (planName.includes("Large Event Org") && !planName.includes("Cancelled")) {
         byDay[day].large_event_org_transactions += 1;
+        // Store for matching cancellations
+        if (r.subscription_id) {
+          paidTxBySubscription.set(r.subscription_id, { day, planName: "Large Event Org" });
+        }
+      }
+    });
+    
+    // Then, subtract cancelled transactions from the daily counts
+    // Logic: (total paid + total cancelled) - total cancelled = total paid - total cancelled
+    // Match cancelled transactions to their original paid transaction date
+    (cancelledTxRows ?? []).forEach((r: any) => {
+      // Extract plan name from cancelled transaction (e.g., "Cancelled Small Event Org" -> "Small Event Org")
+      const planName = r.plan_name || "";
+      let targetDay: string | null = null;
+      let targetPlan: string | null = null;
+      
+      // Try to match by subscription_id first
+      if (r.subscription_id && paidTxBySubscription.has(r.subscription_id)) {
+        const paidTx = paidTxBySubscription.get(r.subscription_id)!;
+        targetDay = paidTx.day;
+        targetPlan = paidTx.planName;
+      } else {
+        // Fallback: use cancellation date if we can't match
+        targetDay = new Date(r.created_at).toISOString().slice(0, 10);
+        if (planName.includes("Small Event Org")) {
+          targetPlan = "Small Event Org";
+        } else if (planName.includes("Large Event Org")) {
+          targetPlan = "Large Event Org";
+        }
+      }
+      
+      if (targetDay && targetPlan) {
+        if (!byDay[targetDay]) byDay[targetDay] = { events: 0, transactions: 0, revenue_cents: 0, users: 0, subscriptions: 0, active_subscriptions: 0, small_event_org_transactions: 0, large_event_org_transactions: 0 };
+        
+        // Subtract from the appropriate plan count
+        if (targetPlan === "Small Event Org") {
+          byDay[targetDay].small_event_org_transactions = Math.max(0, (byDay[targetDay].small_event_org_transactions || 0) - 1);
+        } else if (targetPlan === "Large Event Org") {
+          byDay[targetDay].large_event_org_transactions = Math.max(0, (byDay[targetDay].large_event_org_transactions || 0) - 1);
+        }
       }
     });
 
