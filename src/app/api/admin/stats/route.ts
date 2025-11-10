@@ -92,10 +92,11 @@ export async function GET(request: NextRequest) {
     if (paidTxError) throw paidTxError;
     if (cancelledTxError) throw cancelledTxError;
 
-    // Calculate revenue: [(sum of all paid + sum of all cancelled) - (sum of all cancelled)]
+    // Calculate revenue: (sum of all paid) - (sum of all cancelled)
+    // Example: (159 + 300) - 159 = 300
     const totalPaidRevenue = ((paidTxRows ?? []) as any[]).reduce((sum: number, r: any) => sum + (r.net_amount_cents ?? 0), 0);
     const totalCancelledRevenue = ((cancelledTxRows ?? []) as any[]).reduce((sum: number, r: any) => sum + (r.net_amount_cents ?? 0), 0);
-    const totalRevenueCents = Math.max(0, (totalPaidRevenue + totalCancelledRevenue) - totalCancelledRevenue);
+    const totalRevenueCents = Math.max(0, totalPaidRevenue - totalCancelledRevenue);
     const totalTransactions = (paidTxRows?.length ?? 0);
 
     // Group by day for simple timeseries - include both paid and cancelled

@@ -134,10 +134,11 @@ export async function GET(request: NextRequest) {
     const { data: plansRows, error: plansError } = await plansResult;
     if (plansError) throw plansError;
 
-    // Calculate revenue: [(sum of all paid + sum of all cancelled) - (sum of all cancelled)]
+    // Calculate revenue: (sum of all paid) - (sum of all cancelled)
+    // Example: (159 + 300) - 159 = 300
     const totalAllRevenue = (paidTxRows ?? []).reduce((sum: number, tx: any) => sum + (tx.net_amount_cents ?? 0), 0);
     const totalCancelledRevenue = (cancelledTxRows ?? []).reduce((sum: number, tx: any) => sum + (tx.net_amount_cents ?? 0), 0);
-    const totalRevenue = Math.max(0, (totalAllRevenue + totalCancelledRevenue) - totalCancelledRevenue);
+    const totalRevenue = Math.max(0, totalAllRevenue - totalCancelledRevenue);
 
     // Calculate revenue statistics from paid transactions only (for mean/median/mode)
     const paidRevenueValues = (paidTxRows ?? [])
