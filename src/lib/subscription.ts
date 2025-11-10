@@ -697,20 +697,37 @@ export class SubscriptionService {
 
     console.log('💾 Inserting transaction record:', transactionRecord);
     
-    const { data, error } = await supabase
-      .from('transactions')
-      .insert(transactionRecord)
-      .select()
-      .single();
+    // Insert into both transactions and overall_transaction tables
+    const [transactionResult, overallTransactionResult] = await Promise.all([
+      supabase
+        .from('transactions')
+        .insert(transactionRecord)
+        .select()
+        .single(),
+      supabase
+        .from('overall_transaction')
+        .insert(transactionRecord)
+        .select()
+        .single()
+    ]);
 
-    if (error) {
-      console.error('❌ Error creating transaction record:', error);
+    if (transactionResult.error) {
+      console.error('❌ Error creating transaction record:', transactionResult.error);
       console.error('❌ Transaction record that failed:', transactionRecord);
-      throw error; // Throw to ensure transaction failure is propagated
+      throw transactionResult.error; // Throw to ensure transaction failure is propagated
     }
 
-    console.log('✅ Transaction record created successfully:', data);
-    return data;
+    if (overallTransactionResult.error) {
+      console.error('❌ Error creating overall_transaction record:', overallTransactionResult.error);
+      // Don't throw here - we want transactions to succeed even if overall_transaction fails
+      // This ensures the subscription process continues
+    }
+
+    console.log('✅ Transaction record created successfully:', transactionResult.data);
+    if (overallTransactionResult.data) {
+      console.log('✅ Overall transaction record created successfully:', overallTransactionResult.data);
+    }
+    return transactionResult.data;
   }
 
   /**

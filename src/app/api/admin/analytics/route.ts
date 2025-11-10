@@ -63,9 +63,10 @@ export async function GET(request: NextRequest) {
     };
 
     // Prepare queries (narrowed columns to reduce transfer)
+    // Use overall_transaction instead of transactions to avoid deleted data
     const paidTxQuery = buildDateFilter(
       db
-        .from("transactions")
+        .from("overall_transaction")
         .select("id, net_amount_cents, created_at, plan_name")
         .eq("status", "paid")
         .eq("transaction_type", "purchase")
@@ -73,7 +74,7 @@ export async function GET(request: NextRequest) {
 
     const cancelledTxQuery = buildDateFilter(
       db
-        .from("transactions")
+        .from("overall_transaction")
         .select("id, net_amount_cents, created_at, plan_name")
         .eq("status", "cancelled")
         .eq("transaction_type", "cancellation")

@@ -72,6 +72,7 @@ export default function AdminPage() {
   const [accountDeletionSort, setAccountDeletionSort] = useState<"desc" | "asc">("desc");
   const [updatingAccountDeletionId, setUpdatingAccountDeletionId] = useState<string | null>(null);
   const [bulkUpdatingAccountDeletion, setBulkUpdatingAccountDeletion] = useState<"approve" | "deny" | null>(null);
+  const [deletingAccountId, setDeletingAccountId] = useState<string | null>(null);
   const [expandedFeedbackIds, setExpandedFeedbackIds] = useState<Set<string>>(new Set());
   const [notesDialogOpen, setNotesDialogOpen] = useState(false);
   const [selectedFeedbackId, setSelectedFeedbackId] = useState<string | null>(null);
@@ -434,6 +435,41 @@ export default function AdminPage() {
     }
   }, [supabase, fetchAccountDeletionData]);
 
+  const handleDeleteApprovedAccount = useCallback(async (requestId: string, userId: string) => {
+    if (!confirm("Are you sure you want to permanently delete this account and all associated data? This action cannot be undone.")) {
+      return;
+    }
+
+    setDeletingAccountId(requestId);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/admin/account-deletion-requests/delete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({
+          request_id: requestId,
+          user_id: userId,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || "Failed to delete account");
+      }
+
+      toast.success(json.message || "Account deleted successfully");
+      await fetchAccountDeletionData();
+    } catch (error: any) {
+      console.error("Error deleting account:", error);
+      toast.error(error.message || "Failed to delete account");
+    } finally {
+      setDeletingAccountId(null);
+    }
+  }, [supabase, fetchAccountDeletionData]);
+
   // Real-time subscriptions for live updates
   const analyticsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const feedbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -472,7 +508,7 @@ export default function AdminPage() {
           {
             event: "*",
             schema: "public",
-            table: "transactions",
+            table: "overall_transaction",
           },
           () => {
             // Debounce refresh to avoid too many requests
@@ -2652,9 +2688,15 @@ export default function AdminPage() {
                                     <Button
                                       size="sm"
                                       variant="destructive"
+                                      onClick={() => handleDeleteApprovedAccount(item.id, item.user_id)}
+                                      disabled={deletingAccountId === item.id}
                                       className="flex items-center gap-1"
                                     >
-                                      <Trash2 className="h-3 w-3" />
+                                      {deletingAccountId === item.id ? (
+                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                      ) : (
+                                        <Trash2 className="h-3 w-3" />
+                                      )}
                                       Delete Approved Account
                                     </Button>
                                   </div>

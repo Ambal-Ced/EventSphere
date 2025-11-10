@@ -67,8 +67,9 @@ export async function GET(request: NextRequest) {
     ]);
 
     // Transactions metrics - get both paid and cancelled
+    // Use overall_transaction instead of transactions to avoid deleted data
     let paidTxQuery = db
-      .from("transactions")
+      .from("overall_transaction")
       .select("id, net_amount_cents, created_at, transaction_type, status")
       .eq("status", "paid")
       .eq("transaction_type", "purchase");
@@ -76,7 +77,7 @@ export async function GET(request: NextRequest) {
     if (end) paidTxQuery = paidTxQuery.lte("created_at", end);
     
     let cancelledTxQuery = db
-      .from("transactions")
+      .from("overall_transaction")
       .select("id, net_amount_cents, created_at, transaction_type, status")
       .eq("status", "cancelled")
       .eq("transaction_type", "cancellation");

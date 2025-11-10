@@ -47,7 +47,8 @@ export async function GET(request: NextRequest) {
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (serviceKey) {
       const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey);
-      const { count, error } = await admin.from("transactions").select("id", { count: "exact", head: true });
+      // Use overall_transaction instead of transactions to avoid deleted data
+      const { count, error } = await admin.from("overall_transaction").select("id", { count: "exact", head: true });
       if (error) throw error;
       const res = NextResponse.json({ count: (count as number | null) ?? 0, usedServiceRole: true });
       res.headers.set("Cache-Control", "public, s-maxage=120, stale-while-revalidate=600");
