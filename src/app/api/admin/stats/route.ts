@@ -66,27 +66,53 @@ export async function GET(request: NextRequest) {
       db.from("event_collaborators").select("id", { count: "exact" }).limit(1),
     ]);
 
-    // Transactions metrics
-    let txQuery = db
+    // Transactions metrics - get both paid and cancelled
+    let paidTxQuery = db
       .from("transactions")
       .select("id, net_amount_cents, created_at, transaction_type, status")
       .eq("status", "paid")
       .eq("transaction_type", "purchase");
-    if (start) txQuery = txQuery.gte("created_at", start);
-    if (end) txQuery = txQuery.lte("created_at", end);
-    const { data: txRows, error: txError } = await txQuery;
-    if (txError) throw txError;
+    if (start) paidTxQuery = paidTxQuery.gte("created_at", start);
+    if (end) paidTxQuery = paidTxQuery.lte("created_at", end);
+    
+    let cancelledTxQuery = db
+      .from("transactions")
+      .select("id, net_amount_cents, created_at, transaction_type, status")
+      .eq("status", "cancelled")
+      .eq("transaction_type", "cancellation");
+    if (start) cancelledTxQuery = cancelledTxQuery.gte("created_at", start);
+    if (end) cancelledTxQuery = cancelledTxQuery.lte("created_at", end);
+    
+    const [{ data: paidTxRows, error: paidTxError }, { data: cancelledTxRows, error: cancelledTxError }] = await Promise.all([
+      paidTxQuery,
+      cancelledTxQuery
+    ]);
+    
+    if (paidTxError) throw paidTxError;
+    if (cancelledTxError) throw cancelledTxError;
 
-    const totalRevenueCents = ((txRows ?? []) as any[]).reduce((sum: number, r: any) => sum + (r.net_amount_cents ?? 0), 0);
-    const totalTransactions = txRows?.length ?? 0;
+    // Calculate revenue: [(sum of all paid + sum of all cancelled) - (sum of all cancelled)]
+    const totalPaidRevenue = ((paidTxRows ?? []) as any[]).reduce((sum: number, r: any) => sum + (r.net_amount_cents ?? 0), 0);
+    const totalCancelledRevenue = ((cancelledTxRows ?? []) as any[]).reduce((sum: number, r: any) => sum + (r.net_amount_cents ?? 0), 0);
+    const totalRevenueCents = Math.max(0, (totalPaidRevenue + totalCancelledRevenue) - totalCancelledRevenue);
+    const totalTransactions = (paidTxRows?.length ?? 0);
 
-    // Group by day for simple timeseries
+    // Group by day for simple timeseries - include both paid and cancelled
     const byDay: Record<string, { revenue_cents: number; count: number }> = {};
-    for (const r of txRows ?? []) {
+    
+    // Add paid transactions
+    for (const r of paidTxRows ?? []) {
       const day = new Date(r.created_at).toISOString().slice(0, 10);
       if (!byDay[day]) byDay[day] = { revenue_cents: 0, count: 0 };
       byDay[day].revenue_cents += r.net_amount_cents ?? 0;
       byDay[day].count += 1;
+    }
+    
+    // Subtract cancelled transactions
+    for (const r of cancelledTxRows ?? []) {
+      const day = new Date(r.created_at).toISOString().slice(0, 10);
+      if (!byDay[day]) byDay[day] = { revenue_cents: 0, count: 0 };
+      byDay[day].revenue_cents = Math.max(0, (byDay[day].revenue_cents || 0) - (r.net_amount_cents ?? 0));
     }
 
     const payload = {

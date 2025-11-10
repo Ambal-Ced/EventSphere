@@ -133,18 +133,19 @@ export async function GET(request: NextRequest) {
     const { data: plansRows, error: plansError } = await plansResult;
     if (plansError) throw plansError;
 
-    // Calculate revenue: Sum of all net_amount (paid + cancelled) - Sum of cancelled net_amount
+    // Calculate revenue: [(sum of all paid + sum of all cancelled) - (sum of all cancelled)]
     const totalAllRevenue = (paidTxRows ?? []).reduce((sum: number, tx: any) => sum + (tx.net_amount_cents ?? 0), 0);
     const totalCancelledRevenue = (cancelledTxRows ?? []).reduce((sum: number, tx: any) => sum + (tx.net_amount_cents ?? 0), 0);
-    const totalRevenue = Math.max(0, totalAllRevenue - totalCancelledRevenue);
+    const totalRevenue = Math.max(0, (totalAllRevenue + totalCancelledRevenue) - totalCancelledRevenue);
 
-    // Calculate revenue statistics from paid transactions (before subtracting cancelled)
+    // Calculate revenue statistics from paid transactions only (for mean/median/mode)
     const paidRevenueValues = (paidTxRows ?? [])
       .map((r: any) => r.net_amount_cents ?? 0)
       .filter((v: number) => v > 0)
       .sort((a: number, b: number) => a - b);
 
-    const revenueMean = paidRevenueValues.length > 0 ? totalRevenue / paidRevenueValues.length : 0;
+    // Mean should be calculated from paid transactions only, not from net revenue
+    const revenueMean = paidRevenueValues.length > 0 ? totalAllRevenue / paidRevenueValues.length : 0;
     
     // Median (using paid transactions)
     let revenueMedian = 0;
@@ -346,7 +347,7 @@ export async function GET(request: NextRequest) {
       additional_metrics: {
         user_growth_rate: userGrowthRate,
         conversion_rate: conversionRate,
-        avg_revenue_per_transaction: paidRevenueValues.length > 0 ? Math.max(0, totalRevenue) / paidRevenueValues.length : 0,
+        avg_revenue_per_transaction: paidRevenueValues.length > 0 ? totalAllRevenue / paidRevenueValues.length : 0,
         avg_transactions_per_user: totalUsers > 0 ? paidTxRows.length / totalUsers : 0,
         event_creation_rate: eventCreationRate,
         transaction_paid_rate: paidRate,
