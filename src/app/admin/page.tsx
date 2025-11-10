@@ -1374,7 +1374,6 @@ export default function AdminPage() {
                       <YAxis className="text-xs" tick={{ fill: '#64748b' }} />
                       <Tooltip contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} labelStyle={{ color: '#cbd5e1' }} itemStyle={{ color: '#22c55e' }} />
                       <Legend wrapperStyle={{ color: '#1e293b' }} />
-                      <Line type="monotone" dataKey="cumulative_users" stroke="#8b5cf6" strokeWidth={2} name="Total Users" />
                       <Line type="monotone" dataKey="users" stroke="#ec4899" strokeWidth={2} name="New Users" />
                     </LineChart>
                   </ResponsiveContainer>
@@ -1426,8 +1425,26 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {/* Subscription Distribution Pie Chart */}
-              {mounted && analyticsData.subscription_breakdown && analyticsData.subscription_breakdown.length > 0 && (() => {
+              {/* Daily Transactions by Plan */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6">
+                {/* Daily Transactions by Plan Line Chart */}
+                <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0 overflow-hidden">
+                  <h3 className="text-base sm:text-lg font-semibold mb-4">Daily Transactions by Plan</h3>
+                  <ResponsiveContainer width="100%" height={250}>
+                    <LineChart data={analyticsData.time_series || []}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis dataKey="date" className="text-xs" tick={{ fill: '#64748b' }} />
+                      <YAxis className="text-xs" tick={{ fill: '#64748b' }} />
+                      <Tooltip contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} labelStyle={{ color: '#cbd5e1' }} itemStyle={{ color: '#22c55e' }} />
+                      <Legend wrapperStyle={{ color: '#1e293b' }} />
+                      <Line type="monotone" dataKey="small_event_org_transactions" stroke="#3b82f6" strokeWidth={2} name="Small Event Org" />
+                      <Line type="monotone" dataKey="large_event_org_transactions" stroke="#10b981" strokeWidth={2} name="Large Event Org" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Subscription Distribution Pie Chart */}
+                {mounted && analyticsData.subscription_breakdown && analyticsData.subscription_breakdown.length > 0 && (() => {
                 const pieData = analyticsData.subscription_breakdown.map((entry: any, index: number) => ({
                   ...entry,
                   fill: COLORS[index % COLORS.length],
@@ -1484,6 +1501,7 @@ export default function AdminPage() {
                   </div>
                 );
               })()}
+              </div>
 
               {/* Event Creation Rate & Transaction Rates */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6">

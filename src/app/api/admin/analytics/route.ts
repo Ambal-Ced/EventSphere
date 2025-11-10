@@ -175,41 +175,51 @@ export async function GET(request: NextRequest) {
       users: number;
       subscriptions: number;
       active_subscriptions: number;
+      small_event_org_transactions: number;
+      large_event_org_transactions: number;
     }> = {};
 
     // Process events
     (eventsRows ?? []).forEach((r: any) => {
       const day = new Date(r.created_at).toISOString().slice(0, 10);
-      if (!byDay[day]) byDay[day] = { events: 0, transactions: 0, revenue_cents: 0, users: 0, subscriptions: 0, active_subscriptions: 0 };
+      if (!byDay[day]) byDay[day] = { events: 0, transactions: 0, revenue_cents: 0, users: 0, subscriptions: 0, active_subscriptions: 0, small_event_org_transactions: 0, large_event_org_transactions: 0 };
       byDay[day].events += 1;
     });
 
     // Process transactions (paid only for transaction count)
     (paidTxRows ?? []).forEach((r: any) => {
       const day = new Date(r.created_at).toISOString().slice(0, 10);
-      if (!byDay[day]) byDay[day] = { events: 0, transactions: 0, revenue_cents: 0, users: 0, subscriptions: 0, active_subscriptions: 0 };
+      if (!byDay[day]) byDay[day] = { events: 0, transactions: 0, revenue_cents: 0, users: 0, subscriptions: 0, active_subscriptions: 0, small_event_org_transactions: 0, large_event_org_transactions: 0 };
       byDay[day].transactions += 1;
       byDay[day].revenue_cents += r.net_amount_cents ?? 0;
+      
+      // Count transactions by plan
+      const planName = r.plan_name || "";
+      if (planName.includes("Small Event Org")) {
+        byDay[day].small_event_org_transactions += 1;
+      } else if (planName.includes("Large Event Org")) {
+        byDay[day].large_event_org_transactions += 1;
+      }
     });
 
     // Subtract cancelled transactions from revenue (ensure it doesn't go negative)
     (cancelledTxRows ?? []).forEach((r: any) => {
       const day = new Date(r.created_at).toISOString().slice(0, 10);
-      if (!byDay[day]) byDay[day] = { events: 0, transactions: 0, revenue_cents: 0, users: 0, subscriptions: 0, active_subscriptions: 0 };
+      if (!byDay[day]) byDay[day] = { events: 0, transactions: 0, revenue_cents: 0, users: 0, subscriptions: 0, active_subscriptions: 0, small_event_org_transactions: 0, large_event_org_transactions: 0 };
       byDay[day].revenue_cents = Math.max(0, (byDay[day].revenue_cents || 0) - (r.net_amount_cents ?? 0));
     });
 
     // Process users
     (profilesRows ?? []).forEach((r: any) => {
       const day = new Date(r.created_at).toISOString().slice(0, 10);
-      if (!byDay[day]) byDay[day] = { events: 0, transactions: 0, revenue_cents: 0, users: 0, subscriptions: 0, active_subscriptions: 0 };
+      if (!byDay[day]) byDay[day] = { events: 0, transactions: 0, revenue_cents: 0, users: 0, subscriptions: 0, active_subscriptions: 0, small_event_org_transactions: 0, large_event_org_transactions: 0 };
       byDay[day].users += 1;
     });
 
     // Process subscriptions
     (subsRows ?? []).forEach((r: any) => {
       const day = new Date(r.created_at).toISOString().slice(0, 10);
-      if (!byDay[day]) byDay[day] = { events: 0, transactions: 0, revenue_cents: 0, users: 0, subscriptions: 0, active_subscriptions: 0 };
+      if (!byDay[day]) byDay[day] = { events: 0, transactions: 0, revenue_cents: 0, users: 0, subscriptions: 0, active_subscriptions: 0, small_event_org_transactions: 0, large_event_org_transactions: 0 };
       byDay[day].subscriptions += 1;
       // Count active subscriptions - only paid plans (plan_id starting with 111 or 222), exclude free tier (000)
       const planId = r.plan_id || "";
@@ -362,6 +372,8 @@ export async function GET(request: NextRequest) {
           subscriptions: v.subscriptions,
           active_subscriptions: v.active_subscriptions,
           cumulative_users: cumulativeUsers[date] || 0,
+          small_event_org_transactions: v.small_event_org_transactions || 0,
+          large_event_org_transactions: v.large_event_org_transactions || 0,
         })),
       subscription_breakdown: Object.values(subscriptionBreakdown)
         .filter(item => item.count > 0) // Only include categories with subscribers
