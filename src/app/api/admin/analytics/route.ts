@@ -221,9 +221,23 @@ export async function GET(request: NextRequest) {
     });
 
     // Subscription breakdown by plan
+    // Exclude trialing subscriptions from paid plans, add them to "Trial Subscriber" category
     const subscriptionBreakdown: Record<string, { name: string; count: number; revenue_cents: number }> = {};
+    
+    // Initialize "Trial Subscriber" category
+    subscriptionBreakdown["Trial Subscriber"] = { name: "Trial Subscriber", count: 0, revenue_cents: 0 };
+    
     (subsRows ?? []).forEach((sub: any) => {
       const planName = (sub.subscription_plans as any)?.name || "Unknown";
+      const status = sub.status || "";
+      
+      // If subscription is trialing, add to Trial Subscriber category
+      if (status === "trialing") {
+        subscriptionBreakdown["Trial Subscriber"].count += 1;
+        return; // Skip adding to the plan's count
+      }
+      
+      // For non-trialing subscriptions, add to their plan category
       if (!subscriptionBreakdown[planName]) {
         subscriptionBreakdown[planName] = { name: planName, count: 0, revenue_cents: 0 };
       }
@@ -231,15 +245,18 @@ export async function GET(request: NextRequest) {
     });
 
     // Calculate revenue per subscription plan (paid - cancelled)
+    // Note: Trial Subscriber category should not have revenue (trialing subscriptions don't generate transactions)
     (paidTxRows ?? []).forEach((tx: any) => {
       const planName = tx.plan_name || "Unknown";
-      if (subscriptionBreakdown[planName]) {
+      // Skip revenue calculation for "Trial Subscriber" category
+      if (subscriptionBreakdown[planName] && planName !== "Trial Subscriber") {
         subscriptionBreakdown[planName].revenue_cents += tx.net_amount_cents ?? 0;
       }
     });
     (cancelledTxRows ?? []).forEach((tx: any) => {
       const planName = tx.plan_name || "Unknown";
-      if (subscriptionBreakdown[planName]) {
+      // Skip revenue calculation for "Trial Subscriber" category
+      if (subscriptionBreakdown[planName] && planName !== "Trial Subscriber") {
         subscriptionBreakdown[planName].revenue_cents = Math.max(0, (subscriptionBreakdown[planName].revenue_cents || 0) - (tx.net_amount_cents ?? 0));
       }
     });
@@ -343,7 +360,14 @@ export async function GET(request: NextRequest) {
           active_subscriptions: v.active_subscriptions,
           cumulative_users: cumulativeUsers[date] || 0,
         })),
-      subscription_breakdown: Object.values(subscriptionBreakdown).sort((a, b) => b.count - a.count),
+      subscription_breakdown: Object.values(subscriptionBreakdown)
+        .filter(item => item.count > 0) // Only include categories with subscribers
+        .sort((a, b) => {
+          // Sort: Trial Subscriber first, then by count descending
+          if (a.name === "Trial Subscriber") return -1;
+          if (b.name === "Trial Subscriber") return 1;
+          return b.count - a.count;
+        }),
       additional_metrics: {
         user_growth_rate: userGrowthRate,
         conversion_rate: conversionRate,
