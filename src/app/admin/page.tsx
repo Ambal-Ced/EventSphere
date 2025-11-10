@@ -1236,69 +1236,6 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {/* User Activity Charts */}
-              {mounted && analyticsData.user_activity && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-4 sm:mt-6">
-                  {/* Active vs Non-Active Users Bar Chart */}
-                  <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0 overflow-hidden">
-                    <h3 className="text-base sm:text-lg font-semibold mb-4">User Activity</h3>
-                    <ResponsiveContainer width="100%" height={250}>
-                      <BarChart data={[
-                        { name: "Active Users", count: analyticsData.user_activity.active_users || 0 },
-                        { name: "Non-Active Users", count: analyticsData.user_activity.non_active_users || 0 }
-                      ]}>
-                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                        <XAxis dataKey="name" className="text-xs" tick={{ fill: '#64748b' }} />
-                        <YAxis className="text-xs" tick={{ fill: '#64748b' }} />
-                        <Tooltip contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} labelStyle={{ color: '#cbd5e1' }} itemStyle={{ color: '#22c55e' }} />
-                        <Legend wrapperStyle={{ color: '#1e293b' }} />
-                        <Bar dataKey="count" name="Users" fill="#3b82f6" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-
-                  {/* User Activity Pie Chart */}
-                  <div className="rounded-lg border p-4 sm:p-6 bg-card min-w-0 overflow-visible">
-                    <h3 className="text-base sm:text-lg font-semibold mb-4">User Activity Distribution</h3>
-                    <ResponsiveContainer width="100%" height={250}>
-                      <PieChart>
-                        <Pie
-                          data={[
-                            { name: "Active Users", value: analyticsData.user_activity.active_users || 0, fill: "#10b981" },
-                            { name: "Non-Active Users", value: analyticsData.user_activity.non_active_users || 0, fill: "#64748b" }
-                          ]}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          label={(props: any) => {
-                            const { name, percent } = props;
-                            return `${name}: ${(percent * 100).toFixed(1)}%`;
-                          }}
-                          outerRadius={80}
-                          innerRadius={40}
-                          dataKey="value"
-                          labelStyle={{ fill: '#ffffff', fontSize: '12px', fontWeight: 500 }}
-                          isAnimationActive={false}
-                        >
-                          <Cell key="active" fill="#10b981" stroke="#10b981" strokeWidth={2} />
-                          <Cell key="non-active" fill="#64748b" stroke="#64748b" strokeWidth={2} />
-                        </Pie>
-                        <Tooltip 
-                          contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} 
-                          labelStyle={{ color: '#cbd5e1' }} 
-                          itemStyle={{ color: '#22c55e' }}
-                          formatter={(value: any) => [value, 'Users']}
-                        />
-                        <Legend 
-                          wrapperStyle={{ color: 'currentColor' }} 
-                          iconType="circle"
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-              )}
-
               {/* Subscription Distribution Pie Chart */}
               {mounted && analyticsData.subscription_breakdown && analyticsData.subscription_breakdown.length > 0 && (() => {
                 const pieData = analyticsData.subscription_breakdown.map((entry: any, index: number) => ({
@@ -1375,11 +1312,11 @@ export default function AdminPage() {
                       </div>
                     </div>
                   </div>
-                  {analyticsData.sales_by_category && analyticsData.sales_by_category.length > 0 && (
+                  {analyticsData.popular_events_by_category && analyticsData.popular_events_by_category.length > 0 && (
                     <div className="mt-4 pt-4 border-t">
                       <div className="text-sm font-medium mb-3">Category Rankings</div>
                       <div className="max-h-[300px] overflow-y-auto space-y-2">
-                        {analyticsData.sales_by_category.map((item: any, index: number) => (
+                        {analyticsData.popular_events_by_category.map((item: any, index: number) => (
                           <div
                             key={item.category}
                             className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50 transition-colors"
@@ -1475,12 +1412,12 @@ export default function AdminPage() {
                 })()}
               </div>
 
-              {/* Sales by Event Category */}
-              {analyticsData.sales_by_category && analyticsData.sales_by_category.length > 0 && (
+              {/* Popular Events by Category */}
+              {analyticsData.popular_events_by_category && analyticsData.popular_events_by_category.length > 0 && (
                 <div className="rounded-lg border p-4 sm:p-6 bg-card mt-4 sm:mt-6 min-w-0 overflow-hidden">
-                  <h3 className="text-base sm:text-lg font-semibold mb-4">Sales by Event Category</h3>
+                  <h3 className="text-base sm:text-lg font-semibold mb-4">Popular Events by Category</h3>
                   <ResponsiveContainer width="100%" height={250}>
-                    <BarChart data={analyticsData.sales_by_category.map((item: any, idx: number) => ({ ...item, _index: idx }))}>
+                    <BarChart data={analyticsData.popular_events_by_category.map((item: any, idx: number) => ({ ...item, _index: idx }))}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis dataKey="category" className="text-xs" angle={-45} textAnchor="end" height={100} tick={{ fill: '#64748b' }} />
                       <YAxis className="text-xs" tick={{ fill: '#64748b' }} />
