@@ -1019,17 +1019,17 @@ export class SubscriptionService {
         const planName = (currentSubscription.subscription_plans as any)?.name?.toLowerCase() || '';
         
         if (planName.includes('small')) {
-          correctAmount = 159000; // ₱159 for Small Event Org
+          correctAmount = 15900; // ₱159 for Small Event Org (15900 centavos)
         } else if (planName.includes('large')) {
-          correctAmount = 300000; // ₱300 for Large Event Org
+          correctAmount = 30000; // ₱300 for Large Event Org (30000 centavos)
         }
         
         console.log('💰 Grace Period Cancellation - Plan details:', {
           planName: (currentSubscription.subscription_plans as any)?.name,
           databasePriceCents: originalPlanAmount,
-          databasePricePesos: originalPlanAmount / 1000,
+          databasePricePesos: originalPlanAmount / 100,
           correctAmountCents: correctAmount,
-          correctAmountPesos: correctAmount / 1000,
+          correctAmountPesos: correctAmount / 100,
           subscriptionId: currentSubscription.id
         });
         
@@ -1073,17 +1073,17 @@ export class SubscriptionService {
         const planName = (currentSubscription.subscription_plans as any)?.name?.toLowerCase() || '';
         
         if (planName.includes('small')) {
-          correctAmount = 159000; // ₱159 for Small Event Org
+          correctAmount = 15900; // ₱159 for Small Event Org (15900 centavos)
         } else if (planName.includes('large')) {
-          correctAmount = 300000; // ₱300 for Large Event Org
+          correctAmount = 30000; // ₱300 for Large Event Org (30000 centavos)
         }
         
         console.log('💰 After Grace Period Cancellation - Plan details:', {
           planName: (currentSubscription.subscription_plans as any)?.name,
           databasePriceCents: originalPlanAmount,
-          databasePricePesos: originalPlanAmount / 1000,
+          databasePricePesos: originalPlanAmount / 100,
           correctAmountCents: correctAmount,
-          correctAmountPesos: correctAmount / 1000,
+          correctAmountPesos: correctAmount / 100,
           subscriptionId: currentSubscription.id
         });
         

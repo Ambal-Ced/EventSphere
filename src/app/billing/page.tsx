@@ -177,7 +177,7 @@ export default function BillingPage() {
                 <td>Subscription Payment</td>
                 <td>${transaction.plan_name}</td>
                 <td><span class="status-badge status-paid">${transaction.status}</span></td>
-                <td>₱${(transaction.net_amount_cents / 1000).toFixed(2)}</td>
+                <td>₱${(transaction.net_amount_cents / 100).toFixed(2)}</td>
               </tr>
             </tbody>
           </table>
@@ -185,7 +185,7 @@ export default function BillingPage() {
           <div class="total-section">
             <div class="total-row">
               <span class="total-label">Total Amount:</span>
-              <span class="total-amount">₱${(transaction.net_amount_cents / 1000).toFixed(2)}</span>
+              <span class="total-amount">₱${(transaction.net_amount_cents / 100).toFixed(2)}</span>
             </div>
           </div>
           
@@ -552,7 +552,7 @@ export default function BillingPage() {
                   {loading ? "Loading..." : subscription ? 
                     subscription.subscription_plans?.name === 'Free' ? 
                       'Free (No expiry)' : 
-                      `₱${(subscription.subscription_plans?.price_cents || 0) / 1000} per 30 days` 
+                      `₱${(subscription.subscription_plans?.price_cents || 0) / 100} per 30 days` 
                     : "No subscription"}
                 </p>
               </div>
@@ -755,7 +755,7 @@ export default function BillingPage() {
                 </div>
                   <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                     <div className="text-left sm:text-right">
-                      <p className="font-medium">₱{(transaction.net_amount_cents / 1000).toFixed(2)}</p>
+                      <p className="font-medium">₱{(transaction.net_amount_cents / 100).toFixed(2)}</p>
                     <Badge variant="secondary" className="text-green-600 bg-green-50">
                         {transaction.status}
                     </Badge>

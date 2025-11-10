@@ -19,7 +19,7 @@ const plans = {
   small: {
     name: "Small Event Org",
     price: "₱159",
-    amount: 159000, // Amount in centavos (₱159.00)
+    amount: 15900, // Amount in centavos (₱159.00 = 15900 centavos)
     period: "per 30 days",
     planId: "small", // This should match your database plan ID
     features: [
@@ -35,7 +35,7 @@ const plans = {
   large: {
     name: "Large Event Org", 
     price: "₱300",
-    amount: 300000, // Amount in centavos (₱300.00)
+    amount: 30000, // Amount in centavos (₱300.00 = 30000 centavos)
     period: "per 30 days",
     planId: "large", // This should match your database plan ID
     features: [
@@ -252,7 +252,7 @@ function PaymentForm() {
               const transactionPromise = SubscriptionService.createTransactionDirect({
                 userId: user.id,
                 planName: selectedPlan.name,
-                originalAmountCents: selectedPlan.amount, // Use payment page amount (159000 for Small, 300000 for Large)
+                originalAmountCents: selectedPlan.amount, // Use payment page amount (15900 for Small, 30000 for Large)
                 netAmountCents: transactionDetails.netAmountCents,
                 paymentMethodBrand: transactionDetails.paymentMethodBrand,
                 paymentMethodLast4: transactionDetails.paymentMethodLast4,
