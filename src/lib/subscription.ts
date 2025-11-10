@@ -557,13 +557,21 @@ export class SubscriptionService {
       
       // Execute insert with timeout
       // Use a more aggressive timeout approach
+      // Insert into both transactions and overall_transaction tables
       const insertPromise = (async () => {
         try {
-          const response = await supabase
-            .from('transactions')
-            .insert(transactionRecord)
-            .select()
-            .single();
+          const [transactionResponse, overallTransactionResponse] = await Promise.all([
+            supabase
+              .from('transactions')
+              .insert(transactionRecord)
+              .select()
+              .single(),
+            supabase
+              .from('overall_transaction')
+              .insert(transactionRecord)
+              .select()
+              .single()
+          ]);
           
           // Clear timeout on success
           if (timeoutId) {
@@ -571,7 +579,21 @@ export class SubscriptionService {
             timeoutId = null;
           }
           
-          return response;
+          // Log overall_transaction result
+          if (overallTransactionResponse.error) {
+            console.error('❌ Error creating overall_transaction record:', overallTransactionResponse.error);
+            console.error('❌ Overall transaction error details:', {
+              message: overallTransactionResponse.error.message,
+              code: overallTransactionResponse.error.code,
+              details: overallTransactionResponse.error.details,
+              hint: overallTransactionResponse.error.hint
+            });
+            // Don't throw - we want transactions to succeed even if overall_transaction fails
+          } else {
+            console.log('✅ Overall transaction record created successfully:', overallTransactionResponse.data);
+          }
+          
+          return transactionResponse;
         } catch (error) {
           // Clear timeout on error
           if (timeoutId) {
