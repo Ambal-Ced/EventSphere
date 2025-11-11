@@ -7,9 +7,7 @@ import { User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Eye, EyeOff, AlertTriangle, Trash2, X } from "lucide-react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AccountDeletionService } from "@/lib/account-deletion";
+import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
 function SettingsContent() {
@@ -42,14 +40,7 @@ function SettingsContent() {
   const [isChangingEmail, setIsChangingEmail] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
 
-  // State for account deletion
-  const [deletionRequest, setDeletionRequest] = useState<any>(null);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
-  const [showCancelSuccessDialog, setShowCancelSuccessDialog] = useState(false);
-  const [isRequestingDeletion, setIsRequestingDeletion] = useState(false);
-  const [isCancellingDeletion, setIsCancellingDeletion] = useState(false);
-  const [deletionReason, setDeletionReason] = useState("");
+  // Account deletion UI removed
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -103,34 +94,7 @@ function SettingsContent() {
     };
   }, [emailChangeStep, user?.email]);
 
-  // Fetch deletion request status
-  const fetchDeletionRequest = async () => {
-    if (!user?.id) return;
-
-    try {
-      const request = await AccountDeletionService.getDeletionRequest(user.id);
-      setDeletionRequest(request);
-    } catch (error) {
-      console.error('❌ Error fetching deletion request:', error);
-    }
-  };
-
-  useEffect(() => {
-    if (user?.id) {
-      fetchDeletionRequest();
-    }
-  }, [user]);
-
-  // Refresh deletion request status after operations
-  const refreshDeletionRequest = async () => {
-    if (!user?.id) return;
-    try {
-      const request = await AccountDeletionService.getDeletionRequest(user.id);
-      setDeletionRequest(request);
-    } catch (error) {
-      console.error('❌ Error refreshing deletion request:', error);
-    }
-  };
+  // Account deletion effects removed
 
   // --- Handlers for Password Change ---
   const handlePasswordInputChange = (
@@ -315,62 +279,7 @@ function SettingsContent() {
     setEmailError(null);
   };
 
-  // --- Handlers for Account Deletion ---
-  const handleRequestDeletion = async () => {
-    if (!user?.id || !user?.email) {
-      toast.error('Unable to delete account. Please try again.');
-      return;
-    }
-
-    setIsRequestingDeletion(true);
-    try {
-      const request = await AccountDeletionService.requestAccountDeletion(
-        user.id,
-        user.email,
-        deletionReason || undefined
-      );
-
-      if (request) {
-        // Refresh to ensure state is in sync with database
-        await refreshDeletionRequest();
-        setShowDeleteDialog(false);
-        setDeletionReason("");
-        setShowSuccessDialog(true);
-      } else {
-        toast.error('Failed to request account deletion. Please try again.');
-      }
-    } catch (error) {
-      console.error('❌ Error requesting account deletion:', error);
-      toast.error('An error occurred. Please try again.');
-    } finally {
-      setIsRequestingDeletion(false);
-    }
-  };
-
-  const handleCancelDeletion = async () => {
-    if (!user?.id) {
-      toast.error('Unable to cancel deletion. Please try again.');
-      return;
-    }
-
-    setIsCancellingDeletion(true);
-    try {
-      const success = await AccountDeletionService.cancelDeletionRequest(user.id);
-
-      if (success) {
-        // Refresh to ensure state is in sync with database
-        await refreshDeletionRequest();
-        setShowCancelSuccessDialog(true);
-      } else {
-        toast.error('Failed to cancel deletion. Please try again.');
-      }
-    } catch (error) {
-      console.error('❌ Error cancelling deletion:', error);
-      toast.error('An error occurred. Please try again.');
-    } finally {
-      setIsCancellingDeletion(false);
-    }
-  };
+  // Account deletion handlers removed
 
   // --- Render Logic ---
   if (isLoading) {
@@ -612,249 +521,7 @@ function SettingsContent() {
           )}
         </section>
 
-        {/* Section 3: Delete Account */}
-        <section>
-          <h2 className="mb-1 text-xl font-semibold">Delete Account</h2>
-          <p className="mb-6 text-sm text-muted-foreground">
-            Request to permanently delete your account and all associated data
-          </p>
-
-          {!deletionRequest ? (
-            <div className="space-y-6 rounded-lg border bg-card p-4 sm:p-6">
-              <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-4">
-                <div className="flex items-start gap-3">
-                  <AlertTriangle className="h-5 w-5 text-destructive mt-0.5 flex-shrink-0" />
-                  <div className="space-y-2 text-sm">
-                    <p className="font-medium text-destructive">Warning: This action cannot be undone</p>
-                    <ul className="space-y-1 text-xs list-disc list-inside text-muted-foreground">
-                      <li>All your events will be permanently deleted</li>
-                      <li>All your subscriptions and transactions will be deleted</li>
-                      <li>All your usage data will be deleted</li>
-                      <li>Your profile information will be deleted</li>
-                      <li>Within 7 business days, an administrator will review and either approve or cancel your request</li>
-                      <li>If approved, your account will be deleted at the end of the month</li>
-                      <li>You can cancel your deletion request anytime before admin review</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end">
-                <Button
-                  variant="destructive"
-                  onClick={() => setShowDeleteDialog(true)}
-                  className="w-full sm:w-auto"
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Request Account Deletion
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-6 rounded-lg border bg-card p-4 sm:p-6">
-              {/* Status Badge */}
-              <div className="flex items-center gap-2 mb-4">
-                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                  deletionRequest.status === 'pending' 
-                    ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
-                    : deletionRequest.status === 'approved'
-                    ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                    : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400'
-                }`}>
-                  {deletionRequest.status === 'pending' && '⏳ Pending Review'}
-                  {deletionRequest.status === 'approved' && '✓ Approved'}
-                  {deletionRequest.status === 'cancelled' && '✕ Cancelled'}
-                </span>
-              </div>
-
-              {deletionRequest.status === 'pending' && (
-                <>
-                  <div className="rounded-lg border border-orange-300 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-800 p-4">
-                    <div className="flex items-start gap-3">
-                      <AlertTriangle className="h-5 w-5 text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
-                      <div className="space-y-2 flex-1">
-                        <p className="font-medium text-orange-900 dark:text-orange-200">
-                          Account Deletion Requested
-                        </p>
-                        <p className="text-sm text-orange-800 dark:text-orange-300">
-                          Your deletion request is pending admin review. An administrator will review and either approve or cancel your request within 7 business days.
-                        </p>
-                        <p className="text-sm text-orange-700 dark:text-orange-400">
-                          Request submitted on: <strong>{new Date(deletionRequest.requested_at).toLocaleDateString('en-US', {
-                            weekday: 'long',
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric'
-                          })}</strong>
-                        </p>
-                        <p className="text-xs text-orange-600 dark:text-orange-500 mt-2">
-                          If approved, your account will be deleted at the end of the month. You can cancel this request anytime before admin review.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end">
-                    <Button
-                      variant="outline"
-                      onClick={handleCancelDeletion}
-                      disabled={isCancellingDeletion}
-                      className="w-full sm:w-auto"
-                    >
-                      {isCancellingDeletion ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
-                          Cancelling...
-                        </>
-                      ) : (
-                        <>
-                          <X className="h-4 w-4 mr-2" />
-                          Cancel Deletion Request
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </>
-              )}
-
-              {deletionRequest.status === 'approved' && (
-                <div className="rounded-lg border border-red-300 bg-red-50 dark:bg-red-950/20 dark:border-red-800 p-4">
-                  <div className="flex items-start gap-3">
-                    <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
-                    <div className="space-y-2 flex-1">
-                      <p className="font-medium text-red-900 dark:text-red-200">
-                        Deletion Approved
-                      </p>
-                      <p className="text-sm text-red-800 dark:text-red-300">
-                        Your account deletion has been approved by an administrator. Your account will be permanently deleted at the end of the month.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Success Dialog - Deletion Request Submitted */}
-          <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-green-600 dark:text-green-400">
-                  <div className="text-2xl">✓</div>
-                  Deletion Request Submitted
-                </DialogTitle>
-                <DialogDescription className="space-y-3 pt-2">
-                  <p className="text-sm text-muted-foreground">
-                    Your account deletion request has been submitted successfully. An administrator will review your request within 7 business days and either approve or cancel it.
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    If approved, your account will be permanently deleted at the end of the month. You can cancel your request anytime before admin review.
-                  </p>
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter>
-                <Button onClick={() => setShowSuccessDialog(false)} className="w-full sm:w-auto">
-                  Got it
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-
-          {/* Success Dialog - Deletion Request Cancelled */}
-          <Dialog open={showCancelSuccessDialog} onOpenChange={setShowCancelSuccessDialog}>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-green-600 dark:text-green-400">
-                  <div className="text-2xl">✓</div>
-                  Deletion Request Removed
-                </DialogTitle>
-                <DialogDescription className="space-y-3 pt-2">
-                  <p className="text-sm text-muted-foreground">
-                    Your account deletion request has been cancelled and removed from the database. Your account is safe and will not be deleted.
-                  </p>
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter>
-                <Button onClick={() => setShowCancelSuccessDialog(false)} className="w-full sm:w-auto">
-                  Got it
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-
-          {/* Delete Confirmation Dialog */}
-          <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-destructive">
-                  <AlertTriangle className="h-5 w-5" />
-                  Request Account Deletion
-                </DialogTitle>
-                <DialogDescription className="space-y-3 pt-2">
-                  <p className="font-medium text-foreground">
-                    Are you sure you want to request account deletion?
-                  </p>
-                  <div className="bg-destructive/10 border border-destructive/50 rounded-lg p-3 space-y-2">
-                    <p className="text-sm text-destructive font-medium">
-                      An administrator will review your request within 7 business days and either approve or cancel it.
-                    </p>
-                    <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
-                      <li>All events will be permanently deleted</li>
-                      <li>All subscriptions and transactions will be deleted</li>
-                      <li>All usage data will be deleted</li>
-                      <li>Your profile will be deleted</li>
-                      <li>If approved, your account will be deleted at the end of the month</li>
-                      <li>You can cancel your request anytime before admin review</li>
-                    </ul>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="deletion-reason" className="text-sm font-medium">
-                      Reason for deletion (optional)
-                    </Label>
-                    <Input
-                      id="deletion-reason"
-                      placeholder="Help us improve by sharing why..."
-                      value={deletionReason}
-                      onChange={(e) => setDeletionReason(e.target.value)}
-                      className="max-w-full"
-                    />
-                  </div>
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter className="flex-col sm:flex-row gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setShowDeleteDialog(false);
-                    setDeletionReason("");
-                  }}
-                  disabled={isRequestingDeletion}
-                  className="w-full sm:w-auto"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={handleRequestDeletion}
-                  disabled={isRequestingDeletion}
-                  className="w-full sm:w-auto"
-                >
-                  {isRequestingDeletion ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Confirm Deletion Request
-                    </>
-                  )}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </section>
+        {/* Section 3 removed: Delete Account */}
 
         {/* Removed Profile Information Section */}
         {/* Add sections for Notifications, Privacy etc. here later */}

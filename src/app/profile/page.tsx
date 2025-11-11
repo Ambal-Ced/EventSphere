@@ -844,7 +844,7 @@ export default function ProfilePage() {
               <p className="text-sm text-muted-foreground">
                 Choose the topics that interest you (you can select multiple)
               </p>
-              <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
                 {interestsList.map((interest) => (
                   <Button
                     key={interest}
@@ -855,7 +855,7 @@ export default function ProfilePage() {
                         : "outline"
                     }
                     onClick={() => handleInterestToggle(interest)}
-                    className="justify-start text-left h-auto py-3"
+                    className="justify-start text-left h-auto py-3 w-full break-words whitespace-normal"
                   >
                     {interest}
                   </Button>
