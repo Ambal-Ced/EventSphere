@@ -143,11 +143,11 @@ export default function AdminPage() {
           .from("profiles")
           .select("account_type")
           .eq("id", session.user.id)
-          .single();
+          .maybeSingle();
         if (!cancelled) {
           setIsAdmin((data?.account_type as string | undefined) === "admin");
         }
-        if (error) {
+        if (error && error.code !== "PGRST116") {
           console.warn("Admin page: failed to fetch account_type:", error);
         }
       } finally {

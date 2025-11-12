@@ -3157,11 +3157,11 @@ RECOMMENDATIONS:
               style={{ transform: `translateY(${sidebarTransform}px)` }}
             >
               {/* Event Actions */}
-              <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4 sm:p-6 flex flex-col">
-                <h3 className="text-lg sm:text-xl font-semibold text-green-400 mb-4 sm:mb-6">
+              <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4 sm:p-6 flex flex-col max-h-[24rem] sm:max-h-[26rem]">
+                <h3 className="text-lg sm:text-xl font-semibold text-green-400 mb-4 sm:mb-6 flex-shrink-0">
                   Event Actions
                 </h3>
-                <div className="space-y-3 sm:space-y-4">
+                <div className="space-y-3 sm:space-y-4 overflow-y-auto pr-1 -mr-1 flex-1 min-h-0">
                   <Button
                     variant="outline"
                     className="w-full justify-start border-green-500/30 text-green-400 hover:bg-green-500/20 hover:text-green-300"
@@ -3266,12 +3266,12 @@ RECOMMENDATIONS:
               </div>
 
               {/* Event Members/People */}
-              <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-4 sm:p-6 flex flex-col">
+              <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-4 sm:p-6 flex flex-col max-h-[26rem] sm:max-h-[30rem] min-h-0">
                 <h3 className="text-lg sm:text-xl font-semibold text-purple-400 mb-4 sm:mb-6 flex-shrink-0">
                   Event Members
                 </h3>
-                <div className="flex-1 flex flex-col min-h-0">
-                  <div className="space-y-3 sm:space-y-4 flex-1 overflow-y-auto">
+                <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                  <div className="space-y-3 sm:space-y-4 flex-1 overflow-y-auto pr-1 -mr-1">
                   {(() => {
                     // Create a combined list with owner first, then collaborators sorted by joined_at
                     const allMembers = [];
@@ -3584,8 +3584,8 @@ RECOMMENDATIONS:
               {/* Data Analytics removed per request */}
 
               {/* Event Invites */}
-              <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-4">
-                <div className="flex items-center justify-between">
+              <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-4 flex flex-col max-h-[18rem] overflow-y-auto">
+                <div className="flex items-center justify-between flex-shrink-0">
                   <div>
                     <h4 className="text-lg font-semibold text-purple-400 mb-2">
                       Event Invites
@@ -3610,12 +3610,12 @@ RECOMMENDATIONS:
               </div>
 
               {/* Manage Collaborators */}
-              <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
-                <h4 className="text-lg font-semibold text-white mb-4">
+              <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-4 flex flex-col max-h-[26rem] sm:max-h-[30rem] overflow-hidden">
+                <h4 className="text-lg font-semibold text-white mb-4 flex-shrink-0">
                   Manage Collaborators
                 </h4>
                 {collaborators.length > 0 ? (
-                  <div className="space-y-3">
+                  <div className="space-y-3 flex-1 overflow-y-auto pr-1 -mr-1 min-h-0">
                     {collaborators.map((collaborator) => (
                       <div
                         key={collaborator.id}

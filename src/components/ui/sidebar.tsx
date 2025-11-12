@@ -143,11 +143,11 @@ const SidebarContent = memo(({ isOpen }: { isOpen: boolean }) => {
           .from("profiles")
           .select("account_type")
           .eq("id", user.id)
-          .single();
+          .maybeSingle();
         if (!cancelled) {
           setIsAdmin((data?.account_type as string | undefined) === "admin");
         }
-        if (error) {
+        if (error && error.code !== "PGRST116") {
           console.warn("Failed to load account_type for sidebar:", error);
         }
       } catch (err) {
