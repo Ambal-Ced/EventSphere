@@ -1,15 +1,15 @@
 "use client";
 
 // Client component for interactive analytics features
-// Data is fetched in the server component and passed as props
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { DefaultSubscriptionManager } from "@/lib/default-subscription-manager";
+import { useRouter } from "next/navigation";
 
 // Lazy-load Recharts bits client-side only
 const loadingBox = (h: number = 300) => <div style={{ height: h }} className="w-full animate-pulse rounded bg-slate-700/40" />;
@@ -63,6 +63,7 @@ export default function AnalyticsClient({
   initialAttStats,
   initialFeedback,
 }: AnalyticsClientProps) {
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
   const [scope, setScope] = useState<"owned" | "joined" | "both">("both");
@@ -74,6 +75,7 @@ export default function AnalyticsClient({
   const [attStats, setAttStats] = useState<{ event_id: string; expected_attendees: number; event_attendees: number }[]>(initialAttStats);
   const [feedback, setFeedback] = useState<{ event_id: string; rating: number; sentiment?: string }[]>(initialFeedback);
   const [error, setError] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
 
   // Filters
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -84,59 +86,47 @@ export default function AnalyticsClient({
   const [actMin, setActMin] = useState<string>('');
   const [actMax, setActMax] = useState<string>('');
 
-  // Refresh data when scope changes (client-side only)
-  useEffect(() => {
-    if (scope === "both") {
-      // Use initial data if scope is "both"
-      setEvents(initialEvents);
-      setItems(initialItems);
-      setAttStats(initialAttStats);
-      setFeedback(initialFeedback);
-      return;
-    }
-
-    // For other scopes, fetch from client (could be optimized with server actions)
-    const fetchData = async () => {
+  const fetchAnalyticsData = useCallback(
+    async (targetScope: "owned" | "joined" | "both", uid: string) => {
       setLoading(true);
       setError(null);
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error("You must be signed in");
-
-        // Similar logic to server component but client-side
-        // This could be replaced with a server action for better performance
         let ownedEvents: EventRow[] = [];
-        if (scope !== "joined") {
-          const { data } = await supabase
+        if (targetScope !== "joined") {
+          const { data, error } = await supabase
             .from("events")
             .select("id,title,date,user_id,category,markup_type,markup_value,discount_type,discount_value")
-            .eq("user_id", user.id);
+            .eq("user_id", uid);
+          if (error) throw error;
           ownedEvents = (data || []) as any;
         }
 
         let joinedEvents: EventRow[] = [];
-        if (scope !== "owned") {
-          const { data: collabRows } = await supabase
+        if (targetScope !== "owned") {
+          const { data: collabRows, error: collabError } = await supabase
             .from("event_collaborators")
             .select("event_id")
-            .eq("user_id", user.id);
+            .eq("user_id", uid);
+          if (collabError) throw collabError;
           let joinedIds: string[] = (collabRows || []).map((r: any) => r.event_id);
           if (joinedIds.length === 0) {
-            const { data: rpcData } = await supabase.rpc("get_user_collaborations", { p_user_id: user.id });
+            const { data: rpcData, error: rpcError } = await supabase.rpc("get_user_collaborations", { p_user_id: uid });
+            if (rpcError) throw rpcError;
             joinedIds = (rpcData || []).map((r: any) => r.event_id || r.id).filter(Boolean);
           }
           if (joinedIds.length > 0) {
-            const { data: joined } = await supabase
+            const { data: joined, error: joinedError } = await supabase
               .from("events")
               .select("id,title,date,user_id,category,markup_type,markup_value,discount_type,discount_value")
               .in("id", joinedIds);
+            if (joinedError) throw joinedError;
             joinedEvents = (joined || []) as any;
           }
         }
 
-        const all = scope === "owned"
+        const all = targetScope === "owned"
           ? ownedEvents
-          : scope === "joined"
+          : targetScope === "joined"
           ? joinedEvents
           : Array.from(new Map([...ownedEvents, ...joinedEvents].map((e: any) => [e.id, e])).values());
 
@@ -158,14 +148,51 @@ export default function AnalyticsClient({
           setFeedback([]);
         }
       } catch (e: any) {
+        console.error("Failed to load analytics:", e);
         setError(e.message || "Failed to load analytics");
+        setEvents([]);
+        setItems([]);
+        setAttStats([]);
+        setFeedback([]);
       } finally {
         setLoading(false);
       }
-    };
+    },
+    []
+  );
 
-    fetchData();
-  }, [scope, refreshNonce]);
+  useEffect(() => {
+    const ensureAuth = async () => {
+      const { data, error } = await supabase.auth.getSession();
+      if (error) {
+        console.error("Failed to get session:", error);
+      }
+      const sessionUser = data?.session?.user;
+      if (!sessionUser) {
+        router.replace("/login");
+        return;
+      }
+      setUserId(sessionUser.id);
+    };
+    ensureAuth();
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user?.id) {
+        setUserId(session.user.id);
+      } else {
+        router.replace("/login");
+      }
+    });
+
+    return () => {
+      listener.subscription.unsubscribe();
+    };
+  }, [router]);
+
+  useEffect(() => {
+    if (!userId) return;
+    fetchAnalyticsData(scope, userId);
+  }, [userId, scope, refreshNonce, fetchAnalyticsData]);
 
   // Show a retry button if still loading after 120s
   useEffect(() => {
