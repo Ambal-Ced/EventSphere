@@ -1,5 +1,7 @@
 // Server Component - fetches data using React's cache()
 import { cache } from "react";
+import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { redirect } from "next/navigation";
 import AnalyticsClient from "./analytics-client";
@@ -25,7 +27,25 @@ type EventItem = {
 // Cached data fetching functions using React's cache()
 // This ensures data is only fetched once per render pass
 const getCachedUser = cache(async () => {
-  const supabase = createServerSupabaseClient();
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            );
+          } catch {}
+        },
+      },
+    }
+  );
   const { data: { user }, error } = await supabase.auth.getUser();
   if (error || !user) return null;
   return user;
