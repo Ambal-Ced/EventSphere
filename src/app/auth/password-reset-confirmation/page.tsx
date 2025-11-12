@@ -36,9 +36,9 @@ function PasswordResetConfirmationContent() {
 
         if (code) {
           console.log('Exchanging auth code for session...');
-          const { data: exchangeData, error: exchangeError } = await supabase.auth.exchangeCodeForSession({
+          const { data: exchangeData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(
             code
-          });
+          );
 
           if (exchangeError) {
             console.error('Code exchange error:', exchangeError);
