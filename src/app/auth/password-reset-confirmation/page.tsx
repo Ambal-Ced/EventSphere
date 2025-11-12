@@ -17,21 +17,45 @@ function PasswordResetConfirmationContent() {
   useEffect(() => {
     const handlePasswordResetConfirmation = async () => {
       try {
-        // Get tokens from URL fragment (Supabase default) or query params
         const hash = window.location.hash;
         console.log('Password reset confirmation page - Full hash:', hash);
-        
+
         const urlParams = new URLSearchParams(hash.substring(1));
         const accessToken = urlParams.get('access_token') || searchParams.get('access_token');
         const refreshToken = urlParams.get('refresh_token') || searchParams.get('refresh_token');
         const type = urlParams.get('type') || searchParams.get('type');
+        const code = searchParams.get('code');
 
-        console.log('Password reset confirmation tokens:', { 
-          accessToken: !!accessToken, 
-          refreshToken: !!refreshToken, 
+        console.log('Password reset confirmation tokens:', {
+          accessToken: !!accessToken,
+          refreshToken: !!refreshToken,
           type,
+          code: !!code,
           hash: hash.substring(0, 50) + '...'
         });
+
+        if (code) {
+          console.log('Exchanging auth code for session...');
+          const { data: exchangeData, error: exchangeError } = await supabase.auth.exchangeCodeForSession({
+            code
+          });
+
+          if (exchangeError) {
+            console.error('Code exchange error:', exchangeError);
+            throw new Error(exchangeError.message || 'Failed to authenticate');
+          }
+
+          if (!exchangeData.session?.user) {
+            throw new Error('No user found in session');
+          }
+
+          console.log('Session established via code exchange:', exchangeData.session.user.email);
+          setUserEmail(exchangeData.session.user.email || null);
+          setStatus('success');
+          setMessage('Password reset link confirmed! You can now set your new password.');
+          router.replace('/auth/reset-password?from=confirmation');
+          return;
+        }
 
         if (!accessToken || !refreshToken) {
           console.error('Missing tokens:', { accessToken: !!accessToken, refreshToken: !!refreshToken });
@@ -39,7 +63,6 @@ function PasswordResetConfirmationContent() {
         }
 
         console.log('Setting session with tokens...');
-        // Set the session with the tokens
         const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
           access_token: accessToken,
           refresh_token: refreshToken,
@@ -60,7 +83,7 @@ function PasswordResetConfirmationContent() {
         console.log('Success! User email:', sessionData.user.email);
         setUserEmail(sessionData.user.email || null);
         setStatus('success');
-        
+
         if (type === 'recovery') {
           setMessage('Password reset link confirmed! You can now set your new password.');
         } else {
