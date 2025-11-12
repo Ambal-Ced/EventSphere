@@ -56,6 +56,16 @@ function ResetPasswordContent() {
           return;
         }
 
+        // If the user already has an active session (e.g. after confirming the link),
+        // allow them to proceed directly to the password form.
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          console.log('Active session detected, showing password form without tokens.');
+          setStatus('form');
+          setMessage('Please enter your new password.');
+          return;
+        }
+
         // Fallback: check for token in query parameters
         if (token && type === "recovery") {
           const { error } = await supabase.auth.verifyOtp({

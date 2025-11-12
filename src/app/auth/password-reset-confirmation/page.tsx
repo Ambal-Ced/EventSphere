@@ -67,6 +67,8 @@ function PasswordResetConfirmationContent() {
           setMessage('Password reset confirmed successfully!');
         }
 
+        router.replace('/auth/reset-password?from=confirmation');
+
       } catch (error: any) {
         console.error('Password reset confirmation error:', error);
         setStatus('error');
@@ -75,7 +77,7 @@ function PasswordResetConfirmationContent() {
     };
 
     handlePasswordResetConfirmation();
-  }, [searchParams, supabase]);
+  }, [searchParams, router]);
 
   const handleSetNewPassword = () => {
     router.push('/auth/reset-password');

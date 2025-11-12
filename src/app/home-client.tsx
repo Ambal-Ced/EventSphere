@@ -1,6 +1,6 @@
 "use client"; // Client component
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -92,177 +92,24 @@ export default function HomeClient() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const handlePasswordResetConfirmation = useCallback(async (hash: string) => {
-    try {
-      console.log('Processing password reset confirmation...');
-      
-      // Extract tokens from hash
-      const urlParams = new URLSearchParams(hash.substring(1));
-      const accessToken = urlParams.get('access_token');
-      const refreshToken = urlParams.get('refresh_token');
-      const type = urlParams.get('type');
-
-      console.log('Tokens extracted:', { 
-        accessToken: !!accessToken, 
-        refreshToken: !!refreshToken, 
-        type 
-      });
-
-      if (!accessToken || !refreshToken) {
-        throw new Error('Missing authentication tokens');
-      }
-
-      console.log('Setting session with Supabase...');
-      // Try a simpler approach - just redirect to password reset form
-      // The tokens will be handled by the password reset page itself
-      console.log('Redirecting directly to password reset form...');
-      window.history.replaceState(null, '', '/');
-      router.push(`/auth/reset-password?token=${accessToken}&refresh=${refreshToken}`);
-      
-    } catch (error: any) {
-      console.error('Password reset confirmation error:', error);
-      // Clear the hash on error
-      window.history.replaceState(null, '', '/');
-    }
-  }, [router]);
-
-  const handleEmailChangeConfirmation = useCallback(async (hash: string) => {
-    // Always show the popup immediately so UX doesn't depend on session success
-    try {
-      console.log('Processing email change confirmation...');
-      
-      // Extract tokens from hash
-      const urlParams = new URLSearchParams(hash.substring(1));
-      const accessToken = urlParams.get('access_token');
-      const refreshToken = urlParams.get('refresh_token');
-      const type = urlParams.get('type');
-
-      console.log('Extracted tokens:', { accessToken: !!accessToken, refreshToken: !!refreshToken, type });
-
-      if (!accessToken || !refreshToken) {
-        throw new Error('Missing authentication tokens');
-      }
-
-      // Determine which confirmation this is and show popup immediately
-      const isCurrentEmailConfirmation = type === 'email_change';
-      if (isCurrentEmailConfirmation) {
-        console.log('Setting popup to current_confirmed (pre-session)');
-        setEmailChangePopup(prev => ({ ...prev, show: true, type: 'current_confirmed' }));
-        try { localStorage.setItem('emailChange:currentConfirmed', '1'); } catch {}
-      } else {
-        console.log('Setting popup to new_confirmed (pre-session)');
-        setEmailChangePopup(prev => ({ ...prev, show: true, type: 'new_confirmed' }));
-        try { localStorage.setItem('emailChange:newConfirmed', '1'); } catch {}
-      }
-
-      // Clear the hash immediately to avoid re-processing on navigation
-      window.history.replaceState(null, '', '/');
-
-      // Best-effort: Set the session with the tokens in the background
-      const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken,
-      });
-
-      if (sessionError) {
-        console.warn('Session error (non-blocking):', sessionError);
-        return;
-      }
-
-      if (!sessionData.user) {
-        console.warn('No user found in session (non-blocking)');
-        return;
-      }
-
-      console.log('Session established post-popup', { userEmail: sessionData.user.email });
-      
-      // Optionally enrich popup with emails (non-blocking)
-      setEmailChangePopup(prev => ({
-        ...prev,
-        currentEmail: sessionData?.user?.email || prev.currentEmail,
-        newEmail: (sessionData?.user as any)?.user_metadata?.new_email || prev.newEmail,
-      }));
-      
-    } catch (error: any) {
-      console.error('Email change confirmation error:', error);
-      // Clear the hash on error
-      window.history.replaceState(null, '', '/');
-      // Still show a generic popup if something went wrong
-      setEmailChangePopup(prev => ({ ...prev, show: true, type: 'current_confirmed' }));
-    }
-  }, []);
-
-  const handleEmailChangeMessage = useCallback(async (hash: string) => {
-    try {
-      console.log('Processing email change message...');
-      
-      // Extract message from hash
-      const urlParams = new URLSearchParams(hash.substring(1));
-      const message = urlParams.get('message');
-      
-      if (message && message.includes('Confirmation link accepted')) {
-        // This is the new email confirmation message
-        console.log('New email confirmation message received');
-        
-        // Clear the hash
-        window.history.replaceState(null, '', '/');
-        
-        // Check if current email was already confirmed
-        const currentEmailConfirmed = localStorage.getItem('emailChange:currentConfirmed') === '1';
-        
-        if (currentEmailConfirmed) {
-          // Both emails confirmed - show completion popup
-          setEmailChangePopup({
-            show: true,
-            type: 'both_confirmed'
-          });
-          
-          // Clear stored confirmation state
-          localStorage.removeItem('emailChange:currentConfirmed');
-        } else {
-          // Only new email confirmed - show popup asking to confirm current email
-          setEmailChangePopup({
-            show: true,
-            type: 'new_confirmed'
-          });
-          
-          // Store new email confirmation
-          localStorage.setItem('emailChange:newConfirmed', '1');
-        }
-      }
-      
-    } catch (error: any) {
-      console.error('Email change message error:', error);
-      // Clear the hash on error
-      window.history.replaceState(null, '', '/');
-    }
-  }, []);
-
-  // Handle password reset confirmation directly on homepage when tokens are present
   useEffect(() => {
     const hash = window.location.hash;
-    console.log('Homepage hash:', hash);
-    console.log('Hash includes access_token:', hash.includes('access_token'));
-    console.log('Hash includes type=email_change:', hash.includes('type=email_change'));
-    console.log('Hash includes type=recovery:', hash.includes('type=recovery'));
-    console.log('Hash includes message=', hash.includes('message='));
-    
-    if (hash.includes('access_token') && hash.includes('type=recovery')) {
-      console.log('Password reset tokens detected on homepage - handling confirmation');
-      handlePasswordResetConfirmation(hash);
+    if (!hash) return;
+
+    if (hash.includes("access_token") && hash.includes("type=recovery")) {
+      router.replace(`/auth/password-reset-confirmation${hash}`);
       return;
     }
-    if (hash.includes('access_token') && hash.includes('type=email_change')) {
-      console.log('Email change tokens detected on homepage - handling confirmation');
-      handleEmailChangeConfirmation(hash);
+
+    if (hash.includes("access_token") && hash.includes("type=email_change")) {
+      router.replace(`/auth/email-change-confirmation${hash}`);
       return;
     }
-    if (hash.includes('message=') && hash.includes('Confirmation+link+accepted')) {
-      console.log('Email change message detected on homepage - handling message');
-      handleEmailChangeMessage(hash);
-      return;
+
+    if (hash.includes("message=") && hash.includes("Confirmation+link+accepted")) {
+      router.replace(`/auth/email-change-confirmation${hash}`);
     }
-  }, [handlePasswordResetConfirmation, handleEmailChangeConfirmation, handleEmailChangeMessage]);
+  }, [router]);
 
   useEffect(() => {
     // Only fetch data if user is logged in and tab is visible
