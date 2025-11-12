@@ -14,7 +14,8 @@ const teamMembers = [
     name: "Brylle Andrei Atienza",
     title: "CTO & Co-Founder",
     imageSrc: "/images/man2.webp",
-    portfolioUrl: "https://portfolio.brylle.com",
+    portfolioUrl:
+      "https://www.linkedin.com/in/brylle-andrei-atienza-8758ab398/",
   },
   {
     name: "Jude Maverick Manalo",

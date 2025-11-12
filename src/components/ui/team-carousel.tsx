@@ -51,7 +51,7 @@ export function TeamCarousel({ members }: TeamCarouselProps) {
               rel="noopener noreferrer"
               className="text-primary hover:underline inline-flex items-center gap-2"
             >
-              View Portfolio
+              View Profile
             </Link>
           </div>
         </div>
