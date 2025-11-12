@@ -1,5 +1,6 @@
-// Server Component - fetches data using React's cache()
-import { cache } from "react";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
@@ -24,18 +25,16 @@ type EventItem = {
   item_quantity?: number;
 };
 
-// Cached data fetching functions using React's cache()
-// This ensures data is only fetched once per render pass
-const getCachedUser = cache(async () => {
+const getCurrentUser = async () => {
   const cookieStore = await cookies();
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-      getAll() {
-        return cookieStore.getAll();
-      },
+        getAll() {
+          return cookieStore.getAll();
+        },
         setAll(cookiesToSet) {
           try {
             cookiesToSet.forEach(({ name, value, options }) =>
@@ -49,9 +48,9 @@ const getCachedUser = cache(async () => {
   const { data: { user }, error } = await supabase.auth.getUser();
   if (error || !user) return null;
   return user;
-});
+};
 
-const getCachedAnalyticsData = cache(async (userId: string, scope: "owned" | "joined" | "both" = "both") => {
+const getAnalyticsData = async (userId: string, scope: "owned" | "joined" | "both" = "both") => {
   const supabase = createServerSupabaseClient();
   
   // Fetch owned events
@@ -133,11 +132,11 @@ const getCachedAnalyticsData = cache(async (userId: string, scope: "owned" | "jo
     attStats,
     feedback,
   };
-});
+};
 
 export default async function AnalyticsPage() {
   // Get user (cached per render pass)
-  const user = await getCachedUser();
+  const user = await getCurrentUser();
   
       if (!user) {
     redirect("/login");
@@ -145,7 +144,7 @@ export default async function AnalyticsPage() {
 
   // Fetch analytics data (cached per render pass)
   // Default to "both" scope for initial load
-  const { events, items, attStats, feedback } = await getCachedAnalyticsData(user.id, "both");
+  const { events, items, attStats, feedback } = await getAnalyticsData(user.id, "both");
 
   return (
     <AnalyticsClient
