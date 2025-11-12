@@ -30,10 +30,10 @@ export const getCachedUserProfile = cache(async (userId: string) => {
     .from("profiles")
     .select("*")
     .eq("id", userId)
-    .single();
+    .maybeSingle();
 
-  if (error) throw error;
-  return data;
+  if (error && error.code !== "PGRST116") throw error;
+  return data ?? null;
 });
 
 /**
