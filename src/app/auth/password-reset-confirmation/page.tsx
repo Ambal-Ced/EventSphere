@@ -35,22 +35,24 @@ function PasswordResetConfirmationContent() {
         });
 
         if (code) {
-          console.log('Exchanging auth code for session...');
-          const { data: exchangeData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(
-            code
-          );
+          console.log('Verifying recovery code via verifyOtp...');
+          const { data: verification, error: verifyError } = await supabase.auth.verifyOtp({
+            type: 'recovery',
+            token_hash: code,
+          });
 
-          if (exchangeError) {
-            console.error('Code exchange error:', exchangeError);
-            throw new Error(exchangeError.message || 'Failed to authenticate');
+          if (verifyError) {
+            console.error('Code verification error:', verifyError);
+            throw new Error(verifyError.message || 'Failed to authenticate');
           }
 
-          if (!exchangeData.session?.user) {
+          const sessionUser = verification?.session?.user;
+          if (!sessionUser) {
             throw new Error('No user found in session');
           }
 
-          console.log('Session established via code exchange:', exchangeData.session.user.email);
-          setUserEmail(exchangeData.session.user.email || null);
+          console.log('Recovery code verified for:', sessionUser.email);
+          setUserEmail(sessionUser.email || null);
           setStatus('success');
           setMessage('Password reset link confirmed! You can now set your new password.');
           router.replace('/auth/reset-password?from=confirmation');
