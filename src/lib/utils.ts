@@ -19,6 +19,7 @@ export async function safeRunAsync<T>(fn: () => Promise<T>, fallback: T): Promis
   } catch {
     return fallback;
   }
+}
 
 /**
  * Utility function to delete an event image from storage
