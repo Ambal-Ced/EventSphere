@@ -26,19 +26,28 @@ function PasswordResetConfirmationContent() {
         const type = urlParams.get('type') || searchParams.get('type');
         const code = searchParams.get('code');
 
+        const emailFromHash = urlParams.get('email');
+        const emailFromQuery = searchParams.get('email');
+        const email = emailFromHash || emailFromQuery;
+
         console.log('Password reset confirmation tokens:', {
           accessToken: !!accessToken,
           refreshToken: !!refreshToken,
           type,
           code: !!code,
+          email: email ?? null,
           hash: hash.substring(0, 50) + '...'
         });
 
         if (code) {
+          if (!email) {
+            throw new Error('Missing email parameter for verification.');
+          }
           console.log('Verifying recovery code via verifyOtp...');
           const { data: verification, error: verifyError } = await supabase.auth.verifyOtp({
             type: 'recovery',
-            token_hash: code,
+            email,
+            token: code,
           });
 
           if (verifyError) {
