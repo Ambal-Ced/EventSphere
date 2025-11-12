@@ -13,22 +13,45 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 // Server-side client for static generation (no auth required for public data)
 // Use admin client to bypass RLS and avoid infinite recursion errors
 export function createServerSupabaseClient() {
-  const cookieStore: any = cookies();
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  let cookieStore: ReturnType<typeof cookies> | null = null;
 
-  return createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      getAll() {
-        return cookieStore?.getAll?.() ?? [];
+  try {
+    cookieStore = cookies();
+  } catch {
+    cookieStore = null;
+  }
+
+  if (cookieStore) {
+    return createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
+      cookies: {
+        getAll() {
+          return cookieStore?.getAll?.() ?? [];
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              cookieStore?.set?.(name, value, options);
+            });
+          } catch {
+            // noop – cookies() may be read-only in some contexts
+          }
+        },
       },
-      setAll(cookiesToSet) {
-        try {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            cookieStore?.set?.(name, value, options);
-          });
-        } catch {
-          // noop – cookies() may be read-only in some contexts
-        }
+    });
+  }
+
+  if (serviceKey) {
+    return createClient<Database>(supabaseUrl, serviceKey, {
+      auth: {
+        persistSession: false,
       },
+    });
+  }
+
+  return createClient<Database>(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: false,
     },
   });
 }
