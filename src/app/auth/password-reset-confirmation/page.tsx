@@ -24,7 +24,7 @@ function PasswordResetConfirmationContent() {
         const accessToken = urlParams.get('access_token') || searchParams.get('access_token');
         const refreshToken = urlParams.get('refresh_token') || searchParams.get('refresh_token');
         const type = urlParams.get('type') || searchParams.get('type');
-        const code = searchParams.get('code');
+        const code = urlParams.get('code') || searchParams.get('code');
 
         const emailFromHash = urlParams.get('email');
         const emailFromQuery = searchParams.get('email');
@@ -40,31 +40,11 @@ function PasswordResetConfirmationContent() {
         });
 
         if (code) {
-          if (!email) {
-            throw new Error('Missing email parameter for verification.');
-          }
-          console.log('Verifying recovery code via verifyOtp...');
-          const { data: verification, error: verifyError } = await supabase.auth.verifyOtp({
-            type: 'recovery',
-            email,
-            token: code,
-          });
-
-          if (verifyError) {
-            console.error('Code verification error:', verifyError);
-            throw new Error(verifyError.message || 'Failed to authenticate');
-          }
-
-          const sessionUser = verification?.session?.user;
-          if (!sessionUser) {
-            throw new Error('No user found in session');
-          }
-
-          console.log('Recovery code verified for:', sessionUser.email);
-          setUserEmail(sessionUser.email || null);
-          setStatus('success');
-          setMessage('Password reset link confirmed! You can now set your new password.');
-          router.replace('/auth/reset-password?from=confirmation');
+          console.log('PKCE code detected, trying multiple approaches...');
+          
+          // First, try redirecting to callback for PKCE code exchange
+          // If that fails, the callback will redirect back to reset page
+          router.replace(`/auth/callback?code=${encodeURIComponent(code)}&type=recovery`);
           return;
         }
 

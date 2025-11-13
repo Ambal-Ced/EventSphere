@@ -1,18 +1,58 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 // Use shared singleton client from lib
 
 export default function AuthCallbackPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const type = searchParams.get("type");
 
   useEffect(() => {
-    // Listen for auth state change (i.e., after hash is processed)
+    // Handle PKCE code exchange if code is in URL
+    const code = searchParams.get("code");
+    if (code) {
+      // For recovery type, try code exchange
+      if (type === "recovery") {
+        supabase.auth.exchangeCodeForSession(code).then(({ data, error }) => {
+          if (error) {
+            console.error("Code exchange error:", error);
+            // If code exchange fails, redirect to reset page with error
+            router.push("/reset?error=expired_link");
+            return;
+          }
+          if (data?.session) {
+            // Code exchange successful, let onAuthStateChange handle the redirect
+            console.log("Code exchange successful for recovery");
+          }
+        });
+      } else {
+        // For other types, try code exchange normally
+        supabase.auth.exchangeCodeForSession(code).then(({ data, error }) => {
+          if (error) {
+            console.error("Code exchange error:", error);
+            router.push("/login?error=invalid_code");
+            return;
+          }
+          if (data?.session) {
+            // Code exchange successful, let onAuthStateChange handle the redirect
+          }
+        });
+      }
+    }
+
+    // Listen for auth state change (i.e., after hash is processed or code is exchanged)
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        // Handle recovery/password reset flow
+        if (type === "recovery" && event === "SIGNED_IN" && session) {
+          router.push("/auth/reset-password?from=confirmation");
+          return;
+        }
+
         if (event === "SIGNED_IN" && session?.user?.email_confirmed_at) {
           // Check if profile exists
           const { data: profile, error: profileError } = await supabase
@@ -49,7 +89,7 @@ export default function AuthCallbackPage() {
     return () => {
       authListener?.subscription.unsubscribe();
     };
-  }, [router]);
+  }, [router, type, searchParams]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/40">

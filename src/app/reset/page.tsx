@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,12 +13,21 @@ import HCaptcha from "@hcaptcha/react-hcaptcha";
 
 export default function ResetPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [form, setForm] = useState({ email: "" });
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const captchaRef = useRef<HCaptcha>(null);
+
+  // Check for error query parameter
+  useEffect(() => {
+    const errorParam = searchParams.get("error");
+    if (errorParam === "expired_link") {
+      setError("The password reset link has expired or is invalid. Please request a new one.");
+    }
+  }, [searchParams]);
 
   // Load captcha token from sessionStorage on mount
   useEffect(() => {
