@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
     }
 
-    const { action, email, newEmail } = await request.json();
+    const { action, email, newEmail, refreshToken } = await request.json();
 
     // Create a Supabase client for the API route, using cookies for session
     const cookieStore = await cookies(); // Await cookies in Next.js 15
@@ -167,11 +167,14 @@ export async function POST(request: NextRequest) {
 
         // Check if user is authenticated - try multiple methods
         let authUser3 = null;
+        let authenticatedSupabase = supabase; // Default to cookie-based client
+        let accessToken: string | undefined = undefined;
         
         // Method 1: Try getSession from cookies
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         if (session?.user) {
           authUser3 = session.user;
+          accessToken = session.access_token;
         }
         
         // Method 2: If no session, try getUser (also uses cookies)
@@ -179,6 +182,9 @@ export async function POST(request: NextRequest) {
           const { data: { user }, error: userError } = await supabase.auth.getUser();
           if (user && !userError) {
             authUser3 = user;
+            // Try to get access token from session
+            const { data: { session: userSession } } = await supabase.auth.getSession();
+            accessToken = userSession?.access_token;
           }
         }
         
@@ -194,6 +200,59 @@ export async function POST(request: NextRequest) {
             const { data: { user: tokenUser }, error: tokenError } = await anonClient.auth.getUser(token);
             if (tokenUser && !tokenError) {
               authUser3 = tokenUser;
+              accessToken = token;
+              // Create a new authenticated client with the token
+              // We need to set the session for updateUser to work
+              authenticatedSupabase = createClient(
+                process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+              );
+              // Set the session with the access token and refresh token
+              try {
+                // If we have a refresh token from the request body, use it
+                if (refreshToken) {
+                  await authenticatedSupabase.auth.setSession({
+                    access_token: token,
+                    refresh_token: refreshToken,
+                  });
+                } else {
+                  // Try to get session data from the anon client
+                  const { data: { session: tokenSession } } = await anonClient.auth.getSession();
+                  if (tokenSession) {
+                    await authenticatedSupabase.auth.setSession({
+                      access_token: tokenSession.access_token,
+                      refresh_token: tokenSession.refresh_token,
+                    });
+                  } else {
+                    // Fallback: create client with auth header
+                    authenticatedSupabase = createClient(
+                      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+                      {
+                        global: {
+                          headers: {
+                            Authorization: `Bearer ${token}`,
+                          },
+                        },
+                      }
+                    );
+                  }
+                }
+              } catch (sessionError) {
+                console.warn('Could not set session, using header-based auth:', sessionError);
+                // Use header-based auth as fallback
+                authenticatedSupabase = createClient(
+                  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+                  {
+                    global: {
+                      headers: {
+                        Authorization: `Bearer ${token}`,
+                      },
+                    },
+                  }
+                );
+              }
             }
           }
         }
@@ -237,25 +296,51 @@ export async function POST(request: NextRequest) {
             // Continue anyway - metadata update is not critical
           }
 
-          // Step 1: Send confirmation email to NEW email address using updateUser
-          // This will send an email to the new address
-          const { error: changeError } = await supabase.auth.updateUser(
-            { email: newEmail },
-            {
-              emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/email-change-confirmation?type=email_change&email_source=new`
-            }
-          );
+          // Step 1: Send confirmation email to NEW email address
+          // Try using the authenticated client first, fallback to admin client if needed
+          let changeError: any = null;
+          
+          try {
+            // Try with authenticated client (works if session is available)
+            const result = await authenticatedSupabase.auth.updateUser(
+              { email: newEmail },
+              {
+                emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/email-change-confirmation?type=email_change&email_source=new`
+              }
+            );
+            changeError = result.error;
+          } catch (clientError) {
+            console.warn('Authenticated client updateUser failed, trying admin client:', clientError);
+            // Fallback: Use admin client to update email (this will trigger confirmation email)
+            const { data: adminUpdateData, error: adminUpdateError } = await supabaseAdmin.auth.admin.updateUserById(
+              authUser3.id,
+              {
+                email: newEmail,
+                email_confirm: false, // This triggers confirmation email
+              }
+            );
+            changeError = adminUpdateError;
+          }
 
           if (changeError) {
             console.error('Error updating email (new email):', changeError);
-            return NextResponse.json({ error: 'Failed to send confirmation to new email address' }, { status: 500 });
+            console.error('Error details:', {
+              message: changeError.message,
+              status: changeError.status,
+              name: changeError.name
+            });
+            return NextResponse.json({ 
+              error: 'Failed to send confirmation to new email address',
+              details: changeError.message 
+            }, { status: 500 });
           }
 
           // Step 2: Send confirmation email to CURRENT email address
           // Use password reset flow which reliably sends an email to the current address
           // Note: The email template in Supabase dashboard should be customized to indicate
           // this is for email change confirmation, not password reset
-          const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+          // Use the authenticated client for consistency
+          const { error: resetError } = await authenticatedSupabase.auth.resetPasswordForEmail(
             currentEmail,
             {
               redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/email-change-confirmation?type=email_change&email_source=current&new_email=${encodeURIComponent(newEmail)}`

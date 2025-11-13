@@ -239,9 +239,10 @@ function SettingsContent() {
 
     setIsChangingEmail(true);
     try {
-      // Get the session and access token to pass to the API
+      // Get the session and tokens to pass to the API
       const { data: { session } } = await supabase.auth.getSession();
       const accessToken = session?.access_token;
+      const refreshToken = session?.refresh_token;
       
       // Debug: show current session details before calling API
       console.log('[EmailChange][pre]', {
@@ -250,6 +251,7 @@ function SettingsContent() {
         newEmail,
         userId: session?.user?.id,
         hasAccessToken: !!accessToken,
+        hasRefreshToken: !!refreshToken,
       });
       toast.message('Starting email change…', { description: `From ${user.email} to ${newEmail}` });
 
@@ -264,15 +266,21 @@ function SettingsContent() {
       if (accessToken) {
         headers['Authorization'] = `Bearer ${accessToken}`;
       }
+      
+      // Also send refresh token in body if available (for session setup)
+      const bodyData: any = {
+        action: 'email_change_confirmation',
+        newEmail: newEmail,
+      };
+      if (refreshToken) {
+        bodyData.refreshToken = refreshToken;
+      }
 
       const response = await fetch('/api/email', {
         method: 'POST',
         headers,
         credentials: 'include', // Ensure cookies are sent with the request
-        body: JSON.stringify({
-          action: 'email_change_confirmation',
-          newEmail: newEmail,
-        }),
+        body: JSON.stringify(bodyData),
       });
 
       const result = await response.json();
