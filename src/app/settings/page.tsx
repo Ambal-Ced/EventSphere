@@ -251,11 +251,13 @@ function SettingsContent() {
 
       // Call the API route to send confirmation emails to both addresses
       // Note: We only send the new email - the API will get the current email from the authenticated session
+      // Include credentials to ensure cookies (session) are sent
       const response = await fetch('/api/email', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // Ensure cookies are sent with the request
         body: JSON.stringify({
           action: 'email_change_confirmation',
           newEmail: newEmail,

@@ -49,9 +49,8 @@ export async function POST(request: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    // Debug: Check if we have a session
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    console.log('Session debug:', { session: !!session, user: !!session?.user, error: sessionError });
+    // Debug: Check if we have a session (for other actions)
+    // Note: email_change_confirmation handles its own session check
 
     switch (action) {
       case 'send_verification':
@@ -166,10 +165,18 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: 'New email is required' }, { status: 400 });
         }
 
-        // Check if user is authenticated and get their current email
-        const { data: { user: authUser3 }, error: authError3 } = await supabase.auth.getUser();
-        if (authError3 || !authUser3) {
-          return NextResponse.json({ error: 'User not authenticated' }, { status: 401 });
+        // Check if user is authenticated - try getSession first, then getUser
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        let authUser3 = session?.user;
+        
+        // If no session, try getUser as fallback
+        if (!authUser3) {
+          const { data: { user }, error: userError } = await supabase.auth.getUser();
+          if (userError || !user) {
+            console.error('Authentication error:', { sessionError, userError, hasSession: !!session });
+            return NextResponse.json({ error: 'User not authenticated. Please log in and try again.' }, { status: 401 });
+          }
+          authUser3 = user;
         }
 
         // Use the authenticated user's email as the current email
@@ -185,16 +192,21 @@ export async function POST(request: NextRequest) {
 
         try {
           // Store pending email change in user metadata so we can track it
-          await supabaseAdmin.auth.admin.updateUserById(
-            authUser3.id,
-            {
-              user_metadata: {
-                ...authUser3.user_metadata,
-                pending_email_change: newEmail,
-                pending_email_change_timestamp: new Date().toISOString()
+          try {
+            await supabaseAdmin.auth.admin.updateUserById(
+              authUser3.id,
+              {
+                user_metadata: {
+                  ...(authUser3.user_metadata || {}),
+                  pending_email_change: newEmail,
+                  pending_email_change_timestamp: new Date().toISOString()
+                }
               }
-            }
-          );
+            );
+          } catch (metadataError) {
+            console.warn('Could not update user metadata:', metadataError);
+            // Continue anyway - metadata update is not critical
+          }
 
           // Step 1: Send confirmation email to NEW email address using updateUser
           // This will send an email to the new address
