@@ -43,18 +43,27 @@ export async function POST(request: NextRequest) {
 
     if (exchangeError || !exchangeData?.session?.user) {
       console.error('Code exchange failed:', exchangeError);
+      console.error('Error details:', {
+        message: exchangeError?.message,
+        status: exchangeError?.status,
+        code: exchangeError?.code
+      });
       
       // Check if it's a PKCE code verifier error
-      const isPkceError = exchangeError?.message?.includes('code verifier') || 
-                         exchangeError?.message?.includes('PKCE') ||
-                         exchangeError?.status === 400;
+      // PKCE errors typically mention "code verifier" or "both auth code and code verifier"
+      const errorMessage = exchangeError?.message || '';
+      const isPkceError = errorMessage.includes('code verifier') || 
+                         errorMessage.includes('PKCE') ||
+                         errorMessage.includes('both auth code and code verifier') ||
+                         (exchangeError?.status === 400 && errorMessage.includes('invalid request'));
       
       if (isPkceError) {
         return NextResponse.json(
           { 
-            error: 'This password reset link uses a format that is not supported. Please configure Supabase to use hash fragments (#access_token=...) instead of PKCE codes (?code=...) for password reset emails. Alternatively, please request a new password reset link.',
+            error: 'This password reset link format is not supported. Password reset links with codes (?code=...) require a code verifier that is not available from email links. Please configure Supabase to use hash fragments (#access_token=...) instead, or request a new password reset link.',
             code: 'PKCE_NOT_SUPPORTED',
-            details: exchangeError?.message 
+            details: exchangeError?.message,
+            solution: 'To fix this permanently, go to Supabase Dashboard → Authentication → URL Configuration and enable "Use hash-based redirects" for password reset emails.'
           },
           { status: 400 }
         );

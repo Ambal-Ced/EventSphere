@@ -18,12 +18,14 @@ export async function POST(request: NextRequest) {
     const accessToken = authHeader.replace('Bearer ', '');
     const { password, refresh_token } = await request.json();
 
-    if (!password || !refresh_token) {
+    if (!password) {
       return NextResponse.json(
-        { error: 'Missing password or refresh token' },
+        { error: 'Missing password' },
         { status: 400 }
       );
     }
+
+    // Refresh token is optional - we can update password with just access token using admin API
 
     // Create Supabase client with service role key for admin operations
     const supabase = createClient(supabaseUrl, supabaseServiceKey);

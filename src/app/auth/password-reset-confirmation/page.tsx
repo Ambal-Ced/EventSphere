@@ -39,48 +39,53 @@ function PasswordResetConfirmationContent() {
           hash: hash.substring(0, 50) + '...'
         });
 
+        // Check for code first (PKCE codes in query params)
         if (code) {
           console.log('Recovery code detected, passing to reset password page...');
-          // For password reset, pass the code directly to the reset password page
-          // The reset password page will handle the code verification
           router.replace(`/auth/reset-password?code=${encodeURIComponent(code)}&type=recovery`);
           return;
         }
 
-        if (!accessToken || !refreshToken) {
-          console.error('Missing tokens:', { accessToken: !!accessToken, refreshToken: !!refreshToken });
-          throw new Error('Missing authentication tokens');
+        // Handle hash fragments with access_token
+        if (accessToken) {
+          console.log('Access token detected in hash, setting session...');
+          
+          // If we have both tokens, use setSession
+          if (refreshToken) {
+            console.log('Setting session with both access and refresh tokens...');
+            const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+
+            if (sessionError) {
+              console.error('Session error:', sessionError);
+              throw new Error('Failed to authenticate');
+            }
+
+            if (!sessionData?.user) {
+              console.error('No user in session data:', sessionData);
+              throw new Error('No user found in session');
+            }
+
+            console.log('Success! User email:', sessionData.user.email);
+            setUserEmail(sessionData.user.email || null);
+            setStatus('success');
+            setMessage('Password reset link confirmed! You can now set your new password.');
+            router.replace('/auth/reset-password?from=confirmation');
+            return;
+          } else {
+            // Only access_token, no refresh_token - might be a PKCE token
+            // Try to use it directly or redirect to reset page with the token
+            console.log('Only access_token found (no refresh_token), redirecting to reset page...');
+            router.replace(`/auth/reset-password?token=${encodeURIComponent(accessToken)}&type=recovery`);
+            return;
+          }
         }
 
-        console.log('Setting session with tokens...');
-        const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        });
-
-        console.log('Session result:', { sessionData: !!sessionData, sessionError });
-
-        if (sessionError) {
-          console.error('Session error:', sessionError);
-          throw new Error('Failed to authenticate');
-        }
-
-        if (!sessionData.user) {
-          console.error('No user in session data:', sessionData);
-          throw new Error('No user found in session');
-        }
-
-        console.log('Success! User email:', sessionData.user.email);
-        setUserEmail(sessionData.user.email || null);
-        setStatus('success');
-
-        if (type === 'recovery') {
-          setMessage('Password reset link confirmed! You can now set your new password.');
-        } else {
-          setMessage('Password reset confirmed successfully!');
-        }
-
-        router.replace('/auth/reset-password?from=confirmation');
+        // No valid tokens found
+        console.error('Missing tokens:', { accessToken: !!accessToken, refreshToken: !!refreshToken });
+        throw new Error('Missing authentication tokens');
 
       } catch (error: any) {
         console.error('Password reset confirmation error:', error);

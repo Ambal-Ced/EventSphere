@@ -57,16 +57,49 @@ function ResetPasswordContent() {
           return;
         }
 
-        // Check for tokens passed from homepage via query parameters
+        // Check for tokens passed from homepage or confirmation page via query parameters
         const tokenFromQuery = searchParams.get("token");
         const refreshFromQuery = searchParams.get("refresh");
+        const tokenType = searchParams.get("type");
         
-        if (tokenFromQuery && refreshFromQuery) {
-          console.log('Tokens received from homepage - skipping session setup');
-          console.log('Going directly to password form...');
-          setStatus('form');
-          setMessage('Please enter your new password.');
-          return;
+        if (tokenFromQuery) {
+          if (refreshFromQuery) {
+            // Both tokens available
+            console.log('Tokens received - skipping session setup');
+            setStatus('form');
+            setMessage('Please enter your new password.');
+            return;
+          } else if (tokenType === "recovery") {
+            // Only access_token, try to set session with it
+            console.log('Access token only detected, attempting to set session...');
+            try {
+              // Try to use the access_token to get user info and create a temporary session
+              // Note: PKCE tokens might not work with setSession, but we'll try
+              const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+                access_token: tokenFromQuery,
+                refresh_token: '', // Empty refresh token
+              });
+
+              if (!sessionError && sessionData?.user) {
+                console.log('Session set successfully with access token');
+                setStatus('form');
+                setMessage('Please enter your new password.');
+                return;
+              } else {
+                // If setSession fails, try using the token directly via API
+                console.warn('setSession failed, will use token via API when password is submitted');
+                setStatus('form');
+                setMessage('Please enter your new password.');
+                return;
+              }
+            } catch (tokenError) {
+              console.error('Error setting session with token:', tokenError);
+              // Still show the form - we'll handle it when password is submitted
+              setStatus('form');
+              setMessage('Please enter your new password.');
+              return;
+            }
+          }
         }
 
         // If the user already has an active session (e.g. from settings page),
@@ -136,6 +169,52 @@ function ResetPasswordContent() {
 
     setIsUpdating(true);
     try {
+      // Check if we have a token parameter (access_token from hash fragment)
+      const tokenFromQuery = searchParams.get("token");
+      const tokenType = searchParams.get("type");
+      
+      if (tokenFromQuery && tokenType === "recovery") {
+        console.log('Using token-based password reset API...');
+        
+        try {
+          // Use the access_token with the reset-password API
+          const response = await fetch('/api/auth/reset-password', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${tokenFromQuery}`,
+            },
+            body: JSON.stringify({
+              password: passwords.newPassword,
+              refresh_token: '', // No refresh token available
+            })
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to update password');
+          }
+
+          const result = await response.json();
+          console.log('Password updated successfully via token API!');
+          
+          // Sign out any session that might have been created
+          await supabase.auth.signOut();
+          
+          setStatus('success');
+          setMessage('Your password has been successfully updated! You can now log in with your new password.');
+          
+          setTimeout(() => {
+            router.push('/login');
+          }, 3000);
+          return;
+        } catch (apiError: any) {
+          console.error('Token-based password update failed:', apiError);
+          setPasswordError(apiError.message || 'Failed to update password. The reset link may have expired. Please request a new password reset link.');
+          return;
+        }
+      }
+
       // Check if we have a code parameter (from password reset email)
       const code = searchParams.get("code");
       const codeType = searchParams.get("type");
@@ -160,7 +239,13 @@ function ResetPasswordContent() {
             
             // Check for PKCE not supported error
             if (errorData.code === 'PKCE_NOT_SUPPORTED') {
-              setPasswordError('This password reset link format is not supported. Please request a new password reset link.');
+              let errorMsg = errorData.error || 'This password reset link format is not supported.';
+              if (errorData.solution) {
+                errorMsg += ' ' + errorData.solution;
+              } else {
+                errorMsg += ' Please request a new password reset link.';
+              }
+              setPasswordError(errorMsg);
               setIsUpdating(false);
               return;
             }
