@@ -162,17 +162,25 @@ export async function POST(request: NextRequest) {
         });
 
       case 'email_change_confirmation':
-        if (!email || !newEmail) {
-          return NextResponse.json({ error: 'Current email and new email are required' }, { status: 400 });
+        if (!newEmail) {
+          return NextResponse.json({ error: 'New email is required' }, { status: 400 });
         }
 
-        // Check if user is authenticated
+        // Check if user is authenticated and get their current email
         const { data: { user: authUser3 }, error: authError3 } = await supabase.auth.getUser();
-        if (authUser3?.email !== email) {
-          return NextResponse.json({ error: 'Email mismatch. Please use your current email address.' }, { status: 401 });
-        }
         if (authError3 || !authUser3) {
           return NextResponse.json({ error: 'User not authenticated' }, { status: 401 });
+        }
+
+        // Use the authenticated user's email as the current email
+        const currentEmail = authUser3.email;
+        if (!currentEmail) {
+          return NextResponse.json({ error: 'User email not found' }, { status: 400 });
+        }
+
+        // Validate that new email is different from current email
+        if (currentEmail.toLowerCase().trim() === newEmail.toLowerCase().trim()) {
+          return NextResponse.json({ error: 'New email must be different from current email' }, { status: 400 });
         }
 
         try {
@@ -207,7 +215,7 @@ export async function POST(request: NextRequest) {
           // Note: The email template in Supabase dashboard should be customized to indicate
           // this is for email change confirmation, not password reset
           const { error: resetError } = await supabase.auth.resetPasswordForEmail(
-            email,
+            currentEmail,
             {
               redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/email-change-confirmation?type=email_change&email_source=current&new_email=${encodeURIComponent(newEmail)}`
             }
@@ -218,7 +226,7 @@ export async function POST(request: NextRequest) {
             // Try alternative: use admin API to generate magic link
             const { data: magicLink, error: magicLinkError } = await supabaseAdmin.auth.admin.generateLink({
               type: 'magiclink',
-              email: email,
+              email: currentEmail,
               options: {
                 redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/email-change-confirmation?type=email_change&email_source=current&new_email=${encodeURIComponent(newEmail)}`
               }
@@ -236,7 +244,7 @@ export async function POST(request: NextRequest) {
               // Magic link generated - use resend to trigger email
               const { error: resendError } = await supabase.auth.resend({
                 type: 'signup',
-                email: email,
+                email: currentEmail,
                 options: {
                   emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/email-change-confirmation?type=email_change&email_source=current&new_email=${encodeURIComponent(newEmail)}`
                 }

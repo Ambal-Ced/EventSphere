@@ -250,6 +250,7 @@ function SettingsContent() {
       toast.message('Starting email change…', { description: `From ${user.email} to ${newEmail}` });
 
       // Call the API route to send confirmation emails to both addresses
+      // Note: We only send the new email - the API will get the current email from the authenticated session
       const response = await fetch('/api/email', {
         method: 'POST',
         headers: {
@@ -257,7 +258,6 @@ function SettingsContent() {
         },
         body: JSON.stringify({
           action: 'email_change_confirmation',
-          email: user.email,
           newEmail: newEmail,
         }),
       });
