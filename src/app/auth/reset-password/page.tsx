@@ -28,6 +28,52 @@ function ResetPasswordContent() {
   useEffect(() => {
     const verifyToken = async () => {
       try {
+        // Check if we have a code parameter (from password reset confirmation page)
+        const code = searchParams.get("code");
+        const codeType = searchParams.get("type");
+        
+        if (code && codeType === "recovery") {
+          console.log('Recovery code detected, attempting to verify...');
+          
+          // Try to use the code with verifyOtp (this might work for recovery codes)
+          // Note: This may require email, but let's try without first
+          try {
+            const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
+              type: 'recovery',
+              token_hash: code,
+            });
+
+            if (!verifyError && verifyData?.session) {
+              console.log('Code verified successfully via verifyOtp');
+              setStatus('form');
+              setMessage('Please enter your new password.');
+              return;
+            }
+
+            // If verifyOtp fails, try exchangeCodeForSession (will likely fail without verifier)
+            console.warn('verifyOtp failed, trying exchangeCodeForSession...');
+            const { data: exchangeData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+            
+            if (!exchangeError && exchangeData?.session) {
+              console.log('Code exchanged successfully');
+              setStatus('form');
+              setMessage('Please enter your new password.');
+              return;
+            }
+
+            // Both methods failed - code is likely expired or invalid
+            console.error('Code verification failed:', verifyError || exchangeError);
+            setStatus('error');
+            setMessage('This password reset link has expired or is invalid. Please request a new password reset link.');
+            return;
+          } catch (codeError: any) {
+            console.error('Error processing recovery code:', codeError);
+            setStatus('error');
+            setMessage('This password reset link format is not supported. Please request a new password reset link.');
+            return;
+          }
+        }
+
         // Check if we have tokens in the URL fragment (Supabase's default format)
         const urlParams = new URLSearchParams(window.location.hash.substring(1));
         const accessToken = urlParams.get('access_token');
@@ -96,7 +142,7 @@ function ResetPasswordContent() {
     };
 
     verifyToken();
-  }, [token, type, router]);
+  }, [token, type, router, searchParams]);
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;

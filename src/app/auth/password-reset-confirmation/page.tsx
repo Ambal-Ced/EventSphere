@@ -40,11 +40,10 @@ function PasswordResetConfirmationContent() {
         });
 
         if (code) {
-          console.log('PKCE code detected, trying multiple approaches...');
-          
-          // First, try redirecting to callback for PKCE code exchange
-          // If that fails, the callback will redirect back to reset page
-          router.replace(`/auth/callback?code=${encodeURIComponent(code)}&type=recovery`);
+          console.log('Recovery code detected, passing to reset password page...');
+          // For password reset, pass the code directly to the reset password page
+          // The reset password page will handle the code verification
+          router.replace(`/auth/reset-password?code=${encodeURIComponent(code)}&type=recovery`);
           return;
         }
 
