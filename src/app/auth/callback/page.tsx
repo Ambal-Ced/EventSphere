@@ -12,25 +12,20 @@ export default function AuthCallbackPage() {
   const type = searchParams.get("type");
 
   useEffect(() => {
-    // Handle PKCE code exchange if code is in URL
+    // Handle code in URL
     const code = searchParams.get("code");
     if (code) {
-      // For recovery type, try code exchange
+      // For recovery type, PKCE codes from email links can't be exchanged
+      // without the code verifier. We need to handle this differently.
       if (type === "recovery") {
-        supabase.auth.exchangeCodeForSession(code).then(({ data, error }) => {
-          if (error) {
-            console.error("Code exchange error:", error);
-            // If code exchange fails, redirect to reset page with error
-            router.push("/reset?error=expired_link");
-            return;
-          }
-          if (data?.session) {
-            // Code exchange successful, let onAuthStateChange handle the redirect
-            console.log("Code exchange successful for recovery");
-          }
-        });
+        // PKCE codes from password reset emails require a code verifier
+        // which we don't have. The email template should use hash fragments instead.
+        // For now, redirect to reset page with a helpful error message
+        console.warn("PKCE code detected for recovery, but code verifier is missing");
+        router.push("/reset?error=pkce_code_unsupported");
+        return;
       } else {
-        // For other types, try code exchange normally
+        // For other types (like email verification), try code exchange
         supabase.auth.exchangeCodeForSession(code).then(({ data, error }) => {
           if (error) {
             console.error("Code exchange error:", error);

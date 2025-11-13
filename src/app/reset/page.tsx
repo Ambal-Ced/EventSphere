@@ -26,6 +26,8 @@ export default function ResetPage() {
     const errorParam = searchParams.get("error");
     if (errorParam === "expired_link") {
       setError("The password reset link has expired or is invalid. Please request a new one.");
+    } else if (errorParam === "pkce_code_unsupported") {
+      setError("This password reset link format is not supported. Please request a new password reset link.");
     }
   }, [searchParams]);
 
