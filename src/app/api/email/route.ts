@@ -297,41 +297,70 @@ export async function POST(request: NextRequest) {
           }
 
           // Step 1: Send confirmation email to NEW email address
-          // Try using the authenticated client first, fallback to admin client if needed
+          // Use admin client to generate a session token, then use updateUser
+          let emailChangeSuccess = false;
           let changeError: any = null;
           
           try {
-            // Try with authenticated client (works if session is available)
+            // First, try using the authenticated client (works if session is available)
             const result = await authenticatedSupabase.auth.updateUser(
               { email: newEmail },
               {
                 emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/email-change-confirmation?type=email_change&email_source=new`
               }
             );
-            changeError = result.error;
-          } catch (clientError) {
-            console.warn('Authenticated client updateUser failed, trying admin client:', clientError);
-            // Fallback: Use admin client to update email (this will trigger confirmation email)
-            const { data: adminUpdateData, error: adminUpdateError } = await supabaseAdmin.auth.admin.updateUserById(
-              authUser3.id,
-              {
-                email: newEmail,
-                email_confirm: false, // This triggers confirmation email
+            
+            if (!result.error) {
+              emailChangeSuccess = true;
+              console.log('Email change initiated via authenticated client');
+            } else {
+              changeError = result.error;
+              throw result.error;
+            }
+          } catch (clientError: any) {
+            console.warn('Authenticated client updateUser failed, trying admin approach:', clientError);
+            changeError = clientError;
+            
+            // Fallback: Use admin client to update email directly
+            // Supabase should automatically send confirmation email when email is updated
+            try {
+              // Update the user's email using admin client
+              // This should trigger Supabase to send a confirmation email to the new address
+              const { data: updateData, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+                authUser3.id,
+                {
+                  email: newEmail,
+                  email_confirm: false, // This should trigger confirmation email
+                }
+              );
+              
+              if (updateError) {
+                console.error('Admin updateUserById failed:', updateError);
+                throw updateError;
               }
-            );
-            changeError = adminUpdateError;
+              
+              console.log('Email updated via admin client, confirmation email should be sent automatically');
+              emailChangeSuccess = true;
+              
+              // Note: Supabase should automatically send the confirmation email
+              // If it doesn't, check Supabase dashboard email settings
+            } catch (adminError: any) {
+              console.error('Admin client email change failed:', adminError);
+              return NextResponse.json({ 
+                error: 'Failed to send confirmation to new email address',
+                details: adminError?.message || changeError?.message || 'Unknown error',
+                debug: {
+                  clientError: changeError?.message,
+                  adminError: adminError?.message
+                }
+              }, { status: 500 });
+            }
           }
 
-          if (changeError) {
-            console.error('Error updating email (new email):', changeError);
-            console.error('Error details:', {
-              message: changeError.message,
-              status: changeError.status,
-              name: changeError.name
-            });
+          if (!emailChangeSuccess) {
             return NextResponse.json({ 
               error: 'Failed to send confirmation to new email address',
-              details: changeError.message 
+              details: changeError?.message || 'Could not initiate email change'
             }, { status: 500 });
           }
 

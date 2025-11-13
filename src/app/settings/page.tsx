@@ -286,7 +286,12 @@ function SettingsContent() {
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || 'Failed to initiate email change');
+        // Show detailed error message if available
+        const errorMessage = result.details 
+          ? `${result.error}: ${result.details}`
+          : result.error || 'Failed to initiate email change';
+        console.error('Email change API error:', result);
+        throw new Error(errorMessage);
       }
 
       // Inform the user what to expect
