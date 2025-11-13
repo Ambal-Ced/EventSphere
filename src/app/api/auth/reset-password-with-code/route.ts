@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create a Supabase client with anon key to try code exchange
-    // Note: This will likely fail for PKCE codes without verifier, but we'll try
+    // Note: PKCE codes require a code verifier which we don't have from email links
     const supabaseAnon = createClient(
       supabaseUrl,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -38,10 +38,28 @@ export async function POST(request: NextRequest) {
     );
 
     // Try to exchange the code for a session
+    // This will fail for PKCE codes without the code verifier
     const { data: exchangeData, error: exchangeError } = await supabaseAnon.auth.exchangeCodeForSession(code);
 
     if (exchangeError || !exchangeData?.session?.user) {
       console.error('Code exchange failed:', exchangeError);
+      
+      // Check if it's a PKCE code verifier error
+      const isPkceError = exchangeError?.message?.includes('code verifier') || 
+                         exchangeError?.message?.includes('PKCE') ||
+                         exchangeError?.status === 400;
+      
+      if (isPkceError) {
+        return NextResponse.json(
+          { 
+            error: 'This password reset link uses a format that is not supported. Please configure Supabase to use hash fragments (#access_token=...) instead of PKCE codes (?code=...) for password reset emails. Alternatively, please request a new password reset link.',
+            code: 'PKCE_NOT_SUPPORTED',
+            details: exchangeError?.message 
+          },
+          { status: 400 }
+        );
+      }
+      
       return NextResponse.json(
         { 
           error: 'Invalid or expired password reset link. Please request a new one.',

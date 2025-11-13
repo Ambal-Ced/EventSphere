@@ -157,6 +157,14 @@ function ResetPasswordContent() {
 
           if (!response.ok) {
             const errorData = await response.json();
+            
+            // Check for PKCE not supported error
+            if (errorData.code === 'PKCE_NOT_SUPPORTED') {
+              setPasswordError('This password reset link format is not supported. Please request a new password reset link.');
+              setIsUpdating(false);
+              return;
+            }
+            
             throw new Error(errorData.error || 'Failed to update password');
           }
 
@@ -176,7 +184,15 @@ function ResetPasswordContent() {
           return;
         } catch (apiError: any) {
           console.error('Code-based password update failed:', apiError);
-          setPasswordError(apiError.message || 'Failed to update password. The reset link may have expired. Please request a new password reset link.');
+          
+          // Check if the error message contains PKCE info
+          let errorMessage = apiError.message || 'Failed to update password. The reset link may have expired.';
+          
+          if (errorMessage.includes('PKCE') || errorMessage.includes('code verifier') || errorMessage.includes('not supported')) {
+            errorMessage = 'This password reset link format is not supported. Please request a new password reset link.';
+          }
+          
+          setPasswordError(errorMessage);
           return;
         }
       }
@@ -340,7 +356,19 @@ function ResetPasswordContent() {
               </div>
 
               {passwordError && (
-                <p className="text-sm text-destructive">{passwordError}</p>
+                <div className="space-y-2">
+                  <p className="text-sm text-destructive">{passwordError}</p>
+                  {(passwordError.includes('not supported') || passwordError.includes('expired') || passwordError.includes('invalid')) && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => router.push('/reset')}
+                    >
+                      Request New Password Reset Link
+                    </Button>
+                  )}
+                </div>
               )}
 
               <Button 
