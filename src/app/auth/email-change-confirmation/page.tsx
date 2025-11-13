@@ -40,6 +40,8 @@ function EmailChangeConfirmationContent() {
         const refreshToken =
           urlParams.get("refresh_token") || searchParams.get("refresh_token");
         const type = urlParams.get("type") || searchParams.get("type");
+        const emailSource = urlParams.get("email_source") || searchParams.get("email_source");
+        const newEmailParam = urlParams.get("new_email") || searchParams.get("new_email");
         const messageParam =
           urlParams.get("message") || searchParams.get("message");
 
@@ -58,13 +60,24 @@ function EmailChangeConfirmationContent() {
           }
 
           setCurrentEmail(data.user.email ?? null);
-          setNewEmail((data.user as any)?.user_metadata?.new_email ?? null);
+          const pendingNewEmail = (data.user as any)?.user_metadata?.pending_email_change || newEmailParam;
+          setNewEmail(pendingNewEmail ?? null);
           setStatus("success");
 
           if (type === "email_change") {
-            setMessage(
-              "Current email confirmed! Please confirm the link sent to your new email address to finish the update."
-            );
+            if (emailSource === "current") {
+              setMessage(
+                "Current email confirmed! Please check your new email address and click the confirmation link to complete the email change."
+              );
+            } else if (emailSource === "new") {
+              setMessage(
+                "New email confirmed! Please check your current email address and click the confirmation link to complete the email change."
+              );
+            } else {
+              setMessage(
+                "Email change confirmation received! Please confirm the link sent to your other email address to finish the update."
+              );
+            }
           } else {
             setMessage(
               "Email change confirmed! You can continue using your updated email address."

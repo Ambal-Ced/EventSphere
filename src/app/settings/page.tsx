@@ -239,7 +239,7 @@ function SettingsContent() {
 
     setIsChangingEmail(true);
     try {
-      // Debug: show current session details before calling Supabase
+      // Debug: show current session details before calling API
       const { data: { session } } = await supabase.auth.getSession();
       console.log('[EmailChange][pre]', {
         isLoggedIn: !!session?.user,
@@ -249,25 +249,34 @@ function SettingsContent() {
       });
       toast.message('Starting email change…', { description: `From ${user.email} to ${newEmail}` });
 
-      // Trigger Supabase's email change confirmation flow via the client session
-      const { data: updateResult, error: updateError } = await supabase.auth.updateUser({
-        email: newEmail,
-      }, {
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/email-change-confirmation`
+      // Call the API route to send confirmation emails to both addresses
+      const response = await fetch('/api/email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'email_change_confirmation',
+          email: user.email,
+          newEmail: newEmail,
+        }),
       });
 
-      // Debug: log the raw result coming back from Supabase
-      console.log('[EmailChange][result]', { updateResult, updateError });
-      // Expose in window for quick inspection from DevTools
-      // @ts-expect-error debug handle
-      if (typeof window !== 'undefined') window.__EMAIL_CHANGE_DEBUG__ = { updateResult, updateError };
+      const result = await response.json();
 
-      if (updateError) throw updateError;
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to initiate email change');
+      }
 
-      // Inform the user what to expect based on Supabase settings
+      // Inform the user what to expect
       setEmailChangeStep('confirm');
       setIsChangingEmail(false); // Reset loading state since we're now waiting for confirmation
-      toast.success('Email change started. Check your email for the confirmation link.');
+      
+      if (result.warning) {
+        toast.warning(result.message || 'Email change started. Please check your emails.');
+      } else {
+        toast.success(result.message || 'Email change started. Please check both your current and new email addresses for confirmation links.');
+      }
     } catch (err: any) {
       console.error('Error changing email:', err);
       setEmailError(err.message || 'Failed to change email. Please try again.');

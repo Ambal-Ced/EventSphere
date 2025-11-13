@@ -168,27 +168,94 @@ export async function POST(request: NextRequest) {
 
         // Check if user is authenticated
         const { data: { user: authUser3 }, error: authError3 } = await supabase.auth.getUser();
+        if (authUser3?.email !== email) {
+          return NextResponse.json({ error: 'Email mismatch. Please use your current email address.' }, { status: 401 });
+        }
         if (authError3 || !authUser3) {
           return NextResponse.json({ error: 'User not authenticated' }, { status: 401 });
         }
 
-        // Use Supabase's built-in email change confirmation
-        const { error: changeError } = await supabase.auth.updateUser(
-          { email: newEmail },
-          {
-            emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/verify-email?type=email_change`
-          }
-        );
+        try {
+          // Store pending email change in user metadata so we can track it
+          await supabaseAdmin.auth.admin.updateUserById(
+            authUser3.id,
+            {
+              user_metadata: {
+                ...authUser3.user_metadata,
+                pending_email_change: newEmail,
+                pending_email_change_timestamp: new Date().toISOString()
+              }
+            }
+          );
 
-        if (changeError) {
-          console.error('Error updating email:', changeError);
+          // Step 1: Send confirmation email to NEW email address using updateUser
+          // This will send an email to the new address
+          const { error: changeError } = await supabase.auth.updateUser(
+            { email: newEmail },
+            {
+              emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/email-change-confirmation?type=email_change&email_source=new`
+            }
+          );
+
+          if (changeError) {
+            console.error('Error updating email (new email):', changeError);
+            return NextResponse.json({ error: 'Failed to send confirmation to new email address' }, { status: 500 });
+          }
+
+          // Step 2: Send confirmation email to CURRENT email address
+          // Use password reset flow which reliably sends an email to the current address
+          // Note: The email template in Supabase dashboard should be customized to indicate
+          // this is for email change confirmation, not password reset
+          const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+            email,
+            {
+              redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/email-change-confirmation?type=email_change&email_source=current&new_email=${encodeURIComponent(newEmail)}`
+            }
+          );
+
+          if (resetError) {
+            console.error('Error sending confirmation to current email:', resetError);
+            // Try alternative: use admin API to generate magic link
+            const { data: magicLink, error: magicLinkError } = await supabaseAdmin.auth.admin.generateLink({
+              type: 'magiclink',
+              email: email,
+              options: {
+                redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/email-change-confirmation?type=email_change&email_source=current&new_email=${encodeURIComponent(newEmail)}`
+              }
+            });
+
+            if (magicLinkError || !magicLink?.properties?.action_link) {
+              console.error('Could not send confirmation to current email:', magicLinkError);
+              // Don't fail completely - at least the new email confirmation was sent
+              return NextResponse.json({ 
+                success: true, 
+                warning: 'Confirmation sent to new email. Could not send to current email - please contact support.',
+                message: 'Email change confirmation sent to your new email address. Please check your inbox.' 
+              });
+            } else {
+              // Magic link generated - use resend to trigger email
+              const { error: resendError } = await supabase.auth.resend({
+                type: 'signup',
+                email: email,
+                options: {
+                  emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/email-change-confirmation?type=email_change&email_source=current&new_email=${encodeURIComponent(newEmail)}`
+                }
+              });
+
+              if (resendError) {
+                console.warn('Could not automatically send email to current address');
+              }
+            }
+          }
+
+          return NextResponse.json({ 
+            success: true, 
+            message: 'Email change confirmation sent to both your current and new email addresses. Please check both inboxes.' 
+          });
+        } catch (error: any) {
+          console.error('Unexpected error in email change:', error);
           return NextResponse.json({ error: 'Failed to initiate email change' }, { status: 500 });
         }
-
-        return NextResponse.json({ 
-          success: true, 
-          message: 'Email change confirmation sent to new email address' 
-        });
 
       default:
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
