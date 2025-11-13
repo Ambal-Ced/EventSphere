@@ -283,10 +283,11 @@ function ResetPasswordContent() {
       }
 
       // If we have tokens from homepage, set the session first
-      const tokenFromQuery = searchParams.get("token");
+      // Reuse tokenFromQuery declared above, just get refresh token
       const refreshFromQuery = searchParams.get("refresh");
       
-      if (tokenFromQuery && refreshFromQuery) {
+      // Check if we have both token and refresh (different from the token-only case above)
+      if (tokenFromQuery && refreshFromQuery && tokenType !== "recovery") {
         console.log('Using direct API approach for password update...');
         
         // Try to update password using direct API call with tokens
