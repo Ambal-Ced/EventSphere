@@ -70,10 +70,58 @@ function PasswordResetConfirmationContent() {
             return;
           } else {
             // Only access_token, no refresh_token - might be a PKCE token
-            // Try to use it directly or redirect to reset page with the token
-            console.log('Only access_token found (no refresh_token), redirecting to reset page...');
-            router.replace(`/auth/reset-password?token=${encodeURIComponent(accessToken)}&type=recovery`);
-            return;
+            // IMPORTANT: Verify and set session immediately to prevent token expiration
+            console.log('Only access_token found, immediately verifying and setting session...');
+            
+            try {
+              // Try to set session immediately with the access token
+              // This establishes a session before the token expires
+              const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+                access_token: accessToken,
+                refresh_token: '', // Empty refresh token
+              });
+
+              if (!sessionError && sessionData?.user) {
+                console.log('Session set successfully with access token for user:', sessionData.user.email);
+                setUserEmail(sessionData.user.email || null);
+                setStatus('success');
+                setMessage('Password reset link confirmed! You can now set your new password.');
+                // Redirect to reset password page - user now has an active session
+                router.replace('/auth/reset-password?from=confirmation');
+                return;
+              } else {
+                // If setSession fails, try verifyOtp as fallback
+                console.warn('setSession failed, trying verifyOtp...', sessionError?.message);
+                
+                if (accessToken.startsWith('pkce_')) {
+                  // For PKCE tokens, try verifyOtp
+                  const tokenHash = accessToken.replace(/^pkce_/, '');
+                  const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
+                    type: 'recovery',
+                    token_hash: tokenHash,
+                  });
+
+                  if (!verifyError && verifyData?.session?.user) {
+                    console.log('PKCE token verified via verifyOtp for user:', verifyData.session.user.email);
+                    setUserEmail(verifyData.session.user.email || null);
+                    setStatus('success');
+                    setMessage('Password reset link confirmed! You can now set your new password.');
+                    router.replace('/auth/reset-password?from=confirmation');
+                    return;
+                  }
+                }
+                
+                // If both methods fail, redirect with token (will try API route)
+                console.warn('Could not set session, redirecting with token for API verification...');
+                router.replace(`/auth/reset-password?token=${encodeURIComponent(accessToken)}&type=recovery`);
+                return;
+              }
+            } catch (tokenError: any) {
+              console.error('Error verifying token:', tokenError);
+              // Still redirect - API route will handle verification
+              router.replace(`/auth/reset-password?token=${encodeURIComponent(accessToken)}&type=recovery`);
+              return;
+            }
           }
         }
 

@@ -102,17 +102,14 @@ function ResetPasswordContent() {
           }
         }
 
-        // If the user already has an active session (e.g. from settings page),
-        // allow them to proceed directly to the password form.
-        // But only if there's no code (code-based reset should not use existing session)
-        if (!code) {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session?.user) {
-            console.log('Active session detected, showing password form without tokens.');
-            setStatus('form');
-            setMessage('Please enter your new password.');
-            return;
-          }
+        // Check for active session first (session might have been set by confirmation page)
+        // This prevents token expiration issues - if session exists, use it
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          console.log('Active session detected, showing password form without tokens.');
+          setStatus('form');
+          setMessage('Please enter your new password.');
+          return;
         }
 
         // Fallback: check for token in query parameters
@@ -169,6 +166,29 @@ function ResetPasswordContent() {
 
     setIsUpdating(true);
     try {
+      // First, check if user has an active session (set by confirmation page)
+      // This prevents token expiration issues
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        console.log('Using active session for password reset...');
+        const { error } = await supabase.auth.updateUser({
+          password: passwords.newPassword
+        });
+
+        if (error) throw error;
+
+        // Sign out after password reset
+        await supabase.auth.signOut();
+        
+        setStatus('success');
+        setMessage('Your password has been successfully updated! You can now log in with your new password.');
+        
+        setTimeout(() => {
+          router.push('/login');
+        }, 3000);
+        return;
+      }
+
       // Check if we have a token parameter (access_token from hash fragment)
       const tokenFromQuery = searchParams.get("token");
       const tokenType = searchParams.get("type");
@@ -329,26 +349,7 @@ function ResetPasswordContent() {
         }
       }
 
-      // If user has an active session, update password directly
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        const { error } = await supabase.auth.updateUser({
-          password: passwords.newPassword
-        });
-
-        if (error) throw error;
-
-        setStatus('success');
-        setMessage('Your password has been successfully updated!');
-        
-        // Redirect to homepage after 3 seconds
-        setTimeout(() => {
-          router.push('/');
-        }, 3000);
-        return;
-      }
-
-      // No valid method found
+      // No valid method found - should have been handled above
       throw new Error('Invalid password reset link. Please request a new password reset link.');
     } catch (error: any) {
       console.error("Error updating password:", error);
