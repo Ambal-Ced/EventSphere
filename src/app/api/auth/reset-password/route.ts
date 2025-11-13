@@ -36,47 +36,72 @@ export async function POST(request: NextRequest) {
 
     // Check if token is a PKCE token (starts with 'pkce_')
     if (accessToken.startsWith('pkce_')) {
-      console.log('PKCE recovery token detected, attempting to verify...');
+      console.log('PKCE recovery token detected, using admin API to verify...');
       
-      // For PKCE recovery tokens, try setSession first (recovery tokens might work without refresh_token)
-      // Then fall back to verifyOtp if needed
+      // For PKCE recovery tokens, we can't verify them directly without code verifier
+      // However, we can try to use the admin API to verify the recovery token
+      // by attempting to exchange it or by using the token hash
       try {
-        // First, try setSession with the PKCE token (recovery tokens sometimes work this way)
-        console.log('Trying setSession with PKCE recovery token...');
-        const { data: sessionData, error: sessionError } = await supabaseAnon.auth.setSession({
-          access_token: accessToken,
-          refresh_token: '', // Empty refresh token - recovery tokens might work without it
+        // For PKCE recovery tokens, try multiple approaches
+        // First, try verifyOtp with the full token (including pkce_ prefix)
+        let verifyData: any = null;
+        let verifyError: any = null;
+        
+        // Try with full token first
+        const result1 = await supabase.auth.verifyOtp({
+          type: 'recovery',
+          token_hash: accessToken,
         });
-
-        if (!sessionError && sessionData?.user) {
-          userId = sessionData.user.id;
-          userEmail = sessionData.user.email || null;
-          console.log('PKCE recovery token setSession successful for user:', userEmail);
-        } else {
-          // If setSession fails, try verifyOtp as fallback
-          console.warn('setSession failed, trying verifyOtp...', sessionError?.message);
-          
-          // Try verifyOtp with the token (remove pkce_ prefix)
+        verifyData = result1.data;
+        verifyError = result1.error;
+        
+        // If that fails, try without pkce_ prefix
+        if (verifyError) {
           const tokenHash = accessToken.replace(/^pkce_/, '');
-          const { data: verifyData, error: verifyError } = await supabaseAnon.auth.verifyOtp({
+          const result2 = await supabase.auth.verifyOtp({
             type: 'recovery',
             token_hash: tokenHash,
           });
+          verifyData = result2.data;
+          verifyError = result2.error;
+        }
 
-          if (!verifyError && verifyData?.session?.user) {
-            userId = verifyData.session.user.id;
-            userEmail = verifyData.session.user.email || null;
-            console.log('PKCE recovery token verified via verifyOtp for user:', userEmail);
+        if (!verifyError && verifyData?.session?.user) {
+          userId = verifyData.session.user.id;
+          userEmail = verifyData.session.user.email || null;
+          console.log('PKCE recovery token verified via admin verifyOtp for user:', userEmail);
+        } else {
+          // If verifyOtp fails, try setSession with admin client
+          console.warn('verifyOtp failed, trying setSession with admin client...', verifyError?.message);
+          
+          const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: '',
+          });
+
+          if (!sessionError && sessionData?.user) {
+            userId = sessionData.user.id;
+            userEmail = sessionData.user.email || null;
+            console.log('PKCE recovery token setSession successful with admin client for user:', userEmail);
           } else {
-            throw new Error(sessionError?.message || verifyError?.message || 'PKCE token verification failed');
+            // Last resort: try to use the token hash to find user via admin API
+            // This is a workaround - we'll try to verify the token by attempting password reset
+            // Note: This might not work, but it's worth trying
+            throw new Error(verifyError?.message || sessionError?.message || 'PKCE token cannot be verified');
           }
         }
       } catch (pkceError: any) {
         console.error('PKCE token handling failed:', pkceError);
+        
+        // PKCE tokens cannot be verified without the code verifier
+        // The solution is to configure Supabase to not use PKCE for password reset
+        // OR update the email template to use the correct variables
         return NextResponse.json(
           { 
-            error: 'Invalid or expired password reset token. Please request a new password reset link.',
-            details: pkceError?.message || 'Token verification failed'
+            error: 'Password reset token verification failed. This is likely because Supabase is generating PKCE tokens which require additional verification. Please update your Supabase email template to use: <a href="{{ .ConfirmationURL }}">Reset Password</a> (without adding #access_token manually), or configure Supabase to disable PKCE for password reset in Authentication → Advanced settings.',
+            code: 'PKCE_VERIFICATION_FAILED',
+            details: pkceError?.message || 'Token verification failed',
+            solution: 'Update your password reset email template in Supabase Dashboard → Authentication → Email Templates → Reset Password to use: <a href="{{ .ConfirmationURL }}">Reset Password</a>'
           },
           { status: 401 }
         );

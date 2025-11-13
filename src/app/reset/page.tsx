@@ -94,10 +94,11 @@ export default function ResetPage() {
     
     try {
       // Send password reset email (no need to verify profile - Supabase handles email verification)
+      // Use the confirmation page as redirect - Supabase will append tokens in hash fragment format
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(
         form.email,
         {
-          redirectTo: `${window.location.origin}/auth/password-reset-confirmation?email=${encodeURIComponent(form.email)}`,
+          redirectTo: `${window.location.origin}/auth/password-reset-confirmation`,
         }
       );
       if (resetError) throw resetError;
