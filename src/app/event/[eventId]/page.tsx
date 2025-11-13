@@ -3271,7 +3271,13 @@ RECOMMENDATIONS:
                   Event Members
                 </h3>
                 <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                  <div className="space-y-3 sm:space-y-4 flex-1 overflow-y-auto pr-1 -mr-1">
+                  <div 
+                    className="space-y-3 sm:space-y-4 flex-1 overflow-y-auto pr-1 -mr-1 [&::-webkit-scrollbar]:hidden" 
+                    style={{ 
+                      scrollbarWidth: 'none', 
+                      msOverflowStyle: 'none',
+                    }}
+                  >
                   {(() => {
                     // Create a combined list with owner first, then collaborators sorted by joined_at
                     const allMembers = [];
