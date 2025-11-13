@@ -33,45 +33,12 @@ function ResetPasswordContent() {
         const codeType = searchParams.get("type");
         
         if (code && codeType === "recovery") {
-          console.log('Recovery code detected, attempting to verify...');
-          
-          // Try to use the code with verifyOtp (this might work for recovery codes)
-          // Note: This may require email, but let's try without first
-          try {
-            const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
-              type: 'recovery',
-              token_hash: code,
-            });
-
-            if (!verifyError && verifyData?.session) {
-              console.log('Code verified successfully via verifyOtp');
-              setStatus('form');
-              setMessage('Please enter your new password.');
-              return;
-            }
-
-            // If verifyOtp fails, try exchangeCodeForSession (will likely fail without verifier)
-            console.warn('verifyOtp failed, trying exchangeCodeForSession...');
-            const { data: exchangeData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-            
-            if (!exchangeError && exchangeData?.session) {
-              console.log('Code exchanged successfully');
-              setStatus('form');
-              setMessage('Please enter your new password.');
-              return;
-            }
-
-            // Both methods failed - code is likely expired or invalid
-            console.error('Code verification failed:', verifyError || exchangeError);
-            setStatus('error');
-            setMessage('This password reset link has expired or is invalid. Please request a new password reset link.');
-            return;
-          } catch (codeError: any) {
-            console.error('Error processing recovery code:', codeError);
-            setStatus('error');
-            setMessage('This password reset link format is not supported. Please request a new password reset link.');
-            return;
-          }
+          console.log('Recovery code detected - will verify when password is submitted');
+          // Don't verify code upfront - this would log the user in
+          // Instead, just show the form and verify when password is submitted
+          setStatus('form');
+          setMessage('Please enter your new password. The reset code will be verified when you submit.');
+          return;
         }
 
         // Check if we have tokens in the URL fragment (Supabase's default format)
@@ -102,14 +69,17 @@ function ResetPasswordContent() {
           return;
         }
 
-        // If the user already has an active session (e.g. after confirming the link),
+        // If the user already has an active session (e.g. from settings page),
         // allow them to proceed directly to the password form.
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          console.log('Active session detected, showing password form without tokens.');
-          setStatus('form');
-          setMessage('Please enter your new password.');
-          return;
+        // But only if there's no code (code-based reset should not use existing session)
+        if (!code) {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user) {
+            console.log('Active session detected, showing password form without tokens.');
+            setStatus('form');
+            setMessage('Please enter your new password.');
+            return;
+          }
         }
 
         // Fallback: check for token in query parameters
@@ -166,6 +136,51 @@ function ResetPasswordContent() {
 
     setIsUpdating(true);
     try {
+      // Check if we have a code parameter (from password reset email)
+      const code = searchParams.get("code");
+      const codeType = searchParams.get("type");
+      
+      if (code && codeType === "recovery") {
+        console.log('Using code-based password reset API...');
+        
+        try {
+          const response = await fetch('/api/auth/reset-password-with-code', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              code: code,
+              password: passwords.newPassword,
+            })
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to update password');
+          }
+
+          const result = await response.json();
+          console.log('Password updated successfully via code API!');
+          
+          // Sign out any session that might have been created (user should not be logged in)
+          await supabase.auth.signOut();
+          
+          setStatus('success');
+          setMessage('Your password has been successfully updated! You can now log in with your new password.');
+          
+          // Redirect to login page after 3 seconds
+          setTimeout(() => {
+            router.push('/login');
+          }, 3000);
+          return;
+        } catch (apiError: any) {
+          console.error('Code-based password update failed:', apiError);
+          setPasswordError(apiError.message || 'Failed to update password. The reset link may have expired. Please request a new password reset link.');
+          return;
+        }
+      }
+
       // If we have tokens from homepage, set the session first
       const tokenFromQuery = searchParams.get("token");
       const refreshFromQuery = searchParams.get("refresh");
@@ -195,12 +210,15 @@ function ResetPasswordContent() {
           const result = await response.json();
           console.log('Password updated successfully via API!');
           
-          setStatus('success');
-          setMessage('Your password has been successfully updated!');
+          // Sign out after password reset
+          await supabase.auth.signOut();
           
-          // Redirect to homepage after 3 seconds
+          setStatus('success');
+          setMessage('Your password has been successfully updated! You can now log in with your new password.');
+          
+          // Redirect to login page after 3 seconds
           setTimeout(() => {
-            router.push('/');
+            router.push('/login');
           }, 3000);
           return;
         } catch (apiError) {
@@ -209,19 +227,27 @@ function ResetPasswordContent() {
         }
       }
 
-      const { error } = await supabase.auth.updateUser({
-        password: passwords.newPassword
-      });
+      // If user has an active session, update password directly
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const { error } = await supabase.auth.updateUser({
+          password: passwords.newPassword
+        });
 
-      if (error) throw error;
+        if (error) throw error;
 
-      setStatus('success');
-      setMessage('Your password has been successfully updated!');
-      
-      // Redirect to homepage after 3 seconds
-      setTimeout(() => {
-        router.push('/');
-      }, 3000);
+        setStatus('success');
+        setMessage('Your password has been successfully updated!');
+        
+        // Redirect to homepage after 3 seconds
+        setTimeout(() => {
+          router.push('/');
+        }, 3000);
+        return;
+      }
+
+      // No valid method found
+      throw new Error('Invalid password reset link. Please request a new password reset link.');
     } catch (error: any) {
       console.error("Error updating password:", error);
       setPasswordError(error.message || "Failed to update password. Please try again.");
