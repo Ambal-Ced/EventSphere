@@ -239,24 +239,35 @@ function SettingsContent() {
 
     setIsChangingEmail(true);
     try {
-      // Debug: show current session details before calling API
+      // Get the session and access token to pass to the API
       const { data: { session } } = await supabase.auth.getSession();
+      const accessToken = session?.access_token;
+      
+      // Debug: show current session details before calling API
       console.log('[EmailChange][pre]', {
         isLoggedIn: !!session?.user,
         currentEmail: user.email,
         newEmail,
         userId: session?.user?.id,
+        hasAccessToken: !!accessToken,
       });
       toast.message('Starting email change…', { description: `From ${user.email} to ${newEmail}` });
 
       // Call the API route to send confirmation emails to both addresses
       // Note: We only send the new email - the API will get the current email from the authenticated session
-      // Include credentials to ensure cookies (session) are sent
+      // Include credentials to ensure cookies (session) are sent, and Bearer token as fallback
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      
+      // Add Bearer token if available (fallback if cookies don't work)
+      if (accessToken) {
+        headers['Authorization'] = `Bearer ${accessToken}`;
+      }
+
       const response = await fetch('/api/email', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         credentials: 'include', // Ensure cookies are sent with the request
         body: JSON.stringify({
           action: 'email_change_confirmation',

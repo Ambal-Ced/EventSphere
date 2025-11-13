@@ -165,18 +165,47 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: 'New email is required' }, { status: 400 });
         }
 
-        // Check if user is authenticated - try getSession first, then getUser
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        let authUser3 = session?.user;
+        // Check if user is authenticated - try multiple methods
+        let authUser3 = null;
         
-        // If no session, try getUser as fallback
+        // Method 1: Try getSession from cookies
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (session?.user) {
+          authUser3 = session.user;
+        }
+        
+        // Method 2: If no session, try getUser (also uses cookies)
         if (!authUser3) {
           const { data: { user }, error: userError } = await supabase.auth.getUser();
-          if (userError || !user) {
-            console.error('Authentication error:', { sessionError, userError, hasSession: !!session });
-            return NextResponse.json({ error: 'User not authenticated. Please log in and try again.' }, { status: 401 });
+          if (user && !userError) {
+            authUser3 = user;
           }
-          authUser3 = user;
+        }
+        
+        // Method 3: Try Bearer token from Authorization header as fallback
+        if (!authUser3) {
+          const authHeader = request.headers.get('authorization') || request.headers.get('Authorization');
+          const token = authHeader?.toLowerCase().startsWith('bearer ') ? authHeader.slice(7) : undefined;
+          if (token) {
+            const anonClient = createClient(
+              process.env.NEXT_PUBLIC_SUPABASE_URL!,
+              process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+            );
+            const { data: { user: tokenUser }, error: tokenError } = await anonClient.auth.getUser(token);
+            if (tokenUser && !tokenError) {
+              authUser3 = tokenUser;
+            }
+          }
+        }
+        
+        // If still no user, return error
+        if (!authUser3) {
+          console.error('Authentication error:', { 
+            sessionError, 
+            hasSession: !!session,
+            hasAuthHeader: !!request.headers.get('authorization')
+          });
+          return NextResponse.json({ error: 'User not authenticated. Please log in and try again.' }, { status: 401 });
         }
 
         // Use the authenticated user's email as the current email
