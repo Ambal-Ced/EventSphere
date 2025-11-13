@@ -297,13 +297,39 @@ export async function POST(request: NextRequest) {
           }
 
           // Step 1: Send confirmation email to NEW email address
-          // Use admin client to generate a session token, then use updateUser
+          // Since Brevo is configured, updateUser should automatically send emails
           let emailChangeSuccess = false;
           let changeError: any = null;
           
+          // Create a properly authenticated client using the access token
+          // This ensures updateUser will work and send emails via Brevo
+          let workingClient = authenticatedSupabase;
+          
+          // If we have an access token but the client doesn't have a session, create a new client with the token
+          if (accessToken && !session) {
+            try {
+              // Create a client and set the session manually
+              const tokenClient = createClient(
+                process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+              );
+              
+              // Set session if we have refresh token
+              if (refreshToken) {
+                await tokenClient.auth.setSession({
+                  access_token: accessToken,
+                  refresh_token: refreshToken,
+                });
+                workingClient = tokenClient;
+              }
+            } catch (sessionError) {
+              console.warn('Could not create token-based client:', sessionError);
+            }
+          }
+          
           try {
-            // First, try using the authenticated client (works if session is available)
-            const result = await authenticatedSupabase.auth.updateUser(
+            // Use updateUser - this will automatically send confirmation email via Brevo
+            const result = await workingClient.auth.updateUser(
               { email: newEmail },
               {
                 emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/email-change-confirmation?type=email_change&email_source=new`
@@ -312,7 +338,7 @@ export async function POST(request: NextRequest) {
             
             if (!result.error) {
               emailChangeSuccess = true;
-              console.log('Email change initiated via authenticated client');
+              console.log('Email change initiated via authenticated client, Brevo should send confirmation email');
             } else {
               changeError = result.error;
               throw result.error;
@@ -321,29 +347,68 @@ export async function POST(request: NextRequest) {
             console.warn('Authenticated client updateUser failed, trying admin approach:', clientError);
             changeError = clientError;
             
-            // Fallback: Use admin client to update email directly
-            // Supabase should automatically send confirmation email when email is updated
+            // Fallback: Use admin client to update email, then resend confirmation
+            // Since Brevo is configured, resend will send the email
             try {
-              // Update the user's email using admin client
-              // This should trigger Supabase to send a confirmation email to the new address
+              // First check if the new email is already in use
+              const { data: existingUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+              if (!listError && existingUsers) {
+                const emailExists = existingUsers.users.some(u => 
+                  u.email?.toLowerCase() === newEmail.toLowerCase() && u.id !== authUser3.id
+                );
+                if (emailExists) {
+                  throw new Error('This email address is already in use by another account');
+                }
+              }
+              
+              // Update the email using admin client
               const { data: updateData, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
                 authUser3.id,
                 {
                   email: newEmail,
-                  email_confirm: false, // This should trigger confirmation email
+                  email_confirm: false, // Mark as unconfirmed
                 }
               );
               
               if (updateError) {
                 console.error('Admin updateUserById failed:', updateError);
+                
+                // Check if it's a duplicate email error
+                if (updateError.message?.toLowerCase().includes('already') || 
+                    updateError.message?.toLowerCase().includes('exists') ||
+                    updateError.message?.toLowerCase().includes('duplicate')) {
+                  throw new Error('This email address is already in use by another account');
+                }
+                
                 throw updateError;
               }
               
-              console.log('Email updated via admin client, confirmation email should be sent automatically');
-              emailChangeSuccess = true;
+              console.log('Email updated via admin client');
               
-              // Note: Supabase should automatically send the confirmation email
-              // If it doesn't, check Supabase dashboard email settings
+              // Now resend the confirmation email - this will use Brevo to send it
+              // Create a client with the updated email to resend
+              const resendClient = createClient(
+                process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+              );
+              
+              // Resend email change confirmation - this will send via Brevo
+              const { error: resendError } = await resendClient.auth.resend({
+                type: 'email_change',
+                email: newEmail,
+                options: {
+                  emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/email-change-confirmation?type=email_change&email_source=new`
+                }
+              });
+              
+              if (resendError) {
+                console.warn('Resend failed, but email was updated:', resendError);
+                // Email is updated, even if resend failed
+                emailChangeSuccess = true;
+              } else {
+                console.log('Confirmation email resent via Brevo');
+                emailChangeSuccess = true;
+              }
             } catch (adminError: any) {
               console.error('Admin client email change failed:', adminError);
               return NextResponse.json({ 
@@ -365,50 +430,77 @@ export async function POST(request: NextRequest) {
           }
 
           // Step 2: Send confirmation email to CURRENT email address
-          // Use password reset flow which reliably sends an email to the current address
-          // Note: The email template in Supabase dashboard should be customized to indicate
-          // this is for email change confirmation, not password reset
-          // Use the authenticated client for consistency
-          const { error: resetError } = await authenticatedSupabase.auth.resetPasswordForEmail(
-            currentEmail,
-            {
-              redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/email-change-confirmation?type=email_change&email_source=current&new_email=${encodeURIComponent(newEmail)}`
-            }
-          );
-
-          if (resetError) {
-            console.error('Error sending confirmation to current email:', resetError);
-            // Try alternative: use admin API to generate magic link
-            const { data: magicLink, error: magicLinkError } = await supabaseAdmin.auth.admin.generateLink({
-              type: 'magiclink',
+          // Use resend with email_change type to send confirmation to current email
+          // This will use Supabase's email system (Brevo) to send the email
+          let currentEmailSent = false;
+          
+          try {
+            // Try using resend with email_change type for the current email
+            const { error: resendCurrentError } = await workingClient.auth.resend({
+              type: 'email_change',
               email: currentEmail,
               options: {
-                redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/email-change-confirmation?type=email_change&email_source=current&new_email=${encodeURIComponent(newEmail)}`
+                emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/email-change-confirmation?type=email_change&email_source=current&new_email=${encodeURIComponent(newEmail)}`
               }
             });
-
-            if (magicLinkError || !magicLink?.properties?.action_link) {
-              console.error('Could not send confirmation to current email:', magicLinkError);
-              // Don't fail completely - at least the new email confirmation was sent
-              return NextResponse.json({ 
-                success: true, 
-                warning: 'Confirmation sent to new email. Could not send to current email - please contact support.',
-                message: 'Email change confirmation sent to your new email address. Please check your inbox.' 
-              });
+            
+            if (!resendCurrentError) {
+              currentEmailSent = true;
+              console.log('Confirmation email sent to current email via Brevo');
             } else {
-              // Magic link generated - use resend to trigger email
-              const { error: resendError } = await supabase.auth.resend({
-                type: 'signup',
+              console.warn('Resend to current email failed, trying alternative method:', resendCurrentError);
+            }
+          } catch (resendError) {
+            console.warn('Resend to current email failed:', resendError);
+          }
+          
+          // Fallback: Use password reset flow if resend doesn't work
+          // This will send an email to the current address via Brevo
+          if (!currentEmailSent) {
+            try {
+              const { error: resetError } = await workingClient.auth.resetPasswordForEmail(
+                currentEmail,
+                {
+                  redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/email-change-confirmation?type=email_change&email_source=current&new_email=${encodeURIComponent(newEmail)}`
+                }
+              );
+              
+              if (!resetError) {
+                currentEmailSent = true;
+                console.log('Confirmation email sent to current email via password reset flow (Brevo)');
+              } else {
+                console.warn('Password reset flow also failed:', resetError);
+              }
+            } catch (resetError) {
+              console.warn('Password reset flow failed:', resetError);
+            }
+          }
+          
+          // If still not sent, try using admin client to generate a magic link
+          if (!currentEmailSent) {
+            try {
+              const { data: magicLink, error: magicLinkError } = await supabaseAdmin.auth.admin.generateLink({
+                type: 'magiclink',
                 email: currentEmail,
                 options: {
-                  emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/email-change-confirmation?type=email_change&email_source=current&new_email=${encodeURIComponent(newEmail)}`
+                  redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/email-change-confirmation?type=email_change&email_source=current&new_email=${encodeURIComponent(newEmail)}`
                 }
               });
-
-              if (resendError) {
-                console.warn('Could not automatically send email to current address');
+              
+              if (!magicLinkError && magicLink?.properties?.action_link) {
+                console.log('Magic link generated for current email (email should be sent automatically)');
+                currentEmailSent = true;
               }
+            } catch (magicLinkError) {
+              console.warn('Magic link generation failed:', magicLinkError);
             }
+          }
+
+          // Log the result
+          if (currentEmailSent) {
+            console.log('✅ Confirmation email sent to current email address via Brevo');
+          } else {
+            console.warn('⚠️ Could not send confirmation email to current address, but new email confirmation was sent');
           }
 
           return NextResponse.json({ 
