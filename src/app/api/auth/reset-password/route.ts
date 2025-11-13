@@ -36,39 +36,47 @@ export async function POST(request: NextRequest) {
 
     // Check if token is a PKCE token (starts with 'pkce_')
     if (accessToken.startsWith('pkce_')) {
-      console.log('PKCE token detected, attempting to exchange...');
+      console.log('PKCE recovery token detected, attempting to verify...');
       
-      // Try to exchange PKCE token for session using anon key
-      // Note: This will likely fail without code verifier, but we'll try
+      // For PKCE recovery tokens, try setSession first (recovery tokens might work without refresh_token)
+      // Then fall back to verifyOtp if needed
       try {
-        // For PKCE tokens, we need to try a different approach
-        // Since we don't have the code verifier, we'll try to use the admin API
-        // to verify the token or extract user info
-        
-        // Try to set session with the PKCE token (might work for recovery tokens)
+        // First, try setSession with the PKCE token (recovery tokens sometimes work this way)
+        console.log('Trying setSession with PKCE recovery token...');
         const { data: sessionData, error: sessionError } = await supabaseAnon.auth.setSession({
           access_token: accessToken,
-          refresh_token: '', // Empty refresh token
+          refresh_token: '', // Empty refresh token - recovery tokens might work without it
         });
 
         if (!sessionError && sessionData?.user) {
           userId = sessionData.user.id;
-          userEmail = sessionData.user.email;
-          console.log('PKCE token exchanged successfully for user:', userEmail);
+          userEmail = sessionData.user.email || null;
+          console.log('PKCE recovery token setSession successful for user:', userEmail);
         } else {
-          // If setSession fails, the token might be expired or invalid
-          // Try to decode the token or use admin API
-          console.warn('PKCE token exchange failed, trying alternative method...');
-          throw new Error('PKCE token cannot be verified without code verifier');
+          // If setSession fails, try verifyOtp as fallback
+          console.warn('setSession failed, trying verifyOtp...', sessionError?.message);
+          
+          // Try verifyOtp with the token (remove pkce_ prefix)
+          const tokenHash = accessToken.replace(/^pkce_/, '');
+          const { data: verifyData, error: verifyError } = await supabaseAnon.auth.verifyOtp({
+            type: 'recovery',
+            token_hash: tokenHash,
+          });
+
+          if (!verifyError && verifyData?.session?.user) {
+            userId = verifyData.session.user.id;
+            userEmail = verifyData.session.user.email || null;
+            console.log('PKCE recovery token verified via verifyOtp for user:', userEmail);
+          } else {
+            throw new Error(sessionError?.message || verifyError?.message || 'PKCE token verification failed');
+          }
         }
       } catch (pkceError: any) {
         console.error('PKCE token handling failed:', pkceError);
-        // For PKCE tokens, we can't verify them directly
-        // Return a more helpful error message
         return NextResponse.json(
           { 
-            error: 'This password reset token format is not supported. The token appears to be a PKCE token which requires additional verification. Please request a new password reset link.',
-            details: 'PKCE tokens cannot be verified without the code verifier'
+            error: 'Invalid or expired password reset token. Please request a new password reset link.',
+            details: pkceError?.message || 'Token verification failed'
           },
           { status: 401 }
         );
@@ -86,7 +94,7 @@ export async function POST(request: NextRequest) {
       }
 
       userId = userData.user.id;
-      userEmail = userData.user.email;
+      userEmail = userData.user.email || null;
       console.log('Token verified for user:', userEmail);
     }
 
