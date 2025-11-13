@@ -39,14 +39,8 @@ function PasswordResetConfirmationContent() {
           hash: hash.substring(0, 50) + '...'
         });
 
-        // Check for code first (PKCE codes in query params)
-        if (code) {
-          console.log('Recovery code detected, passing to reset password page...');
-          router.replace(`/auth/reset-password?code=${encodeURIComponent(code)}&type=recovery`);
-          return;
-        }
-
-        // Handle hash fragments with access_token
+        // Prioritize access_token from hash fragments (new format)
+        // Handle hash fragments with access_token first
         if (accessToken) {
           console.log('Access token detected in hash, setting session...');
           
@@ -83,8 +77,15 @@ function PasswordResetConfirmationContent() {
           }
         }
 
+        // Fallback: Check for code parameter (old PKCE format)
+        if (code) {
+          console.log('Recovery code detected (fallback), passing to reset password page...');
+          router.replace(`/auth/reset-password?code=${encodeURIComponent(code)}&type=recovery`);
+          return;
+        }
+
         // No valid tokens found
-        console.error('Missing tokens:', { accessToken: !!accessToken, refreshToken: !!refreshToken });
+        console.error('Missing tokens:', { accessToken: !!accessToken, refreshToken: !!refreshToken, code: !!code });
         throw new Error('Missing authentication tokens');
 
       } catch (error: any) {
