@@ -255,11 +255,25 @@ export async function GET(request: NextRequest) {
 
     // Subtract cancelled transactions from revenue using formula: [(paid + cancelled) - cancelled]
     // Formula: (paid + cancelled) - cancelled = paid - cancelled
+    // IMPORTANT: Match cancelled transactions to their original paid transaction day
     (cancelledTxRows ?? []).forEach((r: any) => {
-      const day = new Date(r.created_at).toISOString().slice(0, 10);
-      if (!byDay[day]) byDay[day] = { events: 0, transactions: 0, revenue_cents: 0, users: 0, subscriptions: 0, active_subscriptions: 0, small_event_org_transactions: 0, large_event_org_transactions: 0 };
-      // Formula: [(paid + cancelled) - cancelled] = paid - cancelled
-      byDay[day].revenue_cents = Math.max(0, (byDay[day].revenue_cents || 0) - (r.net_amount_cents ?? 0));
+      let targetDay: string | null = null;
+      
+      // Try to match by subscription_id first to get the original paid transaction day
+      if (r.subscription_id && paidTxBySubscription.has(r.subscription_id)) {
+        const paidTx = paidTxBySubscription.get(r.subscription_id)!;
+        targetDay = paidTx.day;
+      } else {
+        // Fallback: use cancellation date if we can't match (shouldn't happen, but handle gracefully)
+        targetDay = new Date(r.created_at).toISOString().slice(0, 10);
+      }
+      
+      if (targetDay) {
+        if (!byDay[targetDay]) byDay[targetDay] = { events: 0, transactions: 0, revenue_cents: 0, users: 0, subscriptions: 0, active_subscriptions: 0, small_event_org_transactions: 0, large_event_org_transactions: 0 };
+        // Formula: [(paid + cancelled) - cancelled] = paid - cancelled
+        // Subtract from the day the original payment was made, not the cancellation day
+        byDay[targetDay].revenue_cents = Math.max(0, (byDay[targetDay].revenue_cents || 0) - (r.net_amount_cents ?? 0));
+      }
     });
 
     // Process users

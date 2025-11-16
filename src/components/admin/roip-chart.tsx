@@ -17,6 +17,7 @@ interface RoipChartProps {
   predictions: any[];
   windowWidth: number;
   formatCurrency: (cents: number) => string;
+  predictionType?: 'daily' | 'monthly';
 }
 
 export const RoipChart = memo(function RoipChart({
@@ -24,6 +25,7 @@ export const RoipChart = memo(function RoipChart({
   predictions,
   windowWidth,
   formatCurrency,
+  predictionType = 'monthly',
 }: RoipChartProps) {
   // Prepare chart data with separate fields for historical and predicted ROI
   const chartData = useMemo(() => {
@@ -105,6 +107,28 @@ export const RoipChart = memo(function RoipChart({
             textAnchor="end"
             height={80}
             tick={{ fontSize: windowWidth < 640 ? 10 : 12 }}
+            tickFormatter={(value: string) => {
+              // Format dates for daily predictions
+              if (predictionType === 'daily' && value.includes('-') && value.split('-').length === 3) {
+                try {
+                  const date = new Date(value);
+                  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                } catch (e) {
+                  return value;
+                }
+              }
+              // Format months for monthly predictions
+              if (predictionType === 'monthly' && value.includes('-') && value.split('-').length === 2) {
+                try {
+                  const [year, month] = value.split('-');
+                  const date = new Date(parseInt(year), parseInt(month) - 1);
+                  return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+                } catch (e) {
+                  return value;
+                }
+              }
+              return value;
+            }}
           />
           <YAxis 
             label={{ value: 'ROI (%)', angle: -90, position: 'insideLeft' }}

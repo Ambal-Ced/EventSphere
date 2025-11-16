@@ -173,6 +173,10 @@ export async function POST(request: NextRequest) {
     const totalCosts = (costs || []).reduce((sum: number, cost: any) => sum + (cost.amount_cents || 0), 0);
     const currentROI = totalRevenue > 0 ? ((totalRevenue - totalCosts) / totalRevenue) * 100 : 0;
 
+    // Determine prediction type based on historical data availability
+    const hasEnoughData = historicalData.length >= 3;
+    const predictionType = hasEnoughData ? 'monthly' : 'daily';
+
     // Use Cohere API for prediction
     const apiKey = process.env.COHERE_API_KEY;
     if (!apiKey) {
@@ -184,21 +188,45 @@ export async function POST(request: NextRequest) {
         ? historicalData.reduce((sum, d) => sum + d.costs, 0) / historicalData.length
         : 0;
 
-      // Simple linear projection for next 6 months
       const predictions = [];
-      const lastMonth = historicalData[historicalData.length - 1];
-      for (let i = 1; i <= 6; i++) {
-        const futureMonth = new Date();
-        futureMonth.setMonth(futureMonth.getMonth() + i);
-        const monthKey = `${futureMonth.getFullYear()}-${String(futureMonth.getMonth() + 1).padStart(2, '0')}`;
-        predictions.push({
-          month: monthKey,
-          predicted_revenue: Math.max(0, Math.round(avgMonthlyRevenue * (1 + (i * 0.02)))), // 2% growth per month
-          predicted_costs: Math.round(avgMonthlyCosts),
-          predicted_roi: avgMonthlyRevenue > 0
-            ? ((avgMonthlyRevenue * (1 + (i * 0.02)) - avgMonthlyCosts) / (avgMonthlyRevenue * (1 + (i * 0.02)))) * 100
-            : 0,
-        });
+      
+      if (hasEnoughData) {
+        // Generate 6-month predictions
+        for (let i = 1; i <= 6; i++) {
+          const futureMonth = new Date();
+          futureMonth.setMonth(futureMonth.getMonth() + i);
+          const monthKey = `${futureMonth.getFullYear()}-${String(futureMonth.getMonth() + 1).padStart(2, '0')}`;
+          predictions.push({
+            month: monthKey,
+            predicted_revenue: Math.max(0, Math.round(avgMonthlyRevenue * (1 + (i * 0.02)))), // 2% growth per month
+            predicted_costs: Math.round(avgMonthlyCosts),
+            predicted_roi: avgMonthlyRevenue > 0
+              ? ((avgMonthlyRevenue * (1 + (i * 0.02)) - avgMonthlyCosts) / (avgMonthlyRevenue * (1 + (i * 0.02)))) * 100
+              : 0,
+          });
+        }
+      } else {
+        // Generate 14-day predictions based on current month's data
+        const lastMonthData = historicalData[historicalData.length - 1];
+        const dailyRevenue = lastMonthData ? lastMonthData.revenue / 30 : avgMonthlyRevenue / 30; // Approximate daily revenue
+        const dailyCosts = lastMonthData ? lastMonthData.costs / 30 : avgMonthlyCosts / 30; // Approximate daily costs
+        
+        for (let i = 1; i <= 14; i++) {
+          const futureDate = new Date();
+          futureDate.setDate(futureDate.getDate() + i);
+          const dateKey = `${futureDate.getFullYear()}-${String(futureDate.getMonth() + 1).padStart(2, '0')}-${String(futureDate.getDate()).padStart(2, '0')}`;
+          const predictedDailyRevenue = Math.max(0, Math.round(dailyRevenue * (1 + (i * 0.01)))); // 1% growth per day
+          const predictedDailyCosts = Math.round(dailyCosts);
+          
+          predictions.push({
+            month: dateKey, // Using 'month' field for consistency, but it contains date
+            predicted_revenue: predictedDailyRevenue,
+            predicted_costs: predictedDailyCosts,
+            predicted_roi: predictedDailyRevenue > 0
+              ? ((predictedDailyRevenue - predictedDailyCosts) / predictedDailyRevenue) * 100
+              : 0,
+          });
+        }
       }
 
       const response = NextResponse.json({
@@ -209,13 +237,21 @@ export async function POST(request: NextRequest) {
         total_costs: totalCosts,
         net_income: totalRevenue - totalCosts,
         method: "trend_based",
+        prediction_type: predictionType,
       });
       response.headers.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
       return response;
     }
 
     // Use Cohere for AI-powered prediction
-    const prompt = `You are a financial analyst. Based on the following historical revenue and cost data, predict the Return on Investment (ROI) for the next 6 months.
+    const predictionPeriod = hasEnoughData 
+      ? "the next 6 months" 
+      : "the next 14 days";
+    const predictionFormat = hasEnoughData
+      ? 'month: "YYYY-MM"'
+      : 'date: "YYYY-MM-DD"';
+    
+    const prompt = `You are a financial analyst. Based on the following historical revenue and cost data, predict the Return on Investment (ROI) for ${predictionPeriod}.
 
 Historical Data (last 12 months):
 ${historicalData.map(d => `Month: ${d.month}, Revenue: ₱${(d.revenue / 100).toFixed(2)}, Costs: ₱${(d.costs / 100).toFixed(2)}, Net: ₱${(d.net / 100).toFixed(2)}`).join('\n')}
@@ -224,11 +260,11 @@ Current Total Revenue: ₱${(totalRevenue / 100).toFixed(2)}
 Current Total Costs: ₱${(totalCosts / 100).toFixed(2)}
 Current ROI: ${currentROI.toFixed(2)}%
 
-Please provide predictions for the next 6 months in JSON format:
+Please provide predictions for ${predictionPeriod} in JSON format:
 {
   "predictions": [
     {
-      "month": "YYYY-MM",
+      "${hasEnoughData ? 'month' : 'date'}": "${hasEnoughData ? 'YYYY-MM' : 'YYYY-MM-DD'}",
       "predicted_revenue": number (in cents),
       "predicted_costs": number (in cents),
       "predicted_roi": number (percentage)
@@ -236,6 +272,10 @@ Please provide predictions for the next 6 months in JSON format:
   ],
   "analysis": "brief explanation of trends and predictions"
 }
+
+${hasEnoughData 
+  ? 'Provide exactly 6 monthly predictions.' 
+  : 'Provide exactly 14 daily predictions, one for each of the next 14 days.'}
 
 Only return valid JSON, no other text.`;
 
@@ -319,20 +359,54 @@ Only return valid JSON, no other text.`;
         ? historicalData.reduce((sum, d) => sum + d.costs, 0) / historicalData.length
         : 0;
 
-      for (let i = 1; i <= 6; i++) {
-        const futureMonth = new Date();
-        futureMonth.setMonth(futureMonth.getMonth() + i);
-        const monthKey = `${futureMonth.getFullYear()}-${String(futureMonth.getMonth() + 1).padStart(2, '0')}`;
-        predictions.push({
-          month: monthKey,
-          predicted_revenue: Math.max(0, Math.round(avgMonthlyRevenue * (1 + (i * 0.02)))),
-          predicted_costs: Math.round(avgMonthlyCosts),
-          predicted_roi: avgMonthlyRevenue > 0
-            ? ((avgMonthlyRevenue * (1 + (i * 0.02)) - avgMonthlyCosts) / (avgMonthlyRevenue * (1 + (i * 0.02)))) * 100
-            : 0,
-        });
+      if (hasEnoughData) {
+        // Generate 6-month predictions
+        for (let i = 1; i <= 6; i++) {
+          const futureMonth = new Date();
+          futureMonth.setMonth(futureMonth.getMonth() + i);
+          const monthKey = `${futureMonth.getFullYear()}-${String(futureMonth.getMonth() + 1).padStart(2, '0')}`;
+          predictions.push({
+            month: monthKey,
+            predicted_revenue: Math.max(0, Math.round(avgMonthlyRevenue * (1 + (i * 0.02)))),
+            predicted_costs: Math.round(avgMonthlyCosts),
+            predicted_roi: avgMonthlyRevenue > 0
+              ? ((avgMonthlyRevenue * (1 + (i * 0.02)) - avgMonthlyCosts) / (avgMonthlyRevenue * (1 + (i * 0.02)))) * 100
+              : 0,
+          });
+        }
+      } else {
+        // Generate 14-day predictions
+        const lastMonthData = historicalData[historicalData.length - 1];
+        const dailyRevenue = lastMonthData ? lastMonthData.revenue / 30 : avgMonthlyRevenue / 30;
+        const dailyCosts = lastMonthData ? lastMonthData.costs / 30 : avgMonthlyCosts / 30;
+        
+        for (let i = 1; i <= 14; i++) {
+          const futureDate = new Date();
+          futureDate.setDate(futureDate.getDate() + i);
+          const dateKey = `${futureDate.getFullYear()}-${String(futureDate.getMonth() + 1).padStart(2, '0')}-${String(futureDate.getDate()).padStart(2, '0')}`;
+          const predictedDailyRevenue = Math.max(0, Math.round(dailyRevenue * (1 + (i * 0.01))));
+          const predictedDailyCosts = Math.round(dailyCosts);
+          
+          predictions.push({
+            month: dateKey, // Using 'month' field for consistency
+            predicted_revenue: predictedDailyRevenue,
+            predicted_costs: predictedDailyCosts,
+            predicted_roi: predictedDailyRevenue > 0
+              ? ((predictedDailyRevenue - predictedDailyCosts) / predictedDailyRevenue) * 100
+              : 0,
+          });
+        }
       }
     }
+
+    // Normalize prediction format - ensure 'month' field is used consistently
+    predictions = predictions.map((p: any) => {
+      if (p.date && !p.month) {
+        p.month = p.date;
+        delete p.date;
+      }
+      return p;
+    });
 
     const response = NextResponse.json({
       historical: historicalData,
@@ -343,6 +417,7 @@ Only return valid JSON, no other text.`;
       total_costs: totalCosts,
       net_income: totalRevenue - totalCosts,
       method: "cohere_ai",
+      prediction_type: predictionType,
     });
     response.headers.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
     return response;

@@ -3170,32 +3170,58 @@ IMPORTANT:
                       predictions={roipData.predictions || []}
                       windowWidth={windowWidth}
                       formatCurrency={formatCurrency}
+                      predictionType={roipData.prediction_type || 'monthly'}
                     />
                   )}
 
                   {/* Prediction Table */}
                   <div className="mt-6 overflow-x-auto">
-                    <h4 className="text-sm font-semibold mb-3">Monthly Predictions</h4>
+                    <h4 className="text-sm font-semibold mb-3">
+                      {roipData.prediction_type === 'daily' ? 'Daily Predictions (Next 14 Days)' : 'Monthly Predictions (Next 6 Months)'}
+                    </h4>
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b">
-                          <th className="text-left p-2">Month</th>
+                          <th className="text-left p-2">{roipData.prediction_type === 'daily' ? 'Date' : 'Month'}</th>
                           <th className="text-right p-2">Predicted Revenue</th>
                           <th className="text-right p-2">Predicted Costs</th>
                           <th className="text-right p-2">Predicted ROI</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {roipData.predictions.map((pred: any, idx: number) => (
-                          <tr key={idx} className="border-b hover:bg-muted/50">
-                            <td className="p-2">{pred.month}</td>
-                            <td className="p-2 text-right font-medium">{formatCurrency(pred.predicted_revenue || 0)}</td>
-                            <td className="p-2 text-right">{formatCurrency(pred.predicted_costs || 0)}</td>
-                            <td className={`p-2 text-right font-medium ${(pred.predicted_roi || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                              {pred.predicted_roi?.toFixed(2) || "0.00"}%
-                            </td>
-                          </tr>
-                        ))}
+                        {roipData.predictions.map((pred: any, idx: number) => {
+                          // Format date/month for display
+                          let displayDate = pred.month || pred.date || '';
+                          if (roipData.prediction_type === 'daily' && displayDate.includes('-')) {
+                            // Format YYYY-MM-DD to a readable date
+                            try {
+                              const date = new Date(displayDate);
+                              displayDate = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                            } catch (e) {
+                              // Keep original format if parsing fails
+                            }
+                          } else if (roipData.prediction_type === 'monthly' && displayDate.includes('-')) {
+                            // Format YYYY-MM to Month Year
+                            try {
+                              const [year, month] = displayDate.split('-');
+                              const date = new Date(parseInt(year), parseInt(month) - 1);
+                              displayDate = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                            } catch (e) {
+                              // Keep original format if parsing fails
+                            }
+                          }
+                          
+                          return (
+                            <tr key={idx} className="border-b hover:bg-muted/50">
+                              <td className="p-2">{displayDate}</td>
+                              <td className="p-2 text-right font-medium">{formatCurrency(pred.predicted_revenue || 0)}</td>
+                              <td className="p-2 text-right">{formatCurrency(pred.predicted_costs || 0)}</td>
+                              <td className={`p-2 text-right font-medium ${(pred.predicted_roi || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {pred.predicted_roi?.toFixed(2) || "0.00"}%
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
