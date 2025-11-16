@@ -30,14 +30,19 @@ export const RoipChart = memo(function RoipChart({
     const allMonths = new Set<string>();
     
     // Collect all months from historical and predictions
-    (historical || []).forEach((h: any) => allMonths.add(h.month));
-    (predictions || []).forEach((p: any) => allMonths.add(p.month));
+    (historical || []).forEach((h: any) => {
+      if (h.month) allMonths.add(h.month);
+    });
+    (predictions || []).forEach((p: any) => {
+      if (p.month) allMonths.add(p.month);
+    });
     
     // Sort months chronologically
     const sortedMonths = Array.from(allMonths).sort();
     
     // Create data points with both historical and predicted values
-    return sortedMonths.map((month: string) => {
+    // Ensure predictions are always included even if they don't match historical months
+    const data = sortedMonths.map((month: string) => {
       const hist = (historical || []).find((h: any) => h.month === month);
       const pred = (predictions || []).find((p: any) => p.month === month);
       
@@ -46,9 +51,47 @@ export const RoipChart = memo(function RoipChart({
         historicalRoi: hist 
           ? (hist.revenue > 0 ? ((hist.revenue - hist.costs) / hist.revenue) * 100 : 0)
           : null,
-        predictedRoi: pred ? (pred.predicted_roi || 0) : null,
+        predictedRoi: pred !== undefined && pred !== null 
+          ? (typeof pred.predicted_roi === 'number' ? pred.predicted_roi : 0)
+          : null,
       };
     });
+    
+    // Also add any prediction months that might not be in the sorted months (shouldn't happen, but just in case)
+    (predictions || []).forEach((p: any) => {
+      if (p && p.month && !sortedMonths.includes(p.month)) {
+        data.push({
+          month: p.month,
+          historicalRoi: null,
+          predictedRoi: typeof p.predicted_roi === 'number' ? p.predicted_roi : 0,
+        });
+      }
+    });
+    
+    // Re-sort after potentially adding new months
+    data.sort((a, b) => a.month.localeCompare(b.month));
+    
+    // Ensure we have at least some data points with predictions
+    const hasPredictions = data.some((d: any) => d.predictedRoi !== null && d.predictedRoi !== undefined);
+    
+    // Debug: Log data to console in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('ROI Chart Data:', {
+        historicalCount: (historical || []).length,
+        predictionsCount: (predictions || []).length,
+        chartDataPoints: data.length,
+        hasPredictions: hasPredictions,
+        predictions: predictions,
+        data: data.filter((d: any) => d.predictedRoi !== null && d.predictedRoi !== undefined)
+      });
+    }
+    
+    // If no predictions found in data, log a warning
+    if (!hasPredictions && (predictions || []).length > 0) {
+      console.warn('ROI Chart: Predictions data exists but not found in chart data. Predictions:', predictions);
+    }
+    
+    return data;
   }, [historical, predictions]);
 
   return (
@@ -93,9 +136,14 @@ export const RoipChart = memo(function RoipChart({
             stroke="#10b981" 
             strokeWidth={2}
             strokeDasharray="5 5"
-            dot={{ r: 4, fill: "#10b981" }}
+            dot={(props: any) => {
+              const { cx, cy, payload } = props;
+              if (!payload || payload.predictedRoi === null || payload.predictedRoi === undefined) return null;
+              return <circle cx={cx} cy={cy} r={5} fill="#10b981" strokeWidth={2} stroke="#10b981" />;
+            }}
+            activeDot={{ r: 6 }}
             name="Predicted ROI"
-            connectNulls={false}
+            connectNulls={true}
           />
         </LineChart>
       </ResponsiveContainer>
