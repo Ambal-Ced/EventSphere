@@ -22,6 +22,13 @@ const CartesianGrid: any = dynamic(() => import("recharts").then(m => m.Cartesia
 const Tooltip: any = dynamic(() => import("recharts").then(m => m.Tooltip as any), { ssr: false, loading: () => null }) as any;
 const Legend: any = dynamic(() => import("recharts").then(m => m.Legend as any), { ssr: false, loading: () => null }) as any;
 import { TrendingUp, Users, Calendar, DollarSign, Package, Activity, RefreshCw, Lightbulb, Star, ChevronDown, ChevronUp, FileText, X } from "lucide-react";
+import { RoipSummaryCards } from "@/components/admin/roip-summary-cards";
+
+// Lazy load the chart component
+const RoipChart = dynamic(() => import("@/components/admin/roip-chart").then(m => ({ default: m.RoipChart })), {
+  ssr: false,
+  loading: () => <div className="w-full h-[400px] animate-pulse rounded bg-muted/20" />
+});
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -45,7 +52,7 @@ export default function AdminPage() {
   }, []);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
-  const [activeTab, setActiveTab] = useState<"eventtria" | "feedback" | "users" | "rating">("eventtria");
+  const [activeTab, setActiveTab] = useState<"eventtria" | "feedback" | "users" | "roip" | "rating">("eventtria");
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
   const [dateRange, setDateRange] = useState<"7d" | "30d" | "90d" | "all" | "custom">("30d");
@@ -54,6 +61,8 @@ export default function AdminPage() {
   const [showCustomDatePicker, setShowCustomDatePicker] = useState(false);
   const [aiGeneratedInsight, setAiGeneratedInsight] = useState<string | null>(null);
   const [windowWidth, setWindowWidth] = useState<number>(0);
+  const [predictionsData, setPredictionsData] = useState<any>(null);
+  const [loadingPredictions, setLoadingPredictions] = useState(false);
   const [feedbackData, setFeedbackData] = useState<any>(null);
   const [loadingFeedback, setLoadingFeedback] = useState(false);
   const [feedbackSeverityFilter, setFeedbackSeverityFilter] = useState<string>("all");
@@ -78,6 +87,17 @@ export default function AdminPage() {
   const [selectedFeedbackId, setSelectedFeedbackId] = useState<string | null>(null);
   const [adminNotes, setAdminNotes] = useState<string>("");
   const [updatingFeedback, setUpdatingFeedback] = useState<string | null>(null);
+  const [roipData, setRoipData] = useState<any>(null);
+  const [loadingRoip, setLoadingRoip] = useState(false);
+  const [roipError, setRoipError] = useState<string | null>(null);
+  const [adminCosts, setAdminCosts] = useState<any[]>([]);
+  const [loadingCosts, setLoadingCosts] = useState(false);
+  const [costsError, setCostsError] = useState<string | null>(null);
+  const [showCostDialog, setShowCostDialog] = useState(false);
+  const [newCost, setNewCost] = useState({ cost_type: "repair", description: "", amount_cents: 0, date_incurred: new Date().toISOString().split('T')[0] });
+  const [submittingCost, setSubmittingCost] = useState(false);
+  const [roipPredictionInsight, setRoipPredictionInsight] = useState<string | null>(null);
+  const [isGeneratingRoipInsight, setIsGeneratingRoipInsight] = useState(false);
 
   // Helpers are declared before usage to avoid temporal dead zone issues in hooks
   const formatCurrency = useCallback((cents: number) => {
@@ -225,6 +245,46 @@ export default function AdminPage() {
     }
   }, [isAdmin, dateRange, customStartDate, customEndDate, fetchAnalytics]);
 
+  const fetchPredictions = useCallback(async () => {
+    if (!analyticsData || !analyticsData.time_series) return;
+    
+    setLoadingPredictions(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const res = await fetch("/api/admin/analytics/predictions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({
+          time_series: analyticsData.time_series,
+          totals: analyticsData.totals,
+          additional_metrics: analyticsData.additional_metrics,
+        }),
+        next: { revalidate: 60 },
+      });
+      
+      const json = await res.json();
+      if (res.ok) {
+        setPredictionsData(json);
+      } else {
+        console.error("Failed to fetch predictions:", json);
+      }
+    } catch (error) {
+      console.error("Error fetching predictions:", error);
+    } finally {
+      setLoadingPredictions(false);
+    }
+  }, [analyticsData, supabase]);
+
+  useEffect(() => {
+    if (analyticsData && analyticsData.time_series && analyticsData.time_series.length > 0) {
+      fetchPredictions();
+    }
+  }, [analyticsData, fetchPredictions]);
+
   const fetchFeedbackData = useCallback(async () => {
     setLoadingFeedback(true);
     try {
@@ -346,6 +406,205 @@ export default function AdminPage() {
       return () => clearTimeout(timeoutId);
     }
   }, [isAdmin, activeTab, dateRange, customStartDate, customEndDate, fetchRatingsData]);
+
+  const fetchRoipData = useCallback(async () => {
+    setLoadingRoip(true);
+    setRoipError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const res = await fetch("/api/admin/roip", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        next: { revalidate: 60 }, // Use Next.js caching with revalidation
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setRoipData(json);
+        setRoipError(null);
+      } else {
+        console.error("Failed to fetch ROIP data:", json);
+        setRoipData(null);
+        setRoipError(json.error || `Failed to fetch ROIP: ${res.status} ${res.statusText}`);
+      }
+    } catch (error: any) {
+      console.error("Error fetching ROIP data:", error);
+      setRoipData(null);
+      setRoipError(error.message || "Failed to fetch ROIP data");
+    } finally {
+      setLoadingRoip(false);
+    }
+  }, [supabase]);
+
+  const fetchAdminCosts = useCallback(async () => {
+    setLoadingCosts(true);
+    setCostsError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const res = await fetch("/api/admin/costs", {
+        headers: {
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        next: { revalidate: 30 }, // Use Next.js caching with revalidation
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setAdminCosts(json.costs || []);
+        setCostsError(null);
+      } else {
+        console.error("Failed to fetch admin costs:", json);
+        setAdminCosts([]);
+        setCostsError(json.error || `Failed to fetch costs: ${res.status} ${res.statusText}`);
+      }
+    } catch (error: any) {
+      console.error("Error fetching admin costs:", error);
+      setAdminCosts([]);
+      setCostsError(error.message || "Failed to fetch admin costs");
+    } finally {
+      setLoadingCosts(false);
+    }
+  }, [supabase]);
+
+  useEffect(() => {
+    if (isAdmin && activeTab === "roip") {
+      const timeoutId = setTimeout(() => {
+        fetchRoipData();
+        fetchAdminCosts();
+      }, 300);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [isAdmin, activeTab, fetchRoipData, fetchAdminCosts]);
+
+  const handleAddCost = useCallback(async () => {
+    if (!newCost.amount_cents || newCost.amount_cents <= 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+    setSubmittingCost(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/admin/costs", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify(newCost),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        toast.success("Cost added successfully");
+        setNewCost({ cost_type: "repair", description: "", amount_cents: 0, date_incurred: new Date().toISOString().split('T')[0] });
+        setShowCostDialog(false);
+        fetchAdminCosts();
+        fetchRoipData();
+      } else {
+        toast.error(json.error || "Failed to add cost");
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Failed to add cost");
+    } finally {
+      setSubmittingCost(false);
+    }
+  }, [newCost, supabase, fetchAdminCosts, fetchRoipData]);
+
+  const handleDeleteCost = useCallback(async (costId: string) => {
+    if (!confirm("Are you sure you want to delete this cost?")) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`/api/admin/costs?id=${costId}`, {
+        method: "DELETE",
+        headers: {
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+      });
+      const json = await res.json();
+      if (res.ok) {
+        toast.success("Cost deleted successfully");
+        fetchAdminCosts();
+        fetchRoipData();
+      } else {
+        toast.error(json.error || "Failed to delete cost");
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Failed to delete cost");
+    }
+  }, [supabase, fetchAdminCosts, fetchRoipData]);
+
+  const generateRoipPredictionInsight = useCallback(async () => {
+    if (!roipData || isGeneratingRoipInsight) return;
+
+    setIsGeneratingRoipInsight(true);
+    setRoipPredictionInsight(null);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      // Prepare context with ROIP data - convert cents to PHP amounts for AI
+      const context = {
+        current_roi: roipData.current_roi,
+        total_revenue_php: roipData.total_revenue ? (roipData.total_revenue / 100).toFixed(2) : "0.00",
+        total_costs_php: roipData.total_costs ? (roipData.total_costs / 100).toFixed(2) : "0.00",
+        net_income_php: roipData.net_income ? (roipData.net_income / 100).toFixed(2) : "0.00",
+        historical_data: (roipData.historical || []).map((h: any) => ({
+          month: h.month,
+          revenue_php: h.revenue ? (h.revenue / 100).toFixed(2) : "0.00",
+          costs_php: h.costs ? (h.costs / 100).toFixed(2) : "0.00",
+          net_php: h.net ? (h.net / 100).toFixed(2) : "0.00",
+        })),
+        predictions: (roipData.predictions || []).map((p: any) => ({
+          month: p.month,
+          predicted_revenue_php: p.predicted_revenue ? (p.predicted_revenue / 100).toFixed(2) : "0.00",
+          predicted_costs_php: p.predicted_costs ? (p.predicted_costs / 100).toFixed(2) : "0.00",
+          predicted_roi: p.predicted_roi,
+        })),
+        method: roipData.method,
+        analysis: roipData.analysis || null,
+      };
+
+      const prompt = `Based on the ROI prediction data provided, analyze the financial trends and provide strategic insights about:
+
+1. Current ROI performance and what it indicates about the business health
+2. Historical trends in revenue vs costs
+3. Predicted ROI trajectory for the next 6 months and what factors might influence it
+4. Key risks and opportunities based on the cost structure (repair, expansion, hosting)
+5. Actionable recommendations to improve ROI
+
+IMPORTANT: All monetary values in the context are already in PHP (not cents). Use them directly with PHP currency format (e.g., PHP 1,350.00, not PHP 135,000.00).
+
+Be specific with numbers, use PHP currency format, and provide a professional, executive-level analysis. Focus on actionable insights that can help improve Return on Investment.`;
+
+      const res = await fetch("/api/admin/insights", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({
+          prompt,
+          context,
+        }),
+      });
+
+      const json = await res.json();
+      if (res.ok) {
+        setRoipPredictionInsight(json.text || "Insight generated successfully.");
+      } else {
+        toast.error(json.error || "Failed to generate prediction insight");
+        setRoipPredictionInsight("Failed to generate insight. Please try again.");
+      }
+    } catch (error: any) {
+      console.error("Error generating ROIP prediction insight:", error);
+      toast.error(error.message || "Failed to generate prediction insight");
+      setRoipPredictionInsight("Failed to generate insight. Please try again.");
+    } finally {
+      setIsGeneratingRoipInsight(false);
+    }
+  }, [roipData, isGeneratingRoipInsight, supabase]);
 
   const fetchAccountDeletionData = useCallback(async () => {
     setLoadingAccountDeletion(true);
@@ -925,75 +1184,98 @@ export default function AdminPage() {
     setAiGeneratedInsight(null);
 
     try {
-      // Build a concise, executive-style paragraph locally using available metrics
-      const totals = analyticsData.totals || {};
-      const metrics = analyticsData.additional_metrics || {};
-      const revenueStats = analyticsData.revenue_stats || {};
-      const txRates = analyticsData.transaction_rates || {};
-      const topCategory = metrics.most_popular_category && metrics.most_popular_category !== "None"
-        ? metrics.most_popular_category
-        : null;
-
-      const users = Number(totals.users || 0);
-      const events = Number(totals.events || 0);
-      const transactions = Number(totals.transactions || 0);
-      const revenueCents = Number(totals.revenue_cents || 0);
-      const revenuePeso = `₱${(revenueCents / 100).toFixed(2)}`;
-      const growth = typeof metrics.user_growth_rate === "number" ? `${metrics.user_growth_rate.toFixed(1)}%` : "0%";
-      const conv = typeof metrics.conversion_rate === "number" ? `${metrics.conversion_rate.toFixed(1)}%` : "0%";
-      const avgTx = typeof metrics.avg_revenue_per_transaction === "number" ? `₱${(metrics.avg_revenue_per_transaction / 100).toFixed(2)}` : "₱0.00";
-      const mean = typeof revenueStats.mean === "number" ? `₱${(revenueStats.mean / 100).toFixed(2)}` : null;
-      const paidRate = typeof txRates.paid_rate === "number" ? `${txRates.paid_rate.toFixed(1)}%` : null;
-      const cancelledRate = typeof txRates.cancelled_rate === "number" ? `${txRates.cancelled_rate.toFixed(1)}%` : null;
-
-      // Professional, explanatory narrative
-      const parts: string[] = [];
-      parts.push(`Your platform currently has ${users.toLocaleString()} users across ${events.toLocaleString()} events, generating ${transactions.toLocaleString()} total transactions.`);
-      parts.push(`Revenue totals ${revenuePeso}; the typical purchase is around ${avgTx}${mean ? ", closely aligned with a mean of " + mean : ""}, suggesting pricing consistency.`);
-      parts.push(`User growth over the most recent period is ${growth}, while subscription conversion is ${conv}. Together, these indicate the present balance between acquisition and monetization.`);
-      if (paidRate || cancelledRate) {
-        let txDesc = "Of recent transactions, ";
-        if (paidRate) {
-          txDesc += paidRate + " were paid";
-        }
-        if (paidRate && cancelledRate) {
-          txDesc += ", and ";
-        } else if (paidRate) {
-          txDesc += ".";
-        }
-        if (cancelledRate) {
-          txDesc += cancelledRate + " were cancelled.";
-        }
-        parts.push(txDesc);
-      }
-      if (topCategory) {
-        parts.push(`"${topCategory}" is the most engaged category; highlighting it in discovery and campaigns can compound performance.`);
-      }
-      parts.push(`Operationally, focus on sustaining user growth, improving conversion through onboarding and offers, and reducing cancellations by addressing any checkout or value-perception friction.`);
-
-      const paragraph = parts.join(" ");
-      setAiGeneratedInsight(paragraph);
-
-      // Persist the generated insight for auditability
       const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user?.id) {
-        try {
-          await supabase.from("admin_insights").insert({
-            user_id: session.user.id,
-            content: paragraph,
-            context: analyticsData,
-          });
-        } catch (e) {
-          console.warn("Failed to save admin insight:", e);
-        }
+      
+      // Prepare context with analytics data and predictions
+      const context = {
+        totals: {
+          users: analyticsData.totals?.users || 0,
+          events: analyticsData.totals?.events || 0,
+          transactions: analyticsData.totals?.transactions || 0,
+          revenue_php: analyticsData.totals?.revenue_cents ? (analyticsData.totals.revenue_cents / 100).toFixed(2) : "0.00",
+        },
+        metrics: {
+          user_growth_rate: analyticsData.additional_metrics?.user_growth_rate || 0,
+          conversion_rate: analyticsData.additional_metrics?.conversion_rate || 0,
+          avg_revenue_per_transaction_php: analyticsData.additional_metrics?.avg_revenue_per_transaction ? (analyticsData.additional_metrics.avg_revenue_per_transaction / 100).toFixed(2) : "0.00",
+          most_popular_category: analyticsData.additional_metrics?.most_popular_category || "None",
+        },
+        transaction_rates: {
+          paid_rate: analyticsData.transaction_rates?.paid_rate || 0,
+          cancelled_rate: analyticsData.transaction_rates?.cancelled_rate || 0,
+        },
+        revenue_stats: {
+          mean_php: analyticsData.revenue_stats?.mean ? (analyticsData.revenue_stats.mean / 100).toFixed(2) : "0.00",
+          median_php: analyticsData.revenue_stats?.median ? (analyticsData.revenue_stats.median / 100).toFixed(2) : "0.00",
+        },
+        time_series_summary: analyticsData.time_series?.slice(-30).map((d: any) => ({
+          date: d.date,
+          revenue_php: d.revenue_cents ? (d.revenue_cents / 100).toFixed(2) : "0.00",
+          users: d.users || 0,
+          transactions: d.transactions || 0,
+          events: d.events || 0,
+        })) || [],
+        predictions: predictionsData ? {
+          trends: {
+            revenue_growth_rate: predictionsData.trends?.revenue_growth_rate || 0,
+            user_growth_rate: predictionsData.trends?.user_growth_rate || 0,
+          },
+          next_6_months_summary: predictionsData.predictions?.slice(0, 6).map((p: any) => ({
+            month_year: p.month_year || p.date,
+            predicted_revenue_php: p.predicted_revenue_cents ? (p.predicted_revenue_cents / 100).toFixed(2) : "0.00",
+            predicted_users: p.predicted_users || 0,
+            predicted_transactions: p.predicted_transactions || 0,
+            predicted_events: p.predicted_events || 0,
+          })) || [],
+        } : null,
+      };
+
+      const prompt = `You are an analytics and predictive AI assistant for an events platform. Based on the provided analytics data, provide a comprehensive but CONCISE analysis in paragraph form (not bullet points) that includes:
+
+**Current Performance Analysis**: Describe the current state of the platform including users, events, transactions, revenue (PHP format), conversion rate, average revenue per transaction, most popular category, and transaction rates (paid vs cancelled).
+
+**Descriptive Analytics**: Analyze historical trends and patterns in the time series data, highlighting key observations about revenue distribution, user activity patterns, transaction frequency, and event creation trends.
+
+**Predictive Insights**: Based on the trends and predictions provided, forecast what to expect in the next 6 months (monthly predictions) for revenue growth, user acquisition, transaction volume, and event creation. Include specific numbers and growth rates for each month.
+
+**Risk Assessment**: Identify potential risks or concerns based on the data patterns.
+
+**Strategic Recommendations**: Provide actionable recommendations to improve performance.
+
+IMPORTANT: 
+- All monetary values in the context are already in PHP (not cents). Use them directly with PHP currency format (e.g., PHP 1,350.00).
+- Write in paragraph form (not bullet points) to reduce token usage.
+- Be concise but comprehensive - summarize key insights efficiently.
+- Use specific numbers and percentages where available.
+- Keep the total response under 300 words while covering all aspects.`;
+
+      const res = await fetch("/api/admin/insights", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({
+          prompt,
+          context,
+        }),
+      });
+
+      const json = await res.json();
+      if (res.ok) {
+        setAiGeneratedInsight(json.text || "Insight generated successfully.");
+      } else {
+        toast.error(json.error || "Failed to generate insight");
+        setAiGeneratedInsight("Failed to generate insight. Please try again.");
       }
     } catch (error: any) {
       console.error("Error generating AI insight:", error);
-      setAiGeneratedInsight("Failed to generate insight locally.");
+      toast.error(error.message || "Failed to generate insight");
+      setAiGeneratedInsight("Failed to generate insight. Please try again.");
     } finally {
       setIsGeneratingInsight(false);
     }
-  }, [analyticsData, isGeneratingInsight]);
+  }, [analyticsData, predictionsData, isGeneratingInsight, supabase]);
 
   const getPieOuterRadius = useCallback(() => {
     if (windowWidth > 0 && windowWidth < 360) return 58;
@@ -1169,6 +1451,16 @@ export default function AdminPage() {
             Feedback
           </button>
           {/* Users tab removed */}
+          <button
+            onClick={() => setActiveTab("roip")}
+              className={`px-2 sm:px-3 md:px-4 py-2 text-xs sm:text-sm font-medium rounded-t-md transition-colors whitespace-nowrap flex-shrink-0 ${
+              activeTab === "roip"
+                ? "bg-background border-b-2 border-primary text-primary"
+                : "hover:text-primary text-muted-foreground"
+            }`}
+          >
+            ROIP
+          </button>
           <button
             onClick={() => setActiveTab("rating")}
               className={`px-2 sm:px-3 md:px-4 py-2 text-xs sm:text-sm font-medium rounded-t-md transition-colors whitespace-nowrap flex-shrink-0 ${
@@ -1515,7 +1807,9 @@ export default function AdminPage() {
                     <div className="mt-4 pt-4 border-t">
                       <div className="text-sm font-medium mb-3">Category Rankings</div>
                       <div className="max-h-[300px] overflow-y-auto space-y-2">
-                        {analyticsData.popular_events_by_category.map((item: any, index: number) => (
+                        {[...analyticsData.popular_events_by_category]
+                          .sort((a: any, b: any) => (b.count || 0) - (a.count || 0))
+                          .map((item: any, index: number) => (
                           <div
                             key={item.category}
                             className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50 transition-colors"
@@ -1632,12 +1926,274 @@ export default function AdminPage() {
                 </div>
               )}
 
+              {/* Predictive Analytics Charts */}
+              {predictionsData && predictionsData.predictions && (
+                <div className="rounded-lg border p-4 sm:p-6 bg-card mt-4 sm:mt-6 min-w-0">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+                    <div>
+                      <h3 className="text-base sm:text-lg font-semibold mb-1">Predictive Analytics (Next 6 Months)</h3>
+                      <p className="text-xs sm:text-sm text-muted-foreground">
+                        Monthly forecasts based on historical trends
+                      </p>
+                    </div>
+                    {loadingPredictions && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                        Updating predictions...
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Data Quality Warning */}
+                  {predictionsData.data_quality && predictionsData.data_quality.has_low_accuracy && (
+                    <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-500/50 rounded-lg">
+                      <div className="flex items-start gap-2">
+                        <div className="text-amber-600 dark:text-amber-400 mt-0.5">
+                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                        <div className="flex-1">
+                          <div className="text-sm font-semibold text-amber-800 dark:text-amber-300 mb-1">Low Prediction Accuracy Warning</div>
+                          <div className="text-xs text-amber-700 dark:text-amber-200/80">
+                            {predictionsData.data_quality.message}. Predictions may have <strong>very low accuracy</strong> due to insufficient or inconsistent historical data. 
+                            {predictionsData.data_quality.data_points > 0 && (
+                              <span> Only {predictionsData.data_quality.data_points} data point{predictionsData.data_quality.data_points !== 1 ? 's' : ''} available.</span>
+                            )}
+                            {predictionsData.data_quality.data_points === 0 && (
+                              <span> No historical data points available.</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                    {/* Predicted Revenue */}
+                    <div className="rounded-lg border p-4 bg-muted/50 min-w-0 overflow-hidden">
+                      <h4 className="text-sm font-semibold mb-3">Predicted Revenue (Monthly)</h4>
+                      <ResponsiveContainer width="100%" height={220}>
+                        <AreaChart data={[
+                          ...(() => {
+                            // Aggregate historical data by month
+                            const monthlyData = new Map<string, { month_year: string; revenue: number }>();
+                            (analyticsData.time_series || []).forEach((d: any) => {
+                              if (!d.date) return;
+                              const date = new Date(d.date);
+                              const monthYear = `${date.toLocaleString('default', { month: 'short' })} ${date.getFullYear()}`;
+                              const existing = monthlyData.get(monthYear) || { month_year: monthYear, revenue: 0 };
+                              existing.revenue += d.revenue_cents || 0;
+                              monthlyData.set(monthYear, existing);
+                            });
+                            return Array.from(monthlyData.values()).map(d => ({ ...d, type: "Historical" }));
+                          })(),
+                          ...(predictionsData.predictions || []).map((p: any) => ({
+                            month_year: p.month_year || p.date,
+                            revenue: p.predicted_revenue_cents || 0,
+                            type: "Predicted"
+                          }))
+                        ]}>
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                          <XAxis dataKey="month_year" className="text-xs" tick={{ fill: '#64748b' }} angle={-45} textAnchor="end" height={80} />
+                          <YAxis className="text-xs" tick={{ fill: '#64748b' }} tickFormatter={(value: unknown) => `₱${(Number(value as number) / 100).toFixed(0)}`} />
+                          <Tooltip formatter={(value: any) => formatCurrency(Number(value))} contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} labelStyle={{ color: '#cbd5e1' }} itemStyle={{ color: '#22c55e' }} />
+                          <Legend />
+                          <Area type="monotone" dataKey="revenue" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.3} name="Revenue" />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+
+                    {/* Predicted User Growth */}
+                    <div className="rounded-lg border p-4 bg-muted/50 min-w-0 overflow-hidden">
+                      <h4 className="text-sm font-semibold mb-3">Predicted User Growth (Monthly)</h4>
+                      <ResponsiveContainer width="100%" height={220}>
+                        <AreaChart data={[
+                          ...(() => {
+                            // Aggregate historical data by month
+                            const monthlyData = new Map<string, { month_year: string; users: number }>();
+                            (analyticsData.time_series || []).forEach((d: any) => {
+                              if (!d.date) return;
+                              const date = new Date(d.date);
+                              const monthYear = `${date.toLocaleString('default', { month: 'short' })} ${date.getFullYear()}`;
+                              const existing = monthlyData.get(monthYear) || { month_year: monthYear, users: 0 };
+                              existing.users += d.users || 0;
+                              monthlyData.set(monthYear, existing);
+                            });
+                            return Array.from(monthlyData.values()).map(d => ({ ...d, type: "Historical" }));
+                          })(),
+                          ...(predictionsData.predictions || []).map((p: any) => ({
+                            month_year: p.month_year || p.date,
+                            users: p.predicted_users || 0,
+                            type: "Predicted"
+                          }))
+                        ]}>
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                          <XAxis dataKey="month_year" className="text-xs" tick={{ fill: '#64748b' }} angle={-45} textAnchor="end" height={80} />
+                          <YAxis className="text-xs" tick={{ fill: '#64748b' }} />
+                          <Tooltip contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} labelStyle={{ color: '#cbd5e1' }} itemStyle={{ color: '#22c55e' }} />
+                          <Legend />
+                          <Area type="monotone" dataKey="users" stroke="#ec4899" fill="#ec4899" fillOpacity={0.3} name="New Users" />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+
+                    {/* Predicted Transactions */}
+                    <div className="rounded-lg border p-4 bg-muted/50 min-w-0 overflow-hidden">
+                      <h4 className="text-sm font-semibold mb-3">Predicted Transactions (Monthly)</h4>
+                      <ResponsiveContainer width="100%" height={220}>
+                        <AreaChart data={[
+                          ...(() => {
+                            // Aggregate historical data by month
+                            const monthlyData = new Map<string, { month_year: string; transactions: number }>();
+                            (analyticsData.time_series || []).forEach((d: any) => {
+                              if (!d.date) return;
+                              const date = new Date(d.date);
+                              const monthYear = `${date.toLocaleString('default', { month: 'short' })} ${date.getFullYear()}`;
+                              const existing = monthlyData.get(monthYear) || { month_year: monthYear, transactions: 0 };
+                              existing.transactions += d.transactions || 0;
+                              monthlyData.set(monthYear, existing);
+                            });
+                            return Array.from(monthlyData.values()).map(d => ({ ...d, type: "Historical" }));
+                          })(),
+                          ...(predictionsData.predictions || []).map((p: any) => ({
+                            month_year: p.month_year || p.date,
+                            transactions: p.predicted_transactions || 0,
+                            type: "Predicted"
+                          }))
+                        ]}>
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                          <XAxis dataKey="month_year" className="text-xs" tick={{ fill: '#64748b' }} angle={-45} textAnchor="end" height={80} />
+                          <YAxis className="text-xs" tick={{ fill: '#64748b' }} />
+                          <Tooltip contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} labelStyle={{ color: '#cbd5e1' }} itemStyle={{ color: '#22c55e' }} />
+                          <Legend />
+                          <Area type="monotone" dataKey="transactions" stroke="#10b981" fill="#10b981" fillOpacity={0.3} name="Transactions" />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+
+                    {/* Predicted Events */}
+                    <div className="rounded-lg border p-4 bg-muted/50 min-w-0 overflow-hidden">
+                      <h4 className="text-sm font-semibold mb-3">Predicted Event Creation (Monthly)</h4>
+                      <ResponsiveContainer width="100%" height={220}>
+                        <AreaChart data={[
+                          ...(() => {
+                            // Aggregate historical data by month
+                            const monthlyData = new Map<string, { month_year: string; events: number }>();
+                            (analyticsData.time_series || []).forEach((d: any) => {
+                              if (!d.date) return;
+                              const date = new Date(d.date);
+                              const monthYear = `${date.toLocaleString('default', { month: 'short' })} ${date.getFullYear()}`;
+                              const existing = monthlyData.get(monthYear) || { month_year: monthYear, events: 0 };
+                              existing.events += d.events || 0;
+                              monthlyData.set(monthYear, existing);
+                            });
+                            return Array.from(monthlyData.values()).map(d => ({ ...d, type: "Historical" }));
+                          })(),
+                          ...(predictionsData.predictions || []).map((p: any) => ({
+                            month_year: p.month_year || p.date,
+                            events: p.predicted_events || 0,
+                            type: "Predicted"
+                          }))
+                        ]}>
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                          <XAxis dataKey="month_year" className="text-xs" tick={{ fill: '#64748b' }} angle={-45} textAnchor="end" height={80} />
+                          <YAxis className="text-xs" tick={{ fill: '#64748b' }} />
+                          <Tooltip contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} labelStyle={{ color: '#cbd5e1' }} itemStyle={{ color: '#22c55e' }} />
+                          <Legend />
+                          <Area type="monotone" dataKey="events" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.3} name="Events" />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* Prediction Summary */}
+                  {predictionsData.trends && (
+                    <div className="mt-4 pt-4 border-t">
+                      <h4 className="text-sm font-semibold mb-3">Prediction Summary</h4>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+                        <div>
+                          <div className="text-xs text-muted-foreground">Avg Monthly Revenue</div>
+                          <div className="text-lg font-semibold">{formatCurrency(predictionsData.trends.avg_monthly_revenue || 0)}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-muted-foreground">Avg Monthly Users</div>
+                          <div className="text-lg font-semibold">{formatNumber(predictionsData.trends.avg_monthly_users || 0)}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-muted-foreground">Revenue Growth</div>
+                          <div className={`text-lg font-semibold ${(predictionsData.trends.revenue_growth_rate || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {predictionsData.trends.revenue_growth_rate?.toFixed(1) || "0.0"}%
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-muted-foreground">User Growth</div>
+                          <div className={`text-lg font-semibold ${(predictionsData.trends.user_growth_rate || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {predictionsData.trends.user_growth_rate?.toFixed(1) || "0.0"}%
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Next Month Forecast */}
+                      {predictionsData.predictions_summary && (
+                        <div className="bg-muted/30 rounded-lg p-4 border">
+                          <h5 className="text-xs font-semibold mb-3">Next Month Forecast</h5>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                            <div>
+                              <div className="text-xs text-muted-foreground">Predicted Revenue</div>
+                              <div className="text-lg font-semibold text-green-600">{formatCurrency(predictionsData.predictions_summary.next_month_revenue || 0)}</div>
+                            </div>
+                            <div>
+                              <div className="text-xs text-muted-foreground">Predicted Users</div>
+                              <div className="text-lg font-semibold">{formatNumber(predictionsData.predictions_summary.next_month_users || 0)}</div>
+                            </div>
+                            <div>
+                              <div className="text-xs text-muted-foreground">Predicted Transactions</div>
+                              <div className="text-lg font-semibold">{formatNumber(predictionsData.predictions_summary.next_month_transactions || 0)}</div>
+                            </div>
+                            <div>
+                              <div className="text-xs text-muted-foreground">Predicted Events</div>
+                              <div className="text-lg font-semibold">{formatNumber(predictionsData.predictions_summary.next_month_events || 0)}</div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Next 6 Months Total */}
+                      {predictionsData.predictions_summary && (
+                        <div className="mt-4 pt-4 border-t">
+                          <h5 className="text-xs font-semibold mb-2">Next 6 Months Total</h5>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                            <div>
+                              <div className="text-muted-foreground">Total Revenue</div>
+                              <div className="text-sm font-semibold text-green-600">{formatCurrency(predictionsData.predictions_summary.next_6_months_total_revenue || 0)}</div>
+                            </div>
+                            <div>
+                              <div className="text-muted-foreground">Total Users</div>
+                              <div className="text-sm font-semibold">{formatNumber(predictionsData.predictions_summary.next_6_months_total_users || 0)}</div>
+                            </div>
+                            <div>
+                              <div className="text-muted-foreground">Total Transactions</div>
+                              <div className="text-sm font-semibold">{formatNumber(predictionsData.predictions_summary.next_6_months_total_transactions || 0)}</div>
+                            </div>
+                            <div>
+                              <div className="text-muted-foreground">Total Events</div>
+                              <div className="text-sm font-semibold">{formatNumber(predictionsData.predictions_summary.next_6_months_total_events || 0)}</div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* AI Insight + Descriptive Summary */}
               <div className="rounded-lg border p-4 sm:p-6 bg-card mt-4 sm:mt-6 min-w-0">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
                   <div className="flex items-center gap-2">
                     <Lightbulb className="h-5 w-5 text-primary" />
-                    <h3 className="text-base sm:text-lg font-semibold">AI Insight</h3>
+                    <h3 className="text-base sm:text-lg font-semibold">AI Analytics Insight</h3>
                   </div>
                   <Button
                     onClick={generateAIInsight}
@@ -1654,25 +2210,17 @@ export default function AdminPage() {
                     ) : (
                       <>
                         <Lightbulb className="h-4 w-4 mr-2" />
-                        Generate AI Insight
+                        Generate Analytics Insight
                       </>
                     )}
                   </Button>
                 </div>
                 {aiGeneratedInsight ? (
-                  <div className="rounded-lg border p-4 bg-muted/50">
+                  <div className="rounded-lg border p-4 bg-gradient-to-br from-blue-50/50 to-purple-50/50 dark:from-blue-950/20 dark:to-purple-950/20">
                     <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{aiGeneratedInsight}</p>
                   </div>
                 ) : (
-                  <div className="text-sm text-muted-foreground">Click Generate to produce an AI-written insight paragraph.</div>
-                )}
-
-                {/* Descriptive analytics summary */}
-                {descriptiveSummary && (
-                  <div className="mt-6 pt-6 border-t">
-                    <h4 className="font-semibold mb-2">Descriptive Analytics Summary</h4>
-                    <p className="text-sm text-muted-foreground leading-relaxed">{descriptiveSummary}</p>
-                  </div>
+                  <div className="text-sm text-muted-foreground">Click "Generate Analytics Insight" to get AI-powered analysis that includes descriptive analytics (current performance and historical trends) and predictive insights (forecasts for the next 30 days) in a concise paragraph format.</div>
                 )}
               </div>
             </div>
@@ -2411,6 +2959,289 @@ export default function AdminPage() {
         </div>
       )}
       {/* Users tab and account deletion management removed */}
+      {activeTab === "roip" && (
+        <div className="min-w-0 max-w-full space-y-4 sm:space-y-6">
+          {loadingRoip ? (
+            <div className="flex h-[60vh] items-center justify-center text-sm text-muted-foreground">
+              Loading ROIP data...
+            </div>
+          ) : roipError ? (
+            <div className="flex h-[60vh] flex-col items-center justify-center gap-4 text-sm">
+              <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive">
+                <p className="font-semibold">Error loading ROIP data</p>
+                <p className="mt-2 text-xs">{roipError}</p>
+                <button
+                  onClick={() => fetchRoipData()}
+                  className="mt-4 rounded-md bg-destructive px-4 py-2 text-sm text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
+          ) : roipData ? (
+            <>
+              {/* Summary Cards */}
+              <RoipSummaryCards roipData={roipData} formatCurrency={formatCurrency} />
+
+              {/* Cost Management Section */}
+              <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+                  <h3 className="text-base sm:text-lg font-semibold">Cost Management</h3>
+                  <Button onClick={() => setShowCostDialog(true)} className="w-full sm:w-auto">
+                    Add Cost
+                  </Button>
+                </div>
+
+                {loadingCosts ? (
+                  <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
+                    Loading costs...
+                  </div>
+                ) : costsError ? (
+                  <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive text-sm">
+                    <p>{costsError}</p>
+                    <button
+                      onClick={() => fetchAdminCosts()}
+                      className="mt-2 rounded-md bg-destructive px-3 py-1.5 text-xs text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                ) : adminCosts.length === 0 ? (
+                  <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
+                    No costs recorded yet. Add your first cost to start tracking.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left p-2">Type</th>
+                          <th className="text-left p-2">Description</th>
+                          <th className="text-right p-2">Amount</th>
+                          <th className="text-left p-2">Date</th>
+                          <th className="text-right p-2">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {adminCosts.map((cost: any) => (
+                          <tr key={cost.id} className="border-b hover:bg-muted/50">
+                            <td className="p-2 capitalize">{cost.cost_type}</td>
+                            <td className="p-2">{cost.description || "-"}</td>
+                            <td className="p-2 text-right font-medium">{formatCurrency(cost.amount_cents || 0)}</td>
+                            <td className="p-2">{new Date(cost.date_incurred).toLocaleDateString()}</td>
+                            <td className="p-2 text-right">
+                              <button
+                                onClick={() => handleDeleteCost(cost.id)}
+                                className="text-destructive hover:text-destructive/80 text-xs"
+                              >
+                                Delete
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* ROI Prediction Chart */}
+              {roipData.historical && roipData.predictions && (
+                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+                    <div>
+                      <h3 className="text-base sm:text-lg font-semibold mb-1">ROI Prediction Chart</h3>
+                      <p className="text-xs sm:text-sm text-muted-foreground">
+                        {roipData.method === "cohere_ai" ? "AI-powered prediction using Cohere" : "Trend-based prediction"}
+                      </p>
+                    </div>
+                    <Button onClick={() => fetchRoipData()} variant="outline" size="sm">
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Refresh
+                    </Button>
+                  </div>
+
+                  {mounted && (
+                    <RoipChart
+                      historical={roipData.historical || []}
+                      predictions={roipData.predictions || []}
+                      windowWidth={windowWidth}
+                      formatCurrency={formatCurrency}
+                    />
+                  )}
+
+                  {/* Prediction Table */}
+                  <div className="mt-6 overflow-x-auto">
+                    <h4 className="text-sm font-semibold mb-3">Monthly Predictions</h4>
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left p-2">Month</th>
+                          <th className="text-right p-2">Predicted Revenue</th>
+                          <th className="text-right p-2">Predicted Costs</th>
+                          <th className="text-right p-2">Predicted ROI</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {roipData.predictions.map((pred: any, idx: number) => (
+                          <tr key={idx} className="border-b hover:bg-muted/50">
+                            <td className="p-2">{pred.month}</td>
+                            <td className="p-2 text-right font-medium">{formatCurrency(pred.predicted_revenue || 0)}</td>
+                            <td className="p-2 text-right">{formatCurrency(pred.predicted_costs || 0)}</td>
+                            <td className={`p-2 text-right font-medium ${(pred.predicted_roi || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {pred.predicted_roi?.toFixed(2) || "0.00"}%
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* AI Prediction Section */}
+              {roipData.historical && roipData.predictions && (
+                <div className="rounded-lg border p-4 sm:p-6 bg-card">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+                    <div>
+                      <h3 className="text-base sm:text-lg font-semibold mb-1 flex items-center gap-2">
+                        <Lightbulb className="h-5 w-5 text-yellow-500" />
+                        AI Prediction Insight
+                      </h3>
+                      <p className="text-xs sm:text-sm text-muted-foreground">
+                        Get AI-powered strategic analysis of your ROI predictions and trends
+                      </p>
+                    </div>
+                    <Button 
+                      onClick={generateRoipPredictionInsight}
+                      disabled={isGeneratingRoipInsight || !roipData}
+                      variant="default"
+                      size="sm"
+                      className="bg-primary text-primary-foreground hover:bg-primary/90"
+                    >
+                      {isGeneratingRoipInsight ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Lightbulb className="h-4 w-4 mr-2" />
+                          Generate Prediction Insight
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  {/* Prediction Insight Display */}
+                  {roipPredictionInsight ? (
+                    <div className="rounded-lg border p-4 sm:p-6 bg-gradient-to-br from-yellow-50/50 to-orange-50/50 dark:from-yellow-950/20 dark:to-orange-950/20">
+                      <div className="flex items-start gap-3">
+                        <Lightbulb className="h-6 w-6 text-yellow-500 flex-shrink-0 mt-1" />
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-base mb-3">AI Strategic Analysis</h4>
+                          <div className="prose prose-sm max-w-none">
+                            <p className="text-sm sm:text-base text-foreground whitespace-pre-wrap leading-relaxed">
+                              {roipPredictionInsight}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-dashed p-8 text-center bg-muted/30">
+                      <Lightbulb className="h-12 w-12 text-muted-foreground mx-auto mb-3 opacity-50" />
+                      <p className="text-sm sm:text-base text-muted-foreground mb-2">
+                        No prediction insight generated yet
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Click "Generate Prediction Insight" to get AI-powered analysis of your ROI predictions, trends, and actionable recommendations.
+                      </p>
+                    </div>
+                  )}
+
+                  {roipData.analysis && (
+                    <div className="mt-4 p-4 rounded-md bg-muted/50 border border-muted">
+                      <p className="font-medium mb-2 text-sm">Quick Analysis:</p>
+                      <p className="text-sm text-muted-foreground">{roipData.analysis}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="flex h-[60vh] items-center justify-center text-sm text-muted-foreground">
+              No ROIP data available
+            </div>
+          )}
+
+          {/* Add Cost Dialog */}
+          <Dialog open={showCostDialog} onOpenChange={setShowCostDialog}>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle>Add New Cost</DialogTitle>
+                <DialogDescription>
+                  Record an operational cost to improve ROI predictions.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Cost Type</label>
+                  <select
+                    value={newCost.cost_type}
+                    onChange={(e) => setNewCost({ ...newCost, cost_type: e.target.value })}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="repair">Repair</option>
+                    <option value="expansion">Expansion</option>
+                    <option value="hosting">Hosting</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Description</label>
+                  <input
+                    type="text"
+                    value={newCost.description}
+                    onChange={(e) => setNewCost({ ...newCost, description: e.target.value })}
+                    placeholder="e.g., Website maintenance, Server upgrade"
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Amount (PHP)</label>
+                  <input
+                    type="number"
+                    value={newCost.amount_cents / 100}
+                    onChange={(e) => setNewCost({ ...newCost, amount_cents: Math.round(parseFloat(e.target.value) * 100) || 0 })}
+                    placeholder="0.00"
+                    step="0.01"
+                    min="0"
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Date Incurred</label>
+                  <input
+                    type="date"
+                    value={newCost.date_incurred}
+                    onChange={(e) => setNewCost({ ...newCost, date_incurred: e.target.value })}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowCostDialog(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleAddCost} disabled={submittingCost}>
+                  {submittingCost ? "Adding..." : "Add Cost"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+      )}
       {activeTab === "rating" && (
         <div className="min-w-0 max-w-full">
           {loadingRatings ? (

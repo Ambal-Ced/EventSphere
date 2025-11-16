@@ -29,6 +29,8 @@ const Line: any = dynamic(() => import("recharts").then(m => m.Line as any), { s
 const ScatterChart: any = dynamic(() => import("recharts").then(m => m.ScatterChart as any), { ssr: false }) as any;
 const Scatter: any = dynamic(() => import("recharts").then(m => m.Scatter as any), { ssr: false }) as any;
 const ZAxis: any = dynamic(() => import("recharts").then(m => m.ZAxis as any), { ssr: false }) as any;
+const AreaChart: any = dynamic(() => import("recharts").then(m => m.AreaChart as any), { ssr: false }) as any;
+const Area: any = dynamic(() => import("recharts").then(m => m.Area as any), { ssr: false }) as any;
 
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
 
@@ -325,6 +327,10 @@ export default function AnalyticsClient({
     weekStart: string;
     maxInsights: number;
   } | null>(null);
+  
+  // Predictive analytics
+  const [predictionsData, setPredictionsData] = useState<any>(null);
+  const [loadingPredictions, setLoadingPredictions] = useState(false);
 
   // Fetch insights usage info
   const fetchInsightsUsage = async () => {
@@ -439,11 +445,112 @@ export default function AnalyticsClient({
     try {
       await incrementInsightsUsage();
 
-      const top = costChartData[0];
-      const text = `Overview: ${aggregates.totalEvents} events, ${aggregates.totalItems} items; total cost PHP ${aggregates.totalItemCost.toFixed(2)}, est. revenue PHP ${aggregates.estRevenue.toFixed(2)}. Pricing: average cost/event PHP ${aggregates.avgCostPerEvent.toFixed(2)}; top cost event "${top ? top.name : 'N/A'}" at PHP ${(top?.cost || 0).toFixed(2)}. Recommendations: audit high-cost events, align markup/discount to target margins, and standardize item templates to reduce variance.`;
-      
-      setAiInsights(text);
-      await saveInsightsToDatabase(text);
+      // Prepare context for Cohere AI
+      const context = {
+        totals: {
+          events: aggregates.totalEvents,
+          items: aggregates.totalItems,
+          total_cost_php: aggregates.totalItemCost.toFixed(2),
+          estimated_revenue_php: aggregates.estRevenue.toFixed(2),
+          avg_cost_per_event_php: aggregates.avgCostPerEvent.toFixed(2),
+          avg_items_per_event: aggregates.avgItemsPerEvent.toFixed(2),
+        },
+        attendance: {
+          expected_total: aggregates.expectedTotal,
+          actual_total: aggregates.actualTotal,
+          attendance_rate: aggregates.expectedTotal > 0 ? ((aggregates.actualTotal / aggregates.expectedTotal) * 100).toFixed(1) : "0.0",
+          avg_rating: aggregates.avgRating.toFixed(2),
+        },
+        top_events: costChartData.slice(0, 5).map((item: any) => ({
+          name: item.name,
+          cost_php: item.cost.toFixed(2),
+        })),
+        descriptive_analytics: {
+          time_series_summary: lineData.slice(-30).map((d: any) => ({
+            date: new Date(d.date).toISOString().split('T')[0],
+            cost_php: d.cost.toFixed(2),
+          })),
+          cost_trends: {
+            highest_cost_event: costChartData.length > 0 ? {
+              name: costChartData[0].name,
+              cost_php: costChartData[0].cost.toFixed(2),
+            } : null,
+            lowest_cost_event: costChartData.length > 0 ? {
+              name: costChartData[costChartData.length - 1].name,
+              cost_php: costChartData[costChartData.length - 1].cost.toFixed(2),
+            } : null,
+          },
+          revenue_analysis: {
+            total_revenue_php: aggregates.estRevenue.toFixed(2),
+            avg_revenue_per_event_php: aggregates.totalEvents > 0 ? (aggregates.estRevenue / aggregates.totalEvents).toFixed(2) : "0.00",
+            profit_margin_php: (aggregates.estRevenue - aggregates.totalItemCost).toFixed(2),
+            profit_margin_percent: aggregates.estRevenue > 0 ? (((aggregates.estRevenue - aggregates.totalItemCost) / aggregates.estRevenue) * 100).toFixed(1) : "0.0",
+          },
+        },
+        predictions: predictionsData ? {
+          trends: {
+            cost_growth_rate: predictionsData.trends?.cost_growth_rate || 0,
+            revenue_growth_rate: predictionsData.trends?.revenue_growth_rate || 0,
+            avg_daily_cost_php: predictionsData.trends?.avg_daily_cost?.toFixed(2) || "0.00",
+            avg_daily_revenue_php: predictionsData.trends?.avg_daily_revenue?.toFixed(2) || "0.00",
+            avg_daily_events: predictionsData.trends?.avg_daily_events?.toFixed(2) || "0.00",
+            avg_daily_expected_attendees: predictionsData.trends?.avg_daily_expected_attendees?.toFixed(0) || "0",
+          },
+          next_30_days_summary: predictionsData.predictions?.slice(0, 5).map((p: any) => ({
+            date: p.date,
+            predicted_cost_php: p.predicted_cost?.toFixed(2) || "0.00",
+            predicted_revenue_php: p.predicted_revenue?.toFixed(2) || "0.00",
+            predicted_events: p.predicted_events || 0,
+            predicted_expected_attendees: p.predicted_expected_attendees || 0,
+          })) || [],
+        } : null,
+      };
+
+      const prompt = `You are an analytics and predictive AI assistant for an event management platform. Based on the provided event analytics data, provide a comprehensive but CONCISE analysis in paragraph form (not bullet points) that includes:
+
+**Current Performance Analysis**: Describe the current state of the user's events including total events, items managed, total costs (PHP format), estimated revenue (PHP format), average cost per event, average items per event, attendance metrics (expected vs actual), and average rating.
+
+**Descriptive Analytics**: Analyze historical trends and patterns in the time series data, highlighting key observations about cost distribution over time, revenue patterns, event creation frequency, and attendance trends. Identify any notable patterns, spikes, or anomalies in the historical data.
+
+**Predictive Insights**: Based on the trends and predictions provided, forecast what to expect in the next 30 days for event costs, estimated revenue, event creation frequency, and expected attendance. Include specific numbers, growth rates, and projected values where available.
+
+**Risk Assessment**: Identify potential risks or concerns based on the data patterns (e.g., high costs, low attendance, pricing issues, cost growth trends).
+
+**Strategic Recommendations**: Provide actionable recommendations to improve event profitability, reduce costs, increase attendance, and optimize pricing strategies.
+
+IMPORTANT: 
+- All monetary values in the context are already in PHP (not cents). Use them directly with PHP currency format (e.g., PHP 1,350.00).
+- Write in paragraph form (not bullet points) to reduce token usage.
+- Be concise but comprehensive - summarize key insights efficiently.
+- Use specific numbers and percentages where available.
+- Keep the total response under 300 words while covering all aspects.`;
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/admin/insights", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({
+          prompt,
+          context,
+        }),
+      });
+
+      const json = await res.json();
+      if (res.ok) {
+        const insightsText = json.text || "Insight generated successfully.";
+        setAiInsights(insightsText);
+        await saveInsightsToDatabase(insightsText);
+      } else {
+        console.error('Failed to generate insights:', json);
+        // Fallback to simple descriptive text
+        const top = costChartData[0];
+        const text = `Overview: ${aggregates.totalEvents} events, ${aggregates.totalItems} items; total cost PHP ${aggregates.totalItemCost.toFixed(2)}, est. revenue PHP ${aggregates.estRevenue.toFixed(2)}. Pricing: average cost/event PHP ${aggregates.avgCostPerEvent.toFixed(2)}; top cost event "${top ? top.name : 'N/A'}" at PHP ${(top?.cost || 0).toFixed(2)}. Recommendations: audit high-cost events, align markup/discount to target margins, and standardize item templates to reduce variance.`;
+        setAiInsights(text);
+        await saveInsightsToDatabase(text);
+      }
     } catch (error) {
       console.error('Error generating insights:', error);
       setAiInsights('Failed to generate insights. Please try again.');
@@ -451,6 +558,48 @@ export default function AnalyticsClient({
       setIsGenerating(false);
     }
   };
+
+  // Fetch predictions
+  const fetchPredictions = useCallback(async () => {
+    if (!events || events.length === 0) return;
+    
+    setLoadingPredictions(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const res = await fetch("/api/analytics/predictions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({
+          events,
+          items,
+          attStats,
+        }),
+        next: { revalidate: 60 },
+      });
+      
+      const json = await res.json();
+      if (res.ok) {
+        setPredictionsData(json);
+      } else {
+        console.error("Failed to fetch predictions:", json);
+      }
+    } catch (error) {
+      console.error("Error fetching predictions:", error);
+    } finally {
+      setLoadingPredictions(false);
+    }
+  }, [events, items, attStats]);
+
+  useEffect(() => {
+    if (events && events.length > 0) {
+      fetchPredictions();
+    }
+  }, [events, fetchPredictions]);
 
   // Load saved insights
   const loadSavedInsights = async () => {
@@ -791,9 +940,359 @@ export default function AnalyticsClient({
             </div>
           </div>
 
-          {/* Descriptive analytics */}
+          {/* Predictive Analytics Charts */}
+          {loadingPredictions && (
+            <div className="bg-slate-800/60 rounded-lg p-4 border border-blue-500/20">
+              <div className="flex items-center gap-2 text-slate-400">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Loading predictive analytics...
+              </div>
+            </div>
+          )}
+          {!loadingPredictions && (!predictionsData || !predictionsData.predictions || predictionsData.predictions.length === 0) && events.length > 0 && (
+            <div className="bg-slate-800/60 rounded-lg p-4 border border-blue-500/20">
+              <div className="text-center py-8">
+                <p className="text-slate-400 mb-2">Predictive analytics will appear here</p>
+                <p className="text-xs text-slate-500">Loading predictions based on your event data...</p>
+              </div>
+            </div>
+          )}
+          {predictionsData && predictionsData.predictions && (
+            <div className="bg-slate-800/60 rounded-lg p-4 border border-blue-500/20">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-blue-400 mb-1">Predictive Analytics (Next 6 Months)</h3>
+                  <p className="text-xs text-slate-400">Monthly forecasts based on your historical event data</p>
+                </div>
+                {loadingPredictions && (
+                  <div className="flex items-center gap-2 text-sm text-slate-400">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Updating predictions...
+                  </div>
+                )}
+              </div>
+
+              {/* Data Quality Warning */}
+              {predictionsData.data_quality && predictionsData.data_quality.has_low_accuracy && (
+                <div className="mb-4 p-3 bg-amber-900/30 border border-amber-500/50 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <div className="text-amber-400 mt-0.5">
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-sm font-semibold text-amber-300 mb-1">Low Prediction Accuracy Warning</div>
+                      <div className="text-xs text-amber-200/80">
+                        {predictionsData.data_quality.message}. Predictions may have <strong>very low accuracy</strong> due to insufficient or inconsistent historical data. 
+                        {predictionsData.data_quality.data_points > 0 && (
+                          <span> Only {predictionsData.data_quality.data_points} data point{predictionsData.data_quality.data_points !== 1 ? 's' : ''} available.</span>
+                        )}
+                        {predictionsData.data_quality.data_points === 0 && (
+                          <span> No historical data points available.</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Predicted Cost */}
+                <div className="bg-slate-700/50 rounded-lg p-4 border border-slate-600">
+                  <h4 className="text-sm font-semibold text-slate-300 mb-3">Predicted Event Costs (Monthly)</h4>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={[
+                        ...(() => {
+                          // Aggregate historical data by month
+                          const monthlyData = new Map<string, { month_year: string; cost: number }>();
+                          lineData.forEach((d: any) => {
+                            if (!d.date) return;
+                            const date = new Date(d.date);
+                            const monthYear = `${date.toLocaleString('default', { month: 'short' })} ${date.getFullYear()}`;
+                            const existing = monthlyData.get(monthYear) || { month_year: monthYear, cost: 0 };
+                            existing.cost += d.cost;
+                            monthlyData.set(monthYear, existing);
+                          });
+                          return Array.from(monthlyData.values()).map(d => ({ ...d, type: "Historical" }));
+                        })(),
+                        ...(predictionsData.predictions || []).map((p: any) => ({
+                          month_year: p.month_year || p.date,
+                          cost: p.predicted_cost || 0,
+                          type: "Predicted"
+                        }))
+                      ]}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                        <XAxis dataKey="month_year" tick={{ fill: '#cbd5e1', fontSize: 10 }} angle={-45} textAnchor="end" height={80} />
+                        <YAxis tick={{ fill: '#cbd5e1' }} />
+                        <Tooltip 
+                          formatter={(value: any) => `PHP ${Number(value).toFixed(2)}`}
+                          contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} 
+                          labelStyle={{ color: '#cbd5e1' }} 
+                          itemStyle={{ color: '#f59e0b' }} 
+                        />
+                        <Legend />
+                        <Area type="monotone" dataKey="cost" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.3} name="Cost" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* Predicted Revenue */}
+                <div className="bg-slate-700/50 rounded-lg p-4 border border-slate-600">
+                  <h4 className="text-sm font-semibold text-slate-300 mb-3">Predicted Revenue (Monthly)</h4>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={[
+                        ...(() => {
+                          // Aggregate historical revenue by month
+                          const monthlyData = new Map<string, { month_year: string; revenue: number }>();
+                          lineData.forEach((d: any) => {
+                            if (!d.date) return;
+                            const ev = visible.events.find((e: any) => e.title === d.name);
+                            if (!ev) return;
+                            const eventItems = items.filter((i: any) => i.event_id === ev.id);
+                            const totalCost = eventItems.reduce((sum: number, it: any) => 
+                              sum + ((it.cost || 0) * (it.item_quantity || 1)), 0);
+                            const markup = ev.markup_type === "percentage" 
+                              ? (totalCost * (ev.markup_value || 0) / 100) 
+                              : (ev.markup_value || 0);
+                            const priceAfterMarkup = totalCost + markup;
+                            const discount = ev.discount_type === "percentage" 
+                              ? (priceAfterMarkup * (ev.discount_value || 0) / 100) 
+                              : (ev.discount_type === "fixed" ? (ev.discount_value || 0) : 0);
+                            const finalRevenue = Math.max(0, priceAfterMarkup - discount);
+                            
+                            const date = new Date(d.date);
+                            const monthYear = `${date.toLocaleString('default', { month: 'short' })} ${date.getFullYear()}`;
+                            const existing = monthlyData.get(monthYear) || { month_year: monthYear, revenue: 0 };
+                            existing.revenue += finalRevenue;
+                            monthlyData.set(monthYear, existing);
+                          });
+                          return Array.from(monthlyData.values()).map(d => ({ ...d, type: "Historical" }));
+                        })(),
+                        ...(predictionsData.predictions || []).map((p: any) => ({
+                          month_year: p.month_year || p.date,
+                          revenue: p.predicted_revenue || 0,
+                          type: "Predicted"
+                        }))
+                      ]}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                        <XAxis dataKey="month_year" tick={{ fill: '#cbd5e1', fontSize: 10 }} angle={-45} textAnchor="end" height={80} />
+                        <YAxis tick={{ fill: '#cbd5e1' }} />
+                        <Tooltip 
+                          formatter={(value: any) => `PHP ${Number(value).toFixed(2)}`}
+                          contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} 
+                          labelStyle={{ color: '#cbd5e1' }} 
+                          itemStyle={{ color: '#22c55e' }} 
+                        />
+                        <Legend />
+                        <Area type="monotone" dataKey="revenue" stroke="#22c55e" fill="#22c55e" fillOpacity={0.3} name="Revenue" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* Predicted Events */}
+                <div className="bg-slate-700/50 rounded-lg p-4 border border-slate-600">
+                  <h4 className="text-sm font-semibold text-slate-300 mb-3">Predicted Event Creation (Monthly)</h4>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={[
+                        ...(() => {
+                          // Aggregate historical events by month
+                          const monthlyData = new Map<string, { month_year: string; events: number }>();
+                          lineData.forEach((d: any) => {
+                            if (!d.date) return;
+                            const date = new Date(d.date);
+                            const monthYear = `${date.toLocaleString('default', { month: 'short' })} ${date.getFullYear()}`;
+                            const existing = monthlyData.get(monthYear) || { month_year: monthYear, events: 0 };
+                            existing.events += 1;
+                            monthlyData.set(monthYear, existing);
+                          });
+                          return Array.from(monthlyData.values()).map(d => ({ ...d, type: "Historical" }));
+                        })(),
+                        ...(predictionsData.predictions || []).map((p: any) => ({
+                          month_year: p.month_year || p.date,
+                          events: p.predicted_events || 0,
+                          type: "Predicted"
+                        }))
+                      ]}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                        <XAxis dataKey="month_year" tick={{ fill: '#cbd5e1', fontSize: 10 }} angle={-45} textAnchor="end" height={80} />
+                        <YAxis tick={{ fill: '#cbd5e1' }} />
+                        <Tooltip 
+                          contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} 
+                          labelStyle={{ color: '#cbd5e1' }} 
+                          itemStyle={{ color: '#3b82f6' }} 
+                        />
+                        <Legend />
+                        <Area type="monotone" dataKey="events" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.3} name="Events" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* Predicted Attendance */}
+                <div className="bg-slate-700/50 rounded-lg p-4 border border-slate-600">
+                  <h4 className="text-sm font-semibold text-slate-300 mb-3">Predicted Expected Attendance (Monthly)</h4>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={[
+                        ...(() => {
+                          // Aggregate historical attendance by month
+                          const monthlyData = new Map<string, { month_year: string; attendees: number }>();
+                          lineData.forEach((d: any) => {
+                            if (!d.date) return;
+                            const ev = visible.events.find((e: any) => e.title === d.name);
+                            if (!ev) return;
+                            const att = attStats.find((a: any) => a.event_id === ev.id);
+                            const attendees = att?.expected_attendees || 0;
+                            
+                            const date = new Date(d.date);
+                            const monthYear = `${date.toLocaleString('default', { month: 'short' })} ${date.getFullYear()}`;
+                            const existing = monthlyData.get(monthYear) || { month_year: monthYear, attendees: 0 };
+                            existing.attendees += attendees;
+                            monthlyData.set(monthYear, existing);
+                          });
+                          return Array.from(monthlyData.values()).map(d => ({ ...d, type: "Historical" }));
+                        })(),
+                        ...(predictionsData.predictions || []).map((p: any) => ({
+                          month_year: p.month_year || p.date,
+                          attendees: p.predicted_expected_attendees || 0,
+                          type: "Predicted"
+                        }))
+                      ]}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                        <XAxis dataKey="month_year" tick={{ fill: '#cbd5e1', fontSize: 10 }} angle={-45} textAnchor="end" height={80} />
+                        <YAxis tick={{ fill: '#cbd5e1' }} />
+                        <Tooltip 
+                          contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid #334155', color: '#e2e8f0' }} 
+                          labelStyle={{ color: '#cbd5e1' }} 
+                          itemStyle={{ color: '#ec4899' }} 
+                        />
+                        <Legend />
+                        <Area type="monotone" dataKey="attendees" stroke="#ec4899" fill="#ec4899" fillOpacity={0.3} name="Expected Attendees" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+
+              {/* Prediction Summary */}
+              {predictionsData.trends && (
+                <div className="mt-4 pt-4 border-t border-slate-600">
+                  <h4 className="text-sm font-semibold text-slate-300 mb-3">Prediction Summary</h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+                    <div>
+                      <div className="text-xs text-slate-400">Avg Daily Cost</div>
+                      <div className="text-lg font-semibold text-white">PHP {predictionsData.trends.avg_daily_cost?.toFixed(2) || "0.00"}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-slate-400">Avg Daily Revenue</div>
+                      <div className="text-lg font-semibold text-white">PHP {predictionsData.trends.avg_daily_revenue?.toFixed(2) || "0.00"}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-slate-400">Cost Growth</div>
+                      <div className={`text-lg font-semibold ${(predictionsData.trends.cost_growth_rate || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                        {predictionsData.trends.cost_growth_rate?.toFixed(1) || "0.0"}%
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-slate-400">Revenue Growth</div>
+                      <div className={`text-lg font-semibold ${(predictionsData.trends.revenue_growth_rate || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                        {predictionsData.trends.revenue_growth_rate?.toFixed(1) || "0.0"}%
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Next Month Predictions */}
+                  {predictionsData.predictions_summary && (
+                    <div className="bg-slate-700/50 rounded-lg p-4 border border-slate-600">
+                      <h5 className="text-xs font-semibold text-blue-400 mb-3">Next Month Forecast</h5>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                        <div>
+                          <div className="text-xs text-slate-400">Predicted Event Count</div>
+                          <div className="text-xl font-semibold text-white">{predictionsData.predictions_summary.next_month_event_count || 0}</div>
+                          <div className="text-xs text-slate-500 mt-1">events</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-slate-400">Estimated Revenue</div>
+                          <div className="text-xl font-semibold text-green-400">PHP {predictionsData.predictions_summary.next_month_estimated_revenue?.toFixed(2) || "0.00"}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-slate-400">Estimated Cost</div>
+                          <div className="text-xl font-semibold text-amber-400">PHP {predictionsData.predictions_summary.next_month_estimated_cost?.toFixed(2) || "0.00"}</div>
+                        </div>
+                      </div>
+                      {predictionsData.predictions_summary.next_6_months_total_events !== undefined && (
+                        <div className="pt-3 border-t border-slate-600">
+                          <h6 className="text-xs font-semibold text-slate-400 mb-2">Next 6 Months Total</h6>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                            <div>
+                              <div className="text-slate-500">Total Events</div>
+                              <div className="text-white font-semibold">{predictionsData.predictions_summary.next_6_months_total_events || 0}</div>
+                            </div>
+                            <div>
+                              <div className="text-slate-500">Total Revenue</div>
+                              <div className="text-green-400 font-semibold">PHP {predictionsData.predictions_summary.next_6_months_total_revenue?.toFixed(2) || "0.00"}</div>
+                            </div>
+                            <div>
+                              <div className="text-slate-500">Total Cost</div>
+                              <div className="text-amber-400 font-semibold">PHP {predictionsData.predictions_summary.next_6_months_total_cost?.toFixed(2) || "0.00"}</div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* Popular Events & Categories */}
+                  {predictionsData.popular_insights && (
+                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {predictionsData.popular_insights.top_categories && predictionsData.popular_insights.top_categories.length > 0 && (
+                        <div className="bg-slate-700/50 rounded-lg p-4 border border-slate-600">
+                          <h5 className="text-xs font-semibold text-purple-400 mb-2">Top Event Categories</h5>
+                          <div className="space-y-1">
+                            {predictionsData.popular_insights.top_categories.slice(0, 3).map((cat: any, idx: number) => (
+                              <div key={idx} className="flex justify-between text-xs">
+                                <span className="text-slate-300">{cat.category}</span>
+                                <span className="text-slate-400">{cat.count} events</span>
+                              </div>
+                            ))}
+                          </div>
+                          {predictionsData.popular_insights.predicted_popular_category && (
+                            <div className="mt-2 pt-2 border-t border-slate-600">
+                              <div className="text-xs text-slate-400">Predicted Popular:</div>
+                              <div className="text-sm font-semibold text-purple-300">{predictionsData.popular_insights.predicted_popular_category}</div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {predictionsData.popular_insights.popular_events && predictionsData.popular_insights.popular_events.length > 0 && (
+                        <div className="bg-slate-700/50 rounded-lg p-4 border border-slate-600">
+                          <h5 className="text-xs font-semibold text-cyan-400 mb-2">Most Popular Events</h5>
+                          <div className="space-y-2">
+                            {predictionsData.popular_insights.popular_events.slice(0, 3).map((ev: any, idx: number) => (
+                              <div key={idx} className="text-xs">
+                                <div className="text-slate-300 font-medium truncate">{ev.name}</div>
+                                <div className="text-slate-400">PHP {ev.revenue?.toFixed(2) || "0.00"} revenue • {ev.attendees || 0} attendees</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* AI Analytics Insights */}
           <div className="bg-slate-800/60 rounded-lg p-4 border border-purple-500/20">
-            <h3 className="text-lg font-semibold text-purple-400 mb-2">Descriptive Analytics</h3>
+            <h3 className="text-lg font-semibold text-purple-400 mb-2">AI Analytics Insights</h3>
             
             {/* Usage Info */}
             {insightsUsageInfo && (
@@ -808,7 +1307,35 @@ export default function AnalyticsClient({
             )}
             
             {aiInsights ? (
-              <div className="space-y-2">
+              <div className="space-y-3">
+                {/* Quick Summary */}
+                {predictionsData && predictionsData.trends && (
+                  <div className="p-3 bg-gradient-to-r from-purple-900/30 to-blue-900/30 border border-purple-500/30 rounded-lg">
+                    <h4 className="text-sm font-semibold text-purple-300 mb-2">Quick Summary</h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                      <div>
+                        <div className="text-slate-400">Avg Daily Cost</div>
+                        <div className="text-white font-semibold">PHP {predictionsData.trends.avg_daily_cost?.toFixed(2) || "0.00"}</div>
+                      </div>
+                      <div>
+                        <div className="text-slate-400">Avg Daily Revenue</div>
+                        <div className="text-white font-semibold">PHP {predictionsData.trends.avg_daily_revenue?.toFixed(2) || "0.00"}</div>
+                      </div>
+                      <div>
+                        <div className="text-slate-400">Cost Growth</div>
+                        <div className={`font-semibold ${(predictionsData.trends.cost_growth_rate || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          {predictionsData.trends.cost_growth_rate?.toFixed(1) || "0.0"}%
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-slate-400">Revenue Growth</div>
+                        <div className={`font-semibold ${(predictionsData.trends.revenue_growth_rate || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          {predictionsData.trends.revenue_growth_rate?.toFixed(1) || "0.0"}%
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <textarea
                   value={aiInsights}
                   onChange={(e) => setAiInsights(e.target.value)}
@@ -831,7 +1358,7 @@ export default function AnalyticsClient({
                 </div>
               </div>
             ) : (
-              <p className="text-slate-400">Generate a narrative summary across your selected scope.</p>
+              <p className="text-slate-400">Generate AI-powered analytics insights that include descriptive analytics (current performance and historical trends) and predictive insights (forecasts for the next 30 days) in a concise paragraph format.</p>
             )}
             <div className="mt-3">
               <Button 
@@ -849,7 +1376,7 @@ export default function AnalyticsClient({
                     Generating...
                   </>
                 ) : (
-                  'Generate Insights'
+                  'Generate Analytics Insights'
                 )}
               </Button>
             </div>
