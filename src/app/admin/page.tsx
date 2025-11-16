@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback, useRef } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef, Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 import dynamic from "next/dynamic";
 import { useSessionCache } from "@/hooks/use-session-cache";
@@ -419,7 +419,7 @@ export default function AdminPage() {
           "Content-Type": "application/json",
           ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
         },
-        next: { revalidate: 60 }, // Use Next.js caching with revalidation
+        cache: 'no-store', // Always fetch fresh data on refresh
       });
       const json = await res.json();
       if (res.ok) {
@@ -1342,80 +1342,91 @@ IMPORTANT:
           <p className="text-xs sm:text-sm text-muted-foreground mt-1">Comprehensive analytics and insights</p>
         </div>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-          <select
-            value={dateRange}
-            onChange={(e) => {
-              const value = e.target.value as "7d" | "30d" | "90d" | "all" | "custom";
-              setDateRange(value);
-              if (value !== "custom") {
-                setShowCustomDatePicker(false);
-              }
-            }}
-            className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 w-full sm:w-auto"
-          >
-            <option value="7d">Last 7 days</option>
-            <option value="30d">Last 30 days</option>
-            <option value="90d">Last 90 days</option>
-            <option value="all">All time</option>
-            <option value="custom">Custom range</option>
-          </select>
-          {dateRange === "custom" && (
-            <Popover open={showCustomDatePicker} onOpenChange={setShowCustomDatePicker}>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="border-input bg-background text-foreground w-full sm:w-auto">
-                  <Calendar className="h-4 w-4 mr-2" />
-                  Custom Dates
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-4" align="end">
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Start Date</label>
-                    <DatePicker
-                      date={customStartDate}
-                      setDate={setCustomStartDate}
-                      placeholder="Select start date"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">End Date</label>
-                    <DatePicker
-                      date={customEndDate}
-                      setDate={setCustomEndDate}
-                      placeholder="Select end date"
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={() => {
-                        if (customStartDate && customEndDate) {
-                          setShowCustomDatePicker(false);
-                          // fetchAnalytics will be called by useEffect when customStartDate/customEndDate changes
-                        }
-                      }}
-                      size="sm"
-                      className="flex-1"
-                      disabled={!customStartDate || !customEndDate}
-                    >
-                      Apply
+          {/* Hide date range filter when on ROIP tab */}
+          {activeTab !== "roip" && (
+            <>
+              <select
+                value={dateRange}
+                onChange={(e) => {
+                  const value = e.target.value as "7d" | "30d" | "90d" | "all" | "custom";
+                  setDateRange(value);
+                  if (value !== "custom") {
+                    setShowCustomDatePicker(false);
+                  }
+                }}
+                className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 w-full sm:w-auto"
+              >
+                <option value="7d">Last 7 days</option>
+                <option value="30d">Last 30 days</option>
+                <option value="90d">Last 90 days</option>
+                <option value="all">All time</option>
+                <option value="custom">Custom range</option>
+              </select>
+              {dateRange === "custom" && (
+                <Popover open={showCustomDatePicker} onOpenChange={setShowCustomDatePicker}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="border-input bg-background text-foreground w-full sm:w-auto">
+                      <Calendar className="h-4 w-4 mr-2" />
+                      Custom Dates
                     </Button>
-                    <Button
-                      onClick={() => {
-                        setCustomStartDate(undefined);
-                        setCustomEndDate(undefined);
-                      }}
-                      variant="outline"
-                      size="sm"
-                    >
-                      Clear
-                    </Button>
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-4" align="end">
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-sm font-medium mb-2 block">Start Date</label>
+                        <DatePicker
+                          date={customStartDate}
+                          setDate={setCustomStartDate}
+                          placeholder="Select start date"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium mb-2 block">End Date</label>
+                        <DatePicker
+                          date={customEndDate}
+                          setDate={setCustomEndDate}
+                          placeholder="Select end date"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => {
+                            if (customStartDate && customEndDate) {
+                              setShowCustomDatePicker(false);
+                              // fetchAnalytics will be called by useEffect when customStartDate/customEndDate changes
+                            }
+                          }}
+                          size="sm"
+                          className="flex-1"
+                          disabled={!customStartDate || !customEndDate}
+                        >
+                          Apply
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            setCustomStartDate(undefined);
+                            setCustomEndDate(undefined);
+                          }}
+                          variant="outline"
+                          size="sm"
+                        >
+                          Clear
+                        </Button>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
+            </>
           )}
-          <Button onClick={fetchAnalytics} disabled={loadingAnalytics} variant="outline" size="sm" className="border-input bg-background text-foreground w-full sm:w-auto">
-            <RefreshCw className={`h-4 w-4 mr-2 ${loadingAnalytics ? "animate-spin" : ""}`} />
+          <Button 
+            onClick={activeTab === "roip" ? () => { fetchRoipData(); fetchAdminCosts(); } : fetchAnalytics} 
+            disabled={activeTab === "roip" ? loadingRoip : loadingAnalytics} 
+            variant="outline" 
+            size="sm" 
+            className="border-input bg-background text-foreground w-full sm:w-auto"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${(activeTab === "roip" ? loadingRoip : loadingAnalytics) ? "animate-spin" : ""}`} />
             Refresh
           </Button>
         </div>
@@ -2968,12 +2979,23 @@ IMPORTANT:
       )}
       {/* Users tab and account deletion management removed */}
       {activeTab === "roip" && (
-        <div className="min-w-0 max-w-full space-y-4 sm:space-y-6">
-          {loadingRoip ? (
-            <div className="flex h-[60vh] items-center justify-center text-sm text-muted-foreground">
-              Loading ROIP data...
+        <Suspense fallback={
+          <div className="flex h-[60vh] items-center justify-center text-sm text-muted-foreground">
+            <div className="flex flex-col items-center gap-2">
+              <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+              <p>Loading ROIP data...</p>
             </div>
-          ) : roipError ? (
+          </div>
+        }>
+          <div className="min-w-0 max-w-full space-y-4 sm:space-y-6">
+            {loadingRoip ? (
+              <div className="flex h-[60vh] items-center justify-center text-sm text-muted-foreground">
+                <div className="flex flex-col items-center gap-2">
+                  <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+                  <p>Loading ROIP data...</p>
+                </div>
+              </div>
+            ) : roipError ? (
             <div className="flex h-[60vh] flex-col items-center justify-center gap-4 text-sm">
               <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive">
                 <p className="font-semibold">Error loading ROIP data</p>
@@ -3063,8 +3085,16 @@ IMPORTANT:
                         {roipData.method === "cohere_ai" ? "AI-powered prediction using Cohere" : "Trend-based prediction"}
                       </p>
                     </div>
-                    <Button onClick={() => fetchRoipData()} variant="outline" size="sm">
-                      <RefreshCw className="h-4 w-4 mr-2" />
+                    <Button 
+                      onClick={() => { 
+                        fetchRoipData(); 
+                        fetchAdminCosts(); 
+                      }} 
+                      disabled={loadingRoip}
+                      variant="outline" 
+                      size="sm"
+                    >
+                      <RefreshCw className={`h-4 w-4 mr-2 ${loadingRoip ? "animate-spin" : ""}`} />
                       Refresh
                     </Button>
                   </div>
@@ -3369,7 +3399,8 @@ IMPORTANT:
               </DialogFooter>
             </DialogContent>
           </Dialog>
-        </div>
+          </div>
+        </Suspense>
       )}
       {activeTab === "rating" && (
         <div className="min-w-0 max-w-full">

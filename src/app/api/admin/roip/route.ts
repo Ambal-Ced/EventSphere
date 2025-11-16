@@ -1,6 +1,6 @@
 export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
-export const revalidate = 60; // Revalidate every 60 seconds
+export const revalidate = 30; // Revalidate every 30 seconds for faster updates
 
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -239,7 +239,7 @@ export async function POST(request: NextRequest) {
         method: "trend_based",
         prediction_type: predictionType,
       });
-      response.headers.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
+      response.headers.set('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=60');
       return response;
     }
 
@@ -419,7 +419,7 @@ Only return valid JSON, no other text.`;
       method: "cohere_ai",
       prediction_type: predictionType,
     });
-    response.headers.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
+    response.headers.set('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=60');
     return response;
   } catch (error: any) {
     console.error("Error in POST /api/admin/roip:", error);
