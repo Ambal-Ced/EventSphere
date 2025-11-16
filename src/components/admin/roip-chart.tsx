@@ -25,18 +25,31 @@ export const RoipChart = memo(function RoipChart({
   windowWidth,
   formatCurrency,
 }: RoipChartProps) {
-  const chartData = useMemo(() => [
-    ...(historical || []).map((h: any) => ({
-      month: h.month,
-      roi: h.revenue > 0 ? ((h.revenue - h.costs) / h.revenue) * 100 : 0,
-      type: "Historical"
-    })),
-    ...(predictions || []).map((p: any) => ({
-      month: p.month,
-      roi: p.predicted_roi || 0,
-      type: "Predicted"
-    }))
-  ], [historical, predictions]);
+  // Prepare chart data with separate fields for historical and predicted ROI
+  const chartData = useMemo(() => {
+    const allMonths = new Set<string>();
+    
+    // Collect all months from historical and predictions
+    (historical || []).forEach((h: any) => allMonths.add(h.month));
+    (predictions || []).forEach((p: any) => allMonths.add(p.month));
+    
+    // Sort months chronologically
+    const sortedMonths = Array.from(allMonths).sort();
+    
+    // Create data points with both historical and predicted values
+    return sortedMonths.map((month: string) => {
+      const hist = (historical || []).find((h: any) => h.month === month);
+      const pred = (predictions || []).find((p: any) => p.month === month);
+      
+      return {
+        month,
+        historicalRoi: hist 
+          ? (hist.revenue > 0 ? ((hist.revenue - hist.costs) / hist.revenue) * 100 : 0)
+          : null,
+        predictedRoi: pred ? (pred.predicted_roi || 0) : null,
+      };
+    });
+  }, [historical, predictions]);
 
   return (
     <div className="w-full" style={{ height: windowWidth < 640 ? 300 : 400 }}>
@@ -55,17 +68,34 @@ export const RoipChart = memo(function RoipChart({
             tick={{ fontSize: windowWidth < 640 ? 10 : 12 }}
           />
           <Tooltip 
-            formatter={(value: any) => [`${Number(value).toFixed(2)}%`, "ROI"]}
+            formatter={(value: any, name: string) => {
+              if (value === null || value === undefined) return [null, null];
+              const label = name === "historicalRoi" ? "Historical ROI" : "Predicted ROI";
+              return [`${Number(value).toFixed(2)}%`, label];
+            }}
             labelFormatter={(label: string | number) => `Month: ${label}`}
           />
           <Legend />
+          {/* Historical ROI Line - solid blue */}
           <Line 
             type="monotone" 
-            dataKey="roi" 
+            dataKey="historicalRoi" 
             stroke="#3b82f6" 
             strokeWidth={2}
-            dot={{ r: 4 }}
-            name="ROI %"
+            dot={{ r: 4, fill: "#3b82f6" }}
+            name="Historical ROI"
+            connectNulls={false}
+          />
+          {/* Predicted ROI Line - dashed green to clearly show predictions */}
+          <Line 
+            type="monotone" 
+            dataKey="predictedRoi" 
+            stroke="#10b981" 
+            strokeWidth={2}
+            strokeDasharray="5 5"
+            dot={{ r: 4, fill: "#10b981" }}
+            name="Predicted ROI"
+            connectNulls={false}
           />
         </LineChart>
       </ResponsiveContainer>

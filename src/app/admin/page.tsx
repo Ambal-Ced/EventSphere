@@ -21,7 +21,7 @@ const YAxis: any = dynamic(() => import("recharts").then(m => m.YAxis as any), {
 const CartesianGrid: any = dynamic(() => import("recharts").then(m => m.CartesianGrid as any), { ssr: false, loading: () => null }) as any;
 const Tooltip: any = dynamic(() => import("recharts").then(m => m.Tooltip as any), { ssr: false, loading: () => null }) as any;
 const Legend: any = dynamic(() => import("recharts").then(m => m.Legend as any), { ssr: false, loading: () => null }) as any;
-import { TrendingUp, Users, Calendar, DollarSign, Package, Activity, RefreshCw, Lightbulb, Star, ChevronDown, ChevronUp, FileText, X } from "lucide-react";
+import { TrendingUp, Users, Calendar, DollarSign, Package, Activity, RefreshCw, Lightbulb, Star, ChevronDown, ChevronUp, FileText, X, AlertTriangle, Target } from "lucide-react";
 import { RoipSummaryCards } from "@/components/admin/roip-summary-cards";
 
 // Lazy load the chart component
@@ -566,17 +566,25 @@ export default function AdminPage() {
         analysis: roipData.analysis || null,
       };
 
-      const prompt = `Based on the ROI prediction data provided, analyze the financial trends and provide strategic insights about:
+      const prompt = `You are a financial analytics AI assistant. Based on the ROI prediction data provided, write a comprehensive but CONCISE predictive analytics summary in paragraph form (not bullet points) that includes:
 
-1. Current ROI performance and what it indicates about the business health
-2. Historical trends in revenue vs costs
-3. Predicted ROI trajectory for the next 6 months and what factors might influence it
-4. Key risks and opportunities based on the cost structure (repair, expansion, hosting)
-5. Actionable recommendations to improve ROI
+**Current Performance Analysis**: Describe the current ROI performance (${roipData.current_roi?.toFixed(2) || 0}%), total revenue (PHP ${context.total_revenue_php}), total costs (PHP ${context.total_costs_php}), and net income (PHP ${context.net_income_php}). Explain what these numbers indicate about the business health and financial position.
 
-IMPORTANT: All monetary values in the context are already in PHP (not cents). Use them directly with PHP currency format (e.g., PHP 1,350.00, not PHP 135,000.00).
+**Historical Trend Analysis**: Analyze the historical revenue and cost patterns over the past months. Identify trends, patterns, and any notable changes in the financial performance. Discuss how revenue and costs have evolved over time.
 
-Be specific with numbers, use PHP currency format, and provide a professional, executive-level analysis. Focus on actionable insights that can help improve Return on Investment.`;
+**Predictive Analytics**: Based on the predicted ROI trajectory for the next 6 months, forecast what to expect. Include specific predicted ROI percentages, revenue projections (PHP format), and cost projections (PHP format) for upcoming months. Explain the trajectory - whether ROI is improving, declining, or stabilizing, and what factors might influence these predictions.
+
+**Risk Assessment**: Identify potential risks and opportunities based on the cost structure (repair, expansion, hosting) and revenue patterns. Discuss any concerns about sustainability or growth potential.
+
+**Strategic Recommendations**: Provide actionable recommendations to improve ROI, optimize costs, increase revenue, and enhance overall financial performance.
+
+IMPORTANT: 
+- All monetary values in the context are already in PHP (not cents). Use them directly with PHP currency format (e.g., PHP 1,350.00).
+- Write in paragraph form (not bullet points) to create a flowing narrative summary.
+- Be concise but comprehensive - summarize key predictive insights efficiently.
+- Use specific numbers, percentages, and PHP currency format where available.
+- Focus on predictive analytics - what the data suggests will happen in the future.
+- Keep the total response under 400 words while covering all aspects.`;
 
       const res = await fetch("/api/admin/insights", {
         method: "POST",
@@ -3060,6 +3068,101 @@ IMPORTANT:
                       Refresh
                     </Button>
                   </div>
+
+                  {/* Warning for insufficient historical data */}
+                  {(() => {
+                    const historicalDataCount = roipData.historical?.length || 0;
+                    const isInsufficientData = historicalDataCount < 3;
+                    const hasNoData = historicalDataCount === 0;
+                    
+                    if (isInsufficientData || hasNoData) {
+                      return (
+                        <div className="mb-4 rounded-lg border border-yellow-500/50 bg-yellow-500/10 p-4">
+                          <div className="flex items-start gap-3">
+                            <AlertTriangle className="h-5 w-5 text-yellow-600 dark:text-yellow-500 flex-shrink-0 mt-0.5" />
+                            <div className="flex-1">
+                              <h4 className="font-semibold text-sm mb-1 text-yellow-900 dark:text-yellow-100">
+                                Low Prediction Accuracy Warning
+                              </h4>
+                              <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                                {hasNoData 
+                                  ? "No historical data available. Predictions are based on limited information and may have low accuracy. Please add transaction and cost data to improve prediction reliability."
+                                  : `Only ${historicalDataCount} month${historicalDataCount === 1 ? '' : 's'} of historical data available. Predictions may have low accuracy. We recommend having at least 3 months of historical data for more reliable predictions.`
+                                }
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+
+                  {/* Break-even Information */}
+                  {(() => {
+                    // Calculate break-even point (when ROI becomes positive)
+                    const allData = [
+                      ...(roipData.historical || []).map((h: any) => ({
+                        month: h.month,
+                        roi: h.revenue > 0 ? ((h.revenue - h.costs) / h.revenue) * 100 : 0,
+                      })),
+                      ...(roipData.predictions || []).map((p: any) => ({
+                        month: p.month,
+                        roi: p.predicted_roi || 0,
+                      }))
+                    ];
+                    
+                    // Find first point where ROI >= 0
+                    let breakEvenPoint: any = allData.find((d: any) => d.roi >= 0);
+                    
+                    if (!breakEvenPoint) {
+                      // If no positive ROI found, check if trend is improving
+                      const lastHistorical = roipData.historical?.[roipData.historical.length - 1];
+                      const lastPrediction = roipData.predictions?.[roipData.predictions.length - 1];
+                      
+                      if (lastPrediction && lastPrediction.predicted_roi < 0) {
+                        // Check if trend is improving
+                        const historicalRoi = lastHistorical?.revenue > 0 
+                          ? ((lastHistorical.revenue - lastHistorical.costs) / lastHistorical.revenue) * 100 
+                          : 0;
+                        const trendImproving = lastPrediction.predicted_roi > historicalRoi;
+                        
+                        if (trendImproving) {
+                          // Estimate break-even based on trend
+                          const roiDiff = lastPrediction.predicted_roi - historicalRoi;
+                          if (roiDiff > 0 && roipData.predictions.length > 0) {
+                            const monthsToBreakEven = Math.ceil(Math.abs(lastPrediction.predicted_roi) / (roiDiff / roipData.predictions.length));
+                            const lastMonth = new Date(lastPrediction.month + '-01');
+                            lastMonth.setMonth(lastMonth.getMonth() + monthsToBreakEven);
+                            const estimatedMonth = `${lastMonth.getFullYear()}-${String(lastMonth.getMonth() + 1).padStart(2, '0')}`;
+                            breakEvenPoint = { month: estimatedMonth, roi: 0, estimated: true };
+                          }
+                        }
+                      }
+                    }
+                    
+                    if (breakEvenPoint) {
+                      return (
+                        <div className="mb-4 rounded-lg border border-blue-500/50 bg-blue-500/10 p-4">
+                          <div className="flex items-start gap-3">
+                            <Target className="h-5 w-5 text-blue-600 dark:text-blue-500 flex-shrink-0 mt-0.5" />
+                            <div className="flex-1">
+                              <h4 className="font-semibold text-sm mb-1 text-blue-900 dark:text-blue-100">
+                                Expected Investment Return
+                              </h4>
+                              <p className="text-sm text-blue-800 dark:text-blue-200">
+                                {breakEvenPoint.estimated 
+                                  ? `Based on current trends, ROI is expected to reach break-even (0%) around ${breakEvenPoint.month}. This is an estimated projection.`
+                                  : `ROI is predicted to reach break-even (0% or positive) in ${breakEvenPoint.month}. This indicates when you can expect to recover your investment and start generating positive returns.`
+                                }
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
 
                   {mounted && (
                     <RoipChart

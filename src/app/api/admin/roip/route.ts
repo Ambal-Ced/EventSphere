@@ -77,18 +77,43 @@ export async function POST(request: NextRequest) {
     
     const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey);
 
-    // Get transaction data from overall_transaction
-    const { data: transactions, error: txError } = await db
-      .from("overall_transaction")
-      .select("net_amount_cents, created_at, status, transaction_type")
-      .eq("status", "paid")
-      .eq("transaction_type", "purchase")
-      .order("created_at", { ascending: true });
+    // Get transaction data from overall_transaction - use same calculation as admin analytics
+    // Get both paid and cancelled transactions
+    const [paidTxResult, cancelledTxResult] = await Promise.all([
+      db
+        .from("overall_transaction")
+        .select("net_amount_cents, created_at, status, transaction_type")
+        .eq("status", "paid")
+        .eq("transaction_type", "purchase")
+        .order("created_at", { ascending: true }),
+      db
+        .from("overall_transaction")
+        .select("net_amount_cents, created_at, status, transaction_type")
+        .eq("status", "cancelled")
+        .eq("transaction_type", "cancellation")
+        .order("created_at", { ascending: true }),
+    ]);
 
-    if (txError) {
-      console.error("Error fetching transactions:", txError);
+    const { data: paidTxRows, error: paidTxError } = await paidTxResult;
+    const { data: cancelledTxRows, error: cancelledTxError } = await cancelledTxResult;
+
+    if (paidTxError) {
+      console.error("Error fetching paid transactions:", paidTxError);
       return NextResponse.json({ error: "Failed to fetch transaction data" }, { status: 500 });
     }
+    if (cancelledTxError) {
+      console.error("Error fetching cancelled transactions:", cancelledTxError);
+      // Continue with paid transactions only if cancelled query fails
+    }
+
+    // Calculate revenue using same formula as admin analytics
+    // Formula: (totalpaid + totalcancelled) - totalcancelled = totalpaid - totalcancelled
+    const totalAllRevenue = (paidTxRows ?? []).reduce((sum: number, tx: any) => sum + (tx.net_amount_cents ?? 0), 0);
+    const totalCancelledRevenue = (cancelledTxRows ?? []).reduce((sum: number, tx: any) => sum + (tx.net_amount_cents ?? 0), 0);
+    const totalRevenue = Math.max(0, totalAllRevenue - totalCancelledRevenue);
+
+    // Use paid transactions for monthly breakdown (cancelled are already accounted for in total)
+    const transactions = paidTxRows || [];
 
     // Get admin costs
     const { data: costs, error: costsError } = await db
@@ -100,12 +125,29 @@ export async function POST(request: NextRequest) {
       console.error("Error fetching costs:", costsError);
     }
 
-    // Calculate historical revenue by month
+    // Calculate historical revenue by month from paid transactions
+    // Note: For monthly breakdown, we use paid transactions only
+    // The cancelled revenue is already subtracted from total revenue above
     const revenueByMonth: { [key: string]: number } = {};
     (transactions || []).forEach((tx: any) => {
       const date = new Date(tx.created_at);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       revenueByMonth[monthKey] = (revenueByMonth[monthKey] || 0) + (tx.net_amount_cents || 0);
+    });
+
+    // Also account for cancelled transactions by month to get accurate monthly revenue
+    const cancelledByMonth: { [key: string]: number } = {};
+    (cancelledTxRows || []).forEach((tx: any) => {
+      const date = new Date(tx.created_at);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      cancelledByMonth[monthKey] = (cancelledByMonth[monthKey] || 0) + (tx.net_amount_cents || 0);
+    });
+
+    // Adjust monthly revenue by subtracting cancelled revenue for each month
+    Object.keys(cancelledByMonth).forEach((monthKey) => {
+      if (revenueByMonth[monthKey]) {
+        revenueByMonth[monthKey] = Math.max(0, revenueByMonth[monthKey] - cancelledByMonth[monthKey]);
+      }
     });
 
     // Calculate costs by month
