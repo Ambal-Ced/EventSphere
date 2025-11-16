@@ -169,7 +169,7 @@ export async function POST(request: NextRequest) {
         net: revenueByMonth[month] - (costsByMonth[month] || 0),
       }));
 
-    const totalRevenue = (transactions || []).reduce((sum: number, tx: any) => sum + (tx.net_amount_cents || 0), 0);
+    // totalRevenue is already calculated above using the correct formula (paid - cancelled)
     const totalCosts = (costs || []).reduce((sum: number, cost: any) => sum + (cost.amount_cents || 0), 0);
     const currentROI = totalRevenue > 0 ? ((totalRevenue - totalCosts) / totalRevenue) * 100 : 0;
 
