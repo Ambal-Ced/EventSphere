@@ -27,6 +27,7 @@ import {
   Mail,
   RefreshCw,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -35,6 +36,75 @@ import { Database } from "@/types/supabase";
 import { formatDatePattern, formatDateLong } from "@/lib/date-utils";
 import { useAccountStatusFailsafe } from "@/hooks/useAccountStatusFailsafe";
 import { AccountStatusFailsafePopup } from "@/components/ui/account-status-failsafe-popup";
+import { THEME_STORAGE_KEY, THEME_CHANGE_EVENT, type ThemePreference } from "@/lib/theme";
+
+type StepTone = "green" | "amber";
+
+type StepToneStyle = {
+  card: string;
+  iconWrap: string;
+  icon: string;
+  heading: string;
+  text: string;
+};
+
+type HowToStep = {
+  title: string;
+  description: string;
+  color: StepTone;
+  Icon: LucideIcon;
+};
+
+const HOW_TO_STEPS: HowToStep[] = [
+  {
+    title: "Step 1: Go to Event Page",
+    description: "Navigate to the events page to start creating your event",
+    color: "green",
+    Icon: Calendar,
+  },
+  {
+    title: "Step 2: Create Event",
+    description: "Click the create event button to start setting up your event",
+    color: "amber",
+    Icon: Plus,
+  },
+  {
+    title: "Step 3: Fill Details",
+    description: "Enter all necessary information about your event",
+    color: "green",
+    Icon: Edit,
+  },
+  {
+    title: "Step 4: Set Event Time",
+    description: "Choose the date and time for your event",
+    color: "amber",
+    Icon: Clock,
+  },
+  {
+    title: "Step 5: Add Items",
+    description: "Add required items like balloons, chairs, or any event supplies",
+    color: "green",
+    Icon: ListPlus,
+  },
+  {
+    title: "Step 6: Label Items",
+    description: "Organize and label each item for better management",
+    color: "amber",
+    Icon: Tag,
+  },
+  {
+    title: "Step 7: Confirm",
+    description: "Review and confirm all event details and items",
+    color: "green",
+    Icon: CheckCircle,
+  },
+  {
+    title: "Step 8: Track Progress",
+    description: "Monitor and mark items as they are completed",
+    color: "amber",
+    Icon: CheckSquare,
+  },
+];
 
 type Event = Database["public"]["Tables"]["events"]["Row"];
 
@@ -50,6 +120,40 @@ export default function HomeClient() {
   const [eventCountByDate, setEventCountByDate] = useState<Record<string, number>>({});
   const [eventsByDate, setEventsByDate] = useState<Record<string, { id: string; title: string; date: string }[]>>({});
   const [user, setUser] = useState<any>(null);
+  const [themePreference, setThemePreference] = useState<ThemePreference>("dark");
+  const isLightTheme = themePreference === "light";
+  const darkStepStyles: Record<StepTone, StepToneStyle> = {
+    green: {
+      card: "border-green-500/10 hover:bg-green-500/5 hover:border-green-500/20",
+      iconWrap: "bg-green-500/10",
+      icon: "text-green-500",
+      heading: "text-green-400",
+      text: "text-green-300",
+    },
+    amber: {
+      card: "border-amber-500/10 hover:bg-amber-500/5 hover:border-amber-500/20",
+      iconWrap: "bg-amber-500/10",
+      icon: "text-amber-500",
+      heading: "text-amber-400",
+      text: "text-amber-300",
+    },
+  };
+  const lightStepStyles: Record<StepTone, StepToneStyle> = {
+    green: {
+      card: "bg-white/90 border-emerald-200 shadow-sm hover:bg-emerald-50 hover:border-emerald-300",
+      iconWrap: "bg-emerald-500/15",
+      icon: "text-emerald-600",
+      heading: "text-emerald-800",
+      text: "text-emerald-600",
+    },
+    amber: {
+      card: "bg-white/90 border-amber-200 shadow-sm hover:bg-amber-50 hover:border-amber-300",
+      iconWrap: "bg-amber-500/15",
+      icon: "text-amber-600",
+      heading: "text-amber-800",
+      text: "text-amber-600",
+    },
+  };
   
   // Track ongoing fetches to prevent duplicates
   const fetchingRef = useRef<{ featuredEvents: boolean; categories: boolean; monthCounts: boolean }>({
@@ -90,6 +194,40 @@ export default function HomeClient() {
     });
 
     return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const applyStoredTheme = () => {
+      const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+      if (stored === "light" || stored === "dark") {
+        setThemePreference(stored);
+      }
+    };
+
+    applyStoredTheme();
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === THEME_STORAGE_KEY && (event.newValue === "light" || event.newValue === "dark")) {
+        setThemePreference(event.newValue);
+      }
+    };
+
+    const handleThemeChange: EventListener = (event) => {
+      const detail = (event as CustomEvent<ThemePreference>).detail;
+      if (detail === "light" || detail === "dark") {
+        setThemePreference(detail);
+      }
+    };
+
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener(THEME_CHANGE_EVENT, handleThemeChange);
+
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener(THEME_CHANGE_EVENT, handleThemeChange);
+    };
   }, []);
 
   useEffect(() => {
@@ -778,102 +916,29 @@ export default function HomeClient() {
           How to Use EventTria
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {/* Step 1 */}
-          <div className="flex flex-col items-center text-center p-6 rounded-xl border border-green-500/10 hover:bg-green-500/5 hover:border-green-500/20 transition-all duration-300 cursor-pointer">
-            <div className="mb-4 p-4 rounded-full bg-green-500/10">
-              <Calendar className="h-8 w-8 text-green-500" />
-            </div>
-            <h3 className="text-xl font-semibold mb-2 text-green-400">
-              Step 1: Go to Event Page
-            </h3>
-            <p className="text-green-300">
-              Navigate to the events page to start creating your event
-            </p>
-          </div>
-          {/* Step 2 */}
-          <div className="flex flex-col items-center text-center p-6 rounded-xl border border-amber-500/10 hover:bg-amber-500/5 hover:border-amber-500/20 transition-all duration-300 cursor-pointer">
-            <div className="mb-4 p-4 rounded-full bg-amber-500/10">
-              <Plus className="h-8 w-8 text-amber-500" />
-            </div>
-            <h3 className="text-xl font-semibold mb-2 text-amber-400">
-              Step 2: Create Event
-            </h3>
-            <p className="text-amber-300">
-              Click the create event button to start setting up your event
-            </p>
-          </div>
-          {/* Step 3 */}
-          <div className="flex flex-col items-center text-center p-6 rounded-xl border border-green-500/10 hover:bg-green-500/5 hover:border-green-500/20 transition-all duration-300 cursor-pointer">
-            <div className="mb-4 p-4 rounded-full bg-green-500/10">
-              <Edit className="h-8 w-8 text-green-500" />
-            </div>
-            <h3 className="text-xl font-semibold mb-2 text-green-400">
-              Step 3: Fill Details
-            </h3>
-            <p className="text-green-300">
-              Enter all necessary information about your event
-            </p>
-          </div>
-          {/* Step 4 */}
-          <div className="flex flex-col items-center text-center p-6 rounded-xl border border-amber-500/10 hover:bg-amber-500/5 hover:border-amber-500/20 transition-all duration-300 cursor-pointer">
-            <div className="mb-4 p-4 rounded-full bg-amber-500/10">
-              <Clock className="h-8 w-8 text-amber-500" />
-            </div>
-            <h3 className="text-xl font-semibold mb-2 text-amber-400">
-              Step 4: Set Event Time
-            </h3>
-            <p className="text-amber-300">
-              Choose the date and time for your event
-            </p>
-          </div>
-          {/* Step 5 */}
-          <div className="flex flex-col items-center text-center p-6 rounded-xl border border-green-500/10 hover:bg-green-500/5 hover:border-green-500/20 transition-all duration-300 cursor-pointer">
-            <div className="mb-4 p-4 rounded-full bg-green-500/10">
-              <ListPlus className="h-8 w-8 text-green-500" />
-            </div>
-            <h3 className="text-xl font-semibold mb-2 text-green-400">
-              Step 5: Add Items
-            </h3>
-            <p className="text-green-300">
-              Add required items like balloons, chairs, or any event supplies
-            </p>
-          </div>
-          {/* Step 6 */}
-          <div className="flex flex-col items-center text-center p-6 rounded-xl border border-amber-500/10 hover:bg-amber-500/5 hover:border-amber-500/20 transition-all duration-300 cursor-pointer">
-            <div className="mb-4 p-4 rounded-full bg-amber-500/10">
-              <Tag className="h-8 w-8 text-amber-500" />
-            </div>
-            <h3 className="text-xl font-semibold mb-2 text-amber-400">
-              Step 6: Label Items
-            </h3>
-            <p className="text-amber-300">
-              Organize and label each item for better management
-            </p>
-          </div>
-          {/* Step 7 */}
-          <div className="flex flex-col items-center text-center p-6 rounded-xl border border-green-500/10 hover:bg-green-500/5 hover:border-green-500/20 transition-all duration-300 cursor-pointer">
-            <div className="mb-4 p-4 rounded-full bg-green-500/10">
-              <CheckCircle className="h-8 w-8 text-green-500" />
-            </div>
-            <h3 className="text-xl font-semibold mb-2 text-green-400">
-              Step 7: Confirm
-            </h3>
-            <p className="text-green-300">
-              Review and confirm all event details and items
-            </p>
-          </div>
-          {/* Step 8 */}
-          <div className="flex flex-col items-center text-center p-6 rounded-xl border border-amber-500/10 hover:bg-amber-500/5 hover:border-amber-500/20 transition-all duration-300 cursor-pointer">
-            <div className="mb-4 p-4 rounded-full bg-amber-500/10">
-              <CheckSquare className="h-8 w-8 text-amber-500" />
-            </div>
-            <h3 className="text-xl font-semibold mb-2 text-amber-400">
-              Step 8: Track Progress
-            </h3>
-            <p className="text-amber-300">
-              Monitor and mark items as they are completed
-            </p>
-          </div>
+          {HOW_TO_STEPS.map(({ title, description, color, Icon }) => {
+            const toneStyles = (isLightTheme ? lightStepStyles : darkStepStyles)[color];
+
+            return (
+              <div
+                key={title}
+                className={cn(
+                  "flex flex-col items-center text-center p-6 rounded-xl border transition-all duration-300 cursor-pointer backdrop-blur-sm",
+                  toneStyles.card
+                )}
+              >
+                <div className={cn("mb-4 p-4 rounded-full", toneStyles.iconWrap)}>
+                  <Icon className={cn("h-8 w-8", toneStyles.icon)} />
+                </div>
+                <h3 className={cn("text-xl font-semibold mb-2", toneStyles.heading)}>
+                  {title}
+                </h3>
+                <p className={cn("text-base leading-relaxed", toneStyles.text)}>
+                  {description}
+                </p>
+              </div>
+            );
+          })}
         </div>
       </section>
 
@@ -932,7 +997,12 @@ export default function HomeClient() {
                   >
                     <Link
                       href={`/event/${event.id}`}
-                      className="block group/card relative overflow-hidden rounded-xl border bg-card transition-all duration-300 hover:shadow-lg h-full flex flex-col"
+                      className={cn(
+                        "block group/card relative overflow-hidden rounded-xl transition-all duration-300 hover:shadow-lg h-full flex flex-col border-2",
+                        isLightTheme
+                          ? "border-emerald-500/60 bg-white shadow-sm"
+                          : "border-emerald-500/30 bg-card/80 backdrop-blur"
+                      )}
                     >
                       <div className="aspect-video relative w-full flex-shrink-0 overflow-hidden">
                         <Image

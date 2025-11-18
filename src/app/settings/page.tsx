@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
+import { THEME_STORAGE_KEY, THEME_CHANGE_EVENT, type ThemePreference } from "@/lib/theme";
 
 function SettingsContent() {
   const router = useRouter();
@@ -40,7 +41,52 @@ function SettingsContent() {
   const [isChangingEmail, setIsChangingEmail] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
 
+  const THEME_STORAGE_KEY = "eventsphere:theme";
+  const LIGHT_THEME_BG = "#E5E7EB";
+  const LIGHT_THEME_TEXT = "#111827";
+  const [selectedTheme, setSelectedTheme] = useState<ThemePreference>("dark");
+  const [isThemeInitialized, setIsThemeInitialized] = useState(false);
+
   // Account deletion UI removed
+
+  // Hydrate theme from localStorage
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+    if (storedTheme === "light" || storedTheme === "dark") {
+      setSelectedTheme(storedTheme);
+    }
+    setIsThemeInitialized(true);
+  }, []);
+
+  // Apply theme to document background/text
+  useEffect(() => {
+    if (typeof document === "undefined" || !isThemeInitialized) return;
+
+    window.localStorage.setItem(THEME_STORAGE_KEY, selectedTheme);
+    window.dispatchEvent(
+      new CustomEvent(THEME_CHANGE_EVENT, { detail: selectedTheme })
+    );
+
+    const root = document.documentElement;
+    const body = document.body;
+
+    if (selectedTheme === "light") {
+      root.classList.remove("dark");
+      body.style.backgroundColor = LIGHT_THEME_BG;
+      body.style.color = LIGHT_THEME_TEXT;
+    } else {
+      if (!root.classList.contains("dark")) {
+        root.classList.add("dark");
+      }
+      body.style.backgroundColor = "";
+      body.style.color = "";
+    }
+  }, [selectedTheme, isThemeInitialized]);
+
+  const handleThemeSelection = (theme: "light" | "dark") => {
+    setSelectedTheme(theme);
+  };
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -337,7 +383,14 @@ function SettingsContent() {
   }
 
   return (
-    <div className="w-full max-w-4xl mx-auto py-8 pr-3">
+    <div
+      className="w-full max-w-4xl mx-auto py-8 pr-3"
+      style={{
+        backgroundColor: selectedTheme === "light" ? LIGHT_THEME_BG : "transparent",
+        color: selectedTheme === "light" ? LIGHT_THEME_TEXT : "inherit",
+        transition: "background-color 0.3s ease, color 0.3s ease",
+      }}
+    >
       <h1 className="mb-8 text-3xl font-bold">Settings</h1>
 
       {error && (
@@ -563,6 +616,68 @@ function SettingsContent() {
 
         {/* Removed Profile Information Section */}
         {/* Add sections for Notifications, Privacy etc. here later */}
+
+        {/* Section 3: Theme Preferences */}
+        <section>
+          <h2 className="mb-1 text-xl font-semibold">Theme</h2>
+          <p className="mb-6 text-sm text-muted-foreground">
+            Choose between light and dark mode. Theme switching will be available soon.
+          </p>
+
+          <div className="space-y-4 rounded-lg border bg-card p-4 sm:p-6">
+            <div className="space-y-2">
+              <label
+                htmlFor="theme-light"
+                className={`flex items-center justify-between rounded-md border p-4 transition hover:border-primary ${
+                  selectedTheme === "light" ? "border-primary bg-primary/5" : "border-muted"
+                }`}
+              >
+                <div>
+                  <p className="text-base font-medium">Light Mode</p>
+                  <p className="text-sm text-muted-foreground">
+                    Crisp whites and bright surfaces for well-lit environments.
+                  </p>
+                </div>
+                <input
+                  id="theme-light"
+                  type="radio"
+                  name="theme"
+                  value="light"
+                  checked={selectedTheme === "light"}
+                  onChange={() => handleThemeSelection("light")}
+                  className="h-4 w-4 accent-primary"
+                />
+              </label>
+
+              <label
+                htmlFor="theme-dark"
+                className={`flex items-center justify-between rounded-md border p-4 transition hover:border-primary ${
+                  selectedTheme === "dark" ? "border-primary bg-primary/5" : "border-muted"
+                }`}
+              >
+                <div>
+                  <p className="text-base font-medium">Dark Mode</p>
+                  <p className="text-sm text-muted-foreground">
+                    Sleek contrast designed for night owls and low-light settings.
+                  </p>
+                </div>
+                <input
+                  id="theme-dark"
+                  type="radio"
+                  name="theme"
+                  value="dark"
+                  checked={selectedTheme === "dark"}
+                  onChange={() => handleThemeSelection("dark")}
+                  className="h-4 w-4 accent-primary"
+                />
+              </label>
+            </div>
+
+            <Button type="button" variant="secondary" disabled>
+              Theme switching coming soon
+            </Button>
+          </div>
+        </section>
       </div>
     </div>
   );

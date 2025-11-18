@@ -893,7 +893,7 @@ export default function EventsPageContent() {
             <Link
               key={event.id}
               href={`/event/${event.id}`} // Link to detail page
-              className="block group relative overflow-hidden rounded-xl border bg-card transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
+              className="block group relative overflow-hidden rounded-xl border-2 border-emerald-500/40 bg-card/95 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 dark:border-emerald-500/30"
             >
               <div className="aspect-video relative">
                 <Image

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, Suspense, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 
@@ -81,6 +81,7 @@ import AIChat from "@/components/ai-chat";
 import { useAIDelay } from "@/hooks/useAIDelay";
 import { DefaultSubscriptionManager } from "@/lib/default-subscription-manager";
 import QRCode from "react-qr-code";
+import { THEME_STORAGE_KEY, THEME_CHANGE_EVENT, type ThemePreference } from "@/lib/theme";
 
 interface Event {
   id: string;
@@ -287,81 +288,47 @@ export default function SingleEventPage() {
   ];
   const [isTypeMenuOpen, setIsTypeMenuOpen] = useState(false);
 
-  // Sidebar scroll behavior state - use transform for smooth movement
-  const [sidebarTransform, setSidebarTransform] = useState(0);
-  const sidebarRef = useRef<HTMLDivElement>(null);
+  const [themePreference, setThemePreference] = useState<ThemePreference | null>(null);
+  const resolvedTheme = themePreference ?? "dark";
+  const isLightTheme = resolvedTheme === "light";
 
-  // Handle sidebar scroll behavior when near footer - smooth gradual movement
   useEffect(() => {
-    let rafId: number | null = null;
-    let lastTransform = 0;
+    if (typeof window === "undefined") return;
 
-    const handleScroll = () => {
-      if (!sidebarRef.current || window.innerWidth < 1024) return; // Only on large screens
+    const applyStoredTheme = () => {
+      const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+      if (stored === "light" || stored === "dark") {
+        setThemePreference(stored);
+      } else {
+        const fallback = document.documentElement.classList.contains("dark") ? "dark" : "light";
+        setThemePreference(fallback);
+      }
+    };
 
-      const sidebar = sidebarRef.current;
-      const sidebarRect = sidebar.getBoundingClientRect();
-      
-      // Find footer element
-      const footer = document.querySelector('footer');
-      if (!footer) {
-        if (lastTransform !== 0) {
-          setSidebarTransform(0);
-          lastTransform = 0;
+    applyStoredTheme();
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === THEME_STORAGE_KEY) {
+        const value = event.newValue;
+        if (value === "light" || value === "dark") {
+          setThemePreference(value);
         }
-        return;
-      }
-      
-      const footerRect = footer.getBoundingClientRect();
-      const footerTop = footerRect.top;
-      const sidebarBottom = sidebarRect.bottom;
-      const distanceToFooter = footerTop - sidebarBottom;
-      
-      // When sidebar is within 150px of footer, start moving it up gradually
-      // The closer it gets, the more it moves up
-      // This allows it to go under the header while maintaining margin from footer
-      const startThreshold = 150; // Start moving up when 150px from footer
-      const minDistance = 8; // Minimum distance to maintain from footer
-      
-      let newTransform = 0;
-      
-      if (distanceToFooter < startThreshold) {
-        // Calculate how much to move up gradually
-        // When distance is 8px, move up by (startThreshold - minDistance) pixels
-        // This creates smooth gradual movement
-        const remainingDistance = distanceToFooter - minDistance;
-        const moveAmount = Math.max(0, startThreshold - minDistance - remainingDistance);
-        newTransform = -moveAmount; // Negative to move up
-      }
-
-      // Only update if transform changed (prevent unnecessary re-renders)
-      if (Math.abs(newTransform - lastTransform) > 0.1) {
-        setSidebarTransform(newTransform);
-        lastTransform = newTransform;
       }
     };
 
-    // Use throttled scroll handler to prevent blinking
-    const onScroll = () => {
-      if (rafId !== null) {
-        cancelAnimationFrame(rafId);
+    const handleThemeChange: EventListener = (event) => {
+      const detail = (event as CustomEvent<ThemePreference>).detail;
+      if (detail === "light" || detail === "dark") {
+        setThemePreference(detail);
       }
-      rafId = requestAnimationFrame(() => {
-        handleScroll();
-        rafId = null;
-      });
     };
 
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', handleScroll);
-    handleScroll(); // Initial check
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener(THEME_CHANGE_EVENT, handleThemeChange);
 
     return () => {
-      if (rafId !== null) {
-        cancelAnimationFrame(rafId);
-      }
-      window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', handleScroll);
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener(THEME_CHANGE_EVENT, handleThemeChange);
     };
   }, []);
 
@@ -2307,19 +2274,60 @@ RECOMMENDATIONS:
     setIsEditingMarkup(false);
   };
 
+  const pageBackgroundClass = isLightTheme
+    ? "event-page event-page--light min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-900"
+    : "event-page event-page--dark min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white";
+  const headerSurfaceClass = isLightTheme
+    ? "bg-white/80 backdrop-blur-sm border-b border-slate-200"
+    : "bg-slate-800/50 backdrop-blur-sm border-b border-slate-700";
+  const headingTextClass = isLightTheme ? "text-slate-900" : "text-white";
+  const actionSectionClass = isLightTheme
+    ? "bg-emerald-100 border border-emerald-200"
+    : "bg-green-500/10 border border-green-500/20";
+  const actionHeadingClass = isLightTheme ? "text-emerald-700" : "text-green-400";
+  const actionButtonClass = isLightTheme
+    ? "border border-emerald-200 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800"
+    : "border-green-500/30 text-green-400 hover:bg-green-500/20 hover:text-green-300";
+  const membersSectionClass = isLightTheme
+    ? "bg-purple-100 border border-purple-200"
+    : "bg-purple-500/10 border border-purple-500/20";
+  const memberHeadingClass = isLightTheme ? "text-purple-700" : "text-purple-400";
+  const memberCardClass = isLightTheme
+    ? "bg-white border border-purple-200"
+    : "bg-purple-500/10 border border-purple-500/20";
+  const memberRoleTextClass = isLightTheme ? "text-purple-600" : "text-purple-300";
+  const analyticsDialogClass = isLightTheme
+    ? "sm:max-w-6xl max-h-[90vh] bg-white border-emerald-100 text-slate-900 flex flex-col"
+    : "sm:max-w-6xl max-h-[90vh] bg-slate-900 border-green-500/30 flex flex-col";
+  const analyticsHeaderClass = isLightTheme
+    ? "border-b border-emerald-100 pb-4 flex-shrink-0"
+    : "border-b border-green-500/20 pb-4 flex-shrink-0";
+  const analyticsTitleClass = isLightTheme ? "text-emerald-700" : "text-green-400";
+  const analyticsMetricCardClass = isLightTheme
+    ? "rounded-lg p-4 text-center bg-white border border-slate-200 shadow-sm"
+    : "rounded-lg p-4 text-center bg-slate-800/60 border border-slate-700";
+  const analyticsPanelClass = isLightTheme
+    ? "rounded-lg p-4 bg-slate-50 border border-slate-200 shadow-sm"
+    : "rounded-lg p-4 bg-slate-800/60 border border-slate-600";
+  const analyticsSubPanelClass = isLightTheme
+    ? "rounded-lg p-3 bg-white border border-slate-200 shadow-sm"
+    : "rounded-lg p-3 bg-slate-900/50 border border-slate-700";
+  const analyticsPrimaryTextClass = isLightTheme ? "text-slate-900" : "text-white";
+  const analyticsMutedTextClass = isLightTheme ? "text-slate-500" : "text-slate-400";
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
-        <div className="text-white text-xl">Loading event...</div>
+      <div className={`${pageBackgroundClass} flex items-center justify-center`}>
+        <div className="text-xl">Loading event...</div>
       </div>
     );
   }
 
   if (!event) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
+      <div className={`${pageBackgroundClass} flex items-center justify-center`}>
         <div className="text-center">
-          <div className="text-white text-xl mb-4">Event not found</div>
+          <div className="text-xl mb-4">Event not found</div>
           <Button asChild>
             <Link href="/events">Back to Events</Link>
           </Button>
@@ -2330,19 +2338,24 @@ RECOMMENDATIONS:
 
   return (
     <>
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className={pageBackgroundClass}>
       {/* Header with Back Button */}
-      <div className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700">
+      <div className={headerSurfaceClass}>
         <div className="w-full px-4 py-4">
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
             <Link href="/events">
-              <Button variant="ghost" className="text-white hover:bg-slate-700 w-full sm:w-auto justify-start">
+              <Button
+                variant="ghost"
+                className={`w-full sm:w-auto justify-start ${isLightTheme ? "text-slate-900 hover:bg-slate-100" : "text-white hover:bg-slate-700"}`}
+              >
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Events
               </Button>
             </Link>
-            <div className="hidden sm:block h-6 w-px bg-slate-600" />
-            <h1 className="text-xl sm:text-2xl font-semibold text-white text-center sm:text-left">Event Details</h1>
+            <div className={`hidden sm:block h-6 w-px ${isLightTheme ? "bg-slate-200" : "bg-slate-600"}`} />
+            <h1 className={`text-xl sm:text-2xl font-semibold text-center sm:text-left ${headingTextClass}`}>
+              Event Details
+            </h1>
           </div>
         </div>
       </div>
@@ -3152,19 +3165,17 @@ RECOMMENDATIONS:
           <div className="lg:col-span-1 w-full">
             {!showChat && (
             <div 
-              ref={sidebarRef}
-              className="w-full lg:fixed lg:top-30 lg:right-4 lg:w-[320px] max-w-full lg:max-w-sm h-fit lg:h-[calc(100vh-9rem)] space-y-4 sm:space-y-6 z-10 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto px-2 sm:px-4 lg:px-2 transition-transform duration-150 ease-out"
-              style={{ transform: `translateY(${sidebarTransform}px)` }}
+              className="w-full space-y-4 sm:space-y-6 px-2 sm:px-4 lg:px-0 lg:sticky lg:top-24 lg:self-start lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto lg:pr-2 lg:scrollbar-thin"
             >
               {/* Event Actions */}
-              <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4 sm:p-6 flex flex-col max-h-[24rem] sm:max-h-[26rem]">
-                <h3 className="text-lg sm:text-xl font-semibold text-green-400 mb-4 sm:mb-6 flex-shrink-0">
+              <div className={`${actionSectionClass} rounded-lg p-4 sm:p-6 flex flex-col`}>
+                <h3 className={`text-lg sm:text-xl font-semibold mb-4 sm:mb-6 flex-shrink-0 ${actionHeadingClass}`}>
                   Event Actions
                 </h3>
-                <div className="space-y-3 sm:space-y-4 overflow-y-auto pr-1 -mr-1 flex-1 min-h-0">
+                <div className="space-y-3 sm:space-y-4 flex-1">
                   <Button
                     variant="outline"
-                    className="w-full justify-start border-green-500/30 text-green-400 hover:bg-green-500/20 hover:text-green-300"
+                    className={`w-full justify-start ${actionButtonClass}`}
                     onClick={() => handleEventAction("settings")}
                   >
                     <Settings className="w-4 h-4 mr-3" />
@@ -3172,7 +3183,7 @@ RECOMMENDATIONS:
                   </Button>
                   <Button
                     variant="outline"
-                    className="w-full justify-start border-green-500/30 text-green-400 hover:bg-green-500/20 hover:text-green-300"
+                    className={`w-full justify-start ${actionButtonClass}`}
                     onClick={() => handleEventAction("chat")}
                   >
                     <MessageCircle className="w-4 h-4 mr-3" />
@@ -3184,7 +3195,7 @@ RECOMMENDATIONS:
                     <>
                     <Button
                       variant="outline"
-                      className="w-full justify-start border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300"
+                      className={`w-full justify-start ${isLightTheme ? "border-amber-200 text-amber-700 hover:bg-amber-100 hover:text-amber-800" : "border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300"}`}
                       onClick={() => handleEventAction("notes")}
                     >
                       <FileText className="w-4 h-4 mr-3" />
@@ -3195,7 +3206,7 @@ RECOMMENDATIONS:
                     {(isOwner || userRole === "moderator") && (
                       <Button
                         variant="outline"
-                        className="w-full justify-start border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300"
+                        className={`w-full justify-start ${isLightTheme ? "border-amber-200 text-amber-700 hover:bg-amber-100 hover:text-amber-800" : "border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300"}`}
                         onClick={() => {
                           setSelectedStatus(event?.status || "coming_soon");
                           setShowStatusModal(true);
@@ -3213,7 +3224,7 @@ RECOMMENDATIONS:
                         <div className="mt-3 space-y-3">
                           <Button
                             variant="outline"
-                            className="w-full justify-start border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300"
+                            className={`w-full justify-start ${isLightTheme ? "border-amber-200 text-amber-700 hover:bg-amber-100 hover:text-amber-800" : "border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300"}`}
                             onClick={() => generatePublicPortal('feedback')}
                             disabled={isGeneratingPortal.type === 'feedback'}
                           >
@@ -3229,7 +3240,7 @@ RECOMMENDATIONS:
 
                           <Button
                             variant="outline"
-                            className="w-full justify-start border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300"
+                            className={`w-full justify-start ${isLightTheme ? "border-amber-200 text-amber-700 hover:bg-amber-100 hover:text-amber-800" : "border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300"}`}
                             onClick={() => generatePublicPortal('attendance')}
                             disabled={isGeneratingPortal.type === 'attendance'}
                           >
@@ -3266,17 +3277,13 @@ RECOMMENDATIONS:
               </div>
 
               {/* Event Members/People */}
-              <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-4 sm:p-6 flex flex-col max-h-[26rem] sm:max-h-[30rem] min-h-0">
-                <h3 className="text-lg sm:text-xl font-semibold text-purple-400 mb-4 sm:mb-6 flex-shrink-0">
+              <div className={`${membersSectionClass} rounded-lg p-4 sm:p-6 flex flex-col`}>
+                <h3 className={`text-lg sm:text-xl font-semibold mb-4 sm:mb-6 flex-shrink-0 ${memberHeadingClass}`}>
                   Event Members
                 </h3>
-                <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                <div className="flex-1 flex flex-col min-h-0 overflow-visible">
                   <div 
-                    className="space-y-3 sm:space-y-4 flex-1 overflow-y-auto pr-1 -mr-1 [&::-webkit-scrollbar]:hidden" 
-                    style={{ 
-                      scrollbarWidth: 'none', 
-                      msOverflowStyle: 'none',
-                    }}
+                    className="space-y-3 sm:space-y-4 flex-1"
                   >
                   {(() => {
                     // Create a combined list with owner first, then collaborators sorted by joined_at
@@ -3309,7 +3316,7 @@ RECOMMENDATIONS:
                       allMembers.map((member) => (
                         <div
                           key={member.id}
-                          className="flex items-center gap-3 p-3 bg-purple-500/10 rounded-lg border border-purple-500/20"
+                          className={`flex items-center gap-3 p-3 rounded-lg ${memberCardClass}`}
                         >
                           <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
                             {member.profiles?.avatar_url ? (
@@ -3325,14 +3332,14 @@ RECOMMENDATIONS:
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="text-white font-medium truncate">
+                            <div className={`font-medium truncate ${headingTextClass}`}>
                               {member.profiles?.fname &&
                               member.profiles?.lname
                                 ? `${member.profiles.fname} ${member.profiles.lname}`
                                 : member.profiles?.username ||
                                   "Unknown User"}
                             </div>
-                            <div className="text-purple-300 text-sm capitalize">
+                            <div className={`text-sm capitalize ${memberRoleTextClass}`}>
                               {member.role === "owner" ? "Event Organizer" : member.role}
                             </div>
                           </div>
@@ -3374,7 +3381,7 @@ RECOMMENDATIONS:
                   <div className="mt-4 flex-shrink-0">
                     <Button
                       variant="outline"
-                      className="w-full justify-start border-purple-500/30 text-purple-400 hover:bg-purple-500/20 hover:text-purple-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className={`w-full justify-start disabled:opacity-50 disabled:cursor-not-allowed ${isLightTheme ? "border-purple-200 text-purple-700 hover:bg-purple-100 hover:text-purple-800" : "border-purple-500/30 text-purple-400 hover:bg-purple-500/20 hover:text-purple-300"}`}
                       onClick={() => handleEventAction("invite")}
                       disabled={!allowInvites}
                     >
@@ -4322,9 +4329,9 @@ RECOMMENDATIONS:
 
       {/* Analytics Modal */}
       <Dialog open={showAnalytics} onOpenChange={setShowAnalytics}>
-        <DialogContent className="sm:max-w-6xl max-h-[90vh] bg-slate-900 border-green-500/30 flex flex-col">
-          <DialogHeader className="border-b border-green-500/20 pb-4 flex-shrink-0">
-            <DialogTitle className="text-2xl font-bold text-green-400 flex items-center gap-2">
+        <DialogContent className={analyticsDialogClass}>
+          <DialogHeader className={analyticsHeaderClass}>
+            <DialogTitle className={`text-2xl font-bold flex items-center gap-2 ${analyticsTitleClass}`}>
               <BarChart3 className="w-6 h-6" />
               Event Analytics Dashboard
             </DialogTitle>
@@ -4335,43 +4342,43 @@ RECOMMENDATIONS:
               <div className="space-y-6">
                 {/* Key Metrics */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="bg-slate-800/60 rounded-lg p-4 text-center border border-green-500/20">
-                    <DollarSign className="w-8 h-8 text-green-400 mx-auto mb-2" />
-                    <div className="text-2xl font-bold text-white">
+                  <div className={`${analyticsMetricCardClass} ${isLightTheme ? "border-emerald-100" : "border-green-500/20"}`}>
+                    <DollarSign className={`w-8 h-8 mx-auto mb-2 ${isLightTheme ? "text-emerald-600" : "text-green-400"}`} />
+                    <div className={`text-2xl font-bold ${analyticsPrimaryTextClass}`}>
                       PHP {analyticsData.totalItemCost.toFixed(2)}
                     </div>
-                    <div className="text-slate-400 text-sm">Total Item Cost</div>
+                    <div className={`${analyticsMutedTextClass} text-sm`}>Total Item Cost</div>
                   </div>
-                  <div className="bg-slate-800/60 rounded-lg p-4 text-center border border-blue-500/20">
-                    <TrendingUp className="w-8 h-8 text-blue-400 mx-auto mb-2" />
-                    <div className="text-2xl font-bold text-white">
+                  <div className={`${analyticsMetricCardClass} ${isLightTheme ? "border-blue-100" : "border-blue-500/20"}`}>
+                    <TrendingUp className={`w-8 h-8 mx-auto mb-2 ${isLightTheme ? "text-blue-600" : "text-blue-400"}`} />
+                    <div className={`text-2xl font-bold ${analyticsPrimaryTextClass}`}>
                       PHP {analyticsData.finalEventPrice.toFixed(2)}
                     </div>
-                    <div className="text-slate-400 text-sm">Event Price</div>
+                    <div className={`${analyticsMutedTextClass} text-sm`}>Event Price</div>
                   </div>
-                  <div className="bg-slate-800/60 rounded-lg p-4 text-center border border-purple-500/20">
-                    <Users className="w-8 h-8 text-purple-400 mx-auto mb-2" />
-                    <div className="text-2xl font-bold text-white">{analyticsData.memberCount}</div>
-                    <div className="text-slate-400 text-sm">Members</div>
+                  <div className={`${analyticsMetricCardClass} ${isLightTheme ? "border-purple-100" : "border-purple-500/20"}`}>
+                    <Users className={`w-8 h-8 mx-auto mb-2 ${isLightTheme ? "text-purple-600" : "text-purple-400"}`} />
+                    <div className={`text-2xl font-bold ${analyticsPrimaryTextClass}`}>{analyticsData.memberCount}</div>
+                    <div className={`${analyticsMutedTextClass} text-sm`}>Members</div>
                   </div>
-                  <div className="bg-slate-800/60 rounded-lg p-4 text-center border border-amber-500/20">
-                    <Package className="w-8 h-8 text-amber-400 mx-auto mb-2" />
-                    <div className="text-2xl font-bold text-white">{analyticsData.itemCount}</div>
-                    <div className="text-slate-400 text-sm">Items</div>
+                  <div className={`${analyticsMetricCardClass} ${isLightTheme ? "border-amber-100" : "border-amber-500/20"}`}>
+                    <Package className={`w-8 h-8 mx-auto mb-2 ${isLightTheme ? "text-amber-600" : "text-amber-400"}`} />
+                    <div className={`text-2xl font-bold ${analyticsPrimaryTextClass}`}>{analyticsData.itemCount}</div>
+                    <div className={`${analyticsMutedTextClass} text-sm`}>Items</div>
                   </div>
                 </div>
 
                 {/* Pricing Breakdown */}
-                <div className="bg-slate-800/60 rounded-lg p-4 border border-slate-600">
-                  <h3 className="text-lg font-semibold text-white mb-4">Pricing Breakdown</h3>
+                <div className={analyticsPanelClass}>
+                  <h3 className={`text-lg font-semibold mb-4 ${analyticsPrimaryTextClass}`}>Pricing Breakdown</h3>
                   <div className="space-y-3">
                     <div className="flex justify-between">
-                      <span className="text-slate-400">Total Item Cost:</span>
-                      <span className="text-white font-semibold">PHP {analyticsData.totalItemCost.toFixed(2)}</span>
+                      <span className={analyticsMutedTextClass}>Total Item Cost:</span>
+                      <span className={`font-semibold ${analyticsPrimaryTextClass}`}>PHP {analyticsData.totalItemCost.toFixed(2)}</span>
                     </div>
                     {analyticsData.markupAmount > 0 && (
                       <div className="flex justify-between">
-                        <span className="text-slate-400">
+                        <span className={analyticsMutedTextClass}>
                           Markup ({event.markup_type === 'percentage' ? `${event.markup_value}%` : `PHP ${event.markup_value}`}):
                         </span>
                         <span className="text-green-400 font-semibold">+PHP {analyticsData.markupAmount.toFixed(2)}</span>
@@ -4379,7 +4386,7 @@ RECOMMENDATIONS:
                     )}
                     {analyticsData.discountAmount > 0 && (
                       <div className="flex justify-between">
-                        <span className="text-slate-400">
+                        <span className={analyticsMutedTextClass}>
                           Discount ({event.discount_type === 'percentage' ? `${event.discount_value}%` : `PHP ${event.discount_value}`}):
                         </span>
                         <span className="text-red-400 font-semibold">-PHP {analyticsData.discountAmount.toFixed(2)}</span>
@@ -4390,13 +4397,13 @@ RECOMMENDATIONS:
                       <span className="text-blue-400">PHP {analyticsData.finalEventPrice.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-400">Gross Profit:</span>
+                      <span className={analyticsMutedTextClass}>Gross Profit:</span>
                       <span className={`font-semibold ${analyticsData.grossProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                         PHP {analyticsData.grossProfit.toFixed(2)}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-400">Profit Margin:</span>
+                      <span className={analyticsMutedTextClass}>Profit Margin:</span>
                       <span className={`font-semibold ${analyticsData.profitMargin >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                         {analyticsData.profitMargin.toFixed(1)}%
                       </span>
@@ -4407,63 +4414,63 @@ RECOMMENDATIONS:
                 {/* Charts Row */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Statistical Analysis */}
-                  <div className="bg-slate-800/60 rounded-lg p-4 border border-slate-600">
-                    <h3 className="text-lg font-semibold text-white mb-4">Statistical Analysis</h3>
+                  <div className={analyticsPanelClass}>
+                    <h3 className={`text-lg font-semibold mb-4 ${analyticsPrimaryTextClass}`}>Statistical Analysis</h3>
                     <div className="space-y-4">
-                      <div className="bg-slate-900/50 rounded-lg p-3">
+                      <div className={analyticsSubPanelClass}>
                         <h4 className="text-blue-400 font-medium mb-2">Cost Statistics</h4>
                         <div className="grid grid-cols-2 gap-2 text-sm">
                           <div className="flex justify-between">
-                            <span className="text-slate-400">Mean:</span>
-                            <span className="text-white font-semibold">PHP {analyticsData.statistics.cost.mean.toFixed(2)}</span>
+                            <span className={analyticsMutedTextClass}>Mean:</span>
+                            <span className={`font-semibold ${analyticsPrimaryTextClass}`}>PHP {analyticsData.statistics.cost.mean.toFixed(2)}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-slate-400">Median:</span>
-                            <span className="text-white font-semibold">PHP {analyticsData.statistics.cost.median.toFixed(2)}</span>
+                            <span className={analyticsMutedTextClass}>Median:</span>
+                            <span className={`font-semibold ${analyticsPrimaryTextClass}`}>PHP {analyticsData.statistics.cost.median.toFixed(2)}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-slate-400">Mode:</span>
-                            <span className="text-white font-semibold">PHP {analyticsData.statistics.cost.mode.toFixed(2)}</span>
+                            <span className={analyticsMutedTextClass}>Mode:</span>
+                            <span className={`font-semibold ${analyticsPrimaryTextClass}`}>PHP {analyticsData.statistics.cost.mode.toFixed(2)}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-slate-400">Range:</span>
-                            <span className="text-white font-semibold">PHP {analyticsData.statistics.cost.range.toFixed(2)}</span>
+                            <span className={analyticsMutedTextClass}>Range:</span>
+                            <span className={`font-semibold ${analyticsPrimaryTextClass}`}>PHP {analyticsData.statistics.cost.range.toFixed(2)}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-slate-400">Std Dev:</span>
-                            <span className="text-white font-semibold">PHP {analyticsData.statistics.cost.standardDeviation.toFixed(2)}</span>
+                            <span className={analyticsMutedTextClass}>Std Dev:</span>
+                            <span className={`font-semibold ${analyticsPrimaryTextClass}`}>PHP {analyticsData.statistics.cost.standardDeviation.toFixed(2)}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-slate-400">Min/Max:</span>
-                            <span className="text-white font-semibold">PHP {analyticsData.statistics.cost.min.toFixed(2)} - PHP {analyticsData.statistics.cost.max.toFixed(2)}</span>
+                            <span className={analyticsMutedTextClass}>Min/Max:</span>
+                            <span className={`font-semibold ${analyticsPrimaryTextClass}`}>PHP {analyticsData.statistics.cost.min.toFixed(2)} - PHP {analyticsData.statistics.cost.max.toFixed(2)}</span>
                           </div>
                         </div>
-                        <div className="mt-2 p-2 bg-blue-500/10 rounded border-l-2 border-blue-500">
+                        <div className={`mt-2 p-2 rounded border-l-2 ${isLightTheme ? "bg-blue-50 border-blue-400 text-blue-700" : "bg-blue-500/10 border-blue-500 text-blue-300"}`}>
                           <p className="text-blue-300 text-xs">{analyticsData.statistics.cost.description}</p>
                         </div>
                       </div>
                       
-                      <div className="bg-slate-900/50 rounded-lg p-3">
+                      <div className={analyticsSubPanelClass}>
                         <h4 className="text-green-400 font-medium mb-2">Quantity Statistics</h4>
                         <div className="grid grid-cols-2 gap-2 text-sm">
                           <div className="flex justify-between">
-                            <span className="text-slate-400">Mean:</span>
-                            <span className="text-white font-semibold">{analyticsData.statistics.quantity.mean.toFixed(1)} units</span>
+                            <span className={analyticsMutedTextClass}>Mean:</span>
+                            <span className={`font-semibold ${analyticsPrimaryTextClass}`}>{analyticsData.statistics.quantity.mean.toFixed(1)} units</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-slate-400">Median:</span>
-                            <span className="text-white font-semibold">{analyticsData.statistics.quantity.median.toFixed(1)} units</span>
+                            <span className={analyticsMutedTextClass}>Median:</span>
+                            <span className={`font-semibold ${analyticsPrimaryTextClass}`}>{analyticsData.statistics.quantity.median.toFixed(1)} units</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-slate-400">Range:</span>
-                            <span className="text-white font-semibold">{analyticsData.statistics.quantity.range} units</span>
+                            <span className={analyticsMutedTextClass}>Range:</span>
+                            <span className={`font-semibold ${analyticsPrimaryTextClass}`}>{analyticsData.statistics.quantity.range} units</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-slate-400">Min/Max:</span>
-                            <span className="text-white font-semibold">{analyticsData.statistics.quantity.min} - {analyticsData.statistics.quantity.max} units</span>
+                            <span className={analyticsMutedTextClass}>Min/Max:</span>
+                            <span className={`font-semibold ${analyticsPrimaryTextClass}`}>{analyticsData.statistics.quantity.min} - {analyticsData.statistics.quantity.max} units</span>
                           </div>
                         </div>
-                        <div className="mt-2 p-2 bg-green-500/10 rounded border-l-2 border-green-500">
+                        <div className={`mt-2 p-2 rounded border-l-2 ${isLightTheme ? "bg-emerald-50 border-emerald-400 text-emerald-700" : "bg-green-500/10 border-green-500 text-green-300"}`}>
                           <p className="text-green-300 text-xs">{analyticsData.statistics.quantity.description}</p>
                         </div>
                       </div>
@@ -4471,8 +4478,8 @@ RECOMMENDATIONS:
                   </div>
 
                   {/* Quantity vs Cost Chart */}
-                  <div className="bg-slate-800/60 rounded-lg p-4 border border-slate-600">
-                    <h3 className="text-lg font-semibold text-white mb-4">Items Overview</h3>
+                  <div className={analyticsPanelClass}>
+                    <h3 className={`text-lg font-semibold mb-4 ${analyticsPrimaryTextClass}`}>Items Overview</h3>
                     <ResponsiveContainer width="100%" height={300}>
                       <BarChart data={analyticsData.quantityData}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -4500,8 +4507,8 @@ RECOMMENDATIONS:
                 </div>
 
                 {/* Cost Trend Chart */}
-                <div className="bg-slate-800/60 rounded-lg p-4 border border-slate-600">
-                  <h3 className="text-lg font-semibold text-white mb-4">Cost Accumulation Trend</h3>
+                <div className={analyticsPanelClass}>
+                  <h3 className={`text-lg font-semibold mb-4 ${analyticsPrimaryTextClass}`}>Cost Accumulation Trend</h3>
                   <ResponsiveContainer width="100%" height={300}>
                     <LineChart data={analyticsData.costTrend}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -4519,41 +4526,41 @@ RECOMMENDATIONS:
 
                 {/* Additional Analytics */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="bg-slate-800/60 rounded-lg p-4 border border-slate-600">
-                    <h3 className="text-lg font-semibold text-white mb-4">Cost Analysis</h3>
+                  <div className={analyticsPanelClass}>
+                    <h3 className={`text-lg font-semibold mb-4 ${analyticsPrimaryTextClass}`}>Cost Analysis</h3>
                     <div className="space-y-3">
                       <div className="flex justify-between">
-                        <span className="text-slate-400">Average Cost per Item:</span>
-                        <span className="text-white font-semibold">PHP {analyticsData.averageCostPerItem.toFixed(2)}</span>
+                        <span className={analyticsMutedTextClass}>Average Cost per Item:</span>
+                        <span className={`font-semibold ${analyticsPrimaryTextClass}`}>PHP {analyticsData.averageCostPerItem.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-slate-400">Average Cost per Member:</span>
-                        <span className="text-white font-semibold">PHP {analyticsData.averageCostPerMember.toFixed(2)}</span>
+                        <span className={analyticsMutedTextClass}>Average Cost per Member:</span>
+                        <span className={`font-semibold ${analyticsPrimaryTextClass}`}>PHP {analyticsData.averageCostPerMember.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-slate-400">Cost Efficiency Score:</span>
-                        <span className="text-white font-semibold">
+                        <span className={analyticsMutedTextClass}>Cost Efficiency Score:</span>
+                        <span className={`font-semibold ${analyticsPrimaryTextClass}`}>
                           {analyticsData.statistics.cost.standardDeviation < analyticsData.statistics.cost.mean * 0.2 ? 'High' : 
                            analyticsData.statistics.cost.standardDeviation < analyticsData.statistics.cost.mean * 0.5 ? 'Medium' : 'Low'}
                         </span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-slate-400">Cost Variability:</span>
-                        <span className="text-white font-semibold">
+                        <span className={analyticsMutedTextClass}>Cost Variability:</span>
+                        <span className={`font-semibold ${analyticsPrimaryTextClass}`}>
                           {analyticsData.statistics.cost.range > 0 ? 
                             `${((analyticsData.statistics.cost.range / analyticsData.statistics.cost.mean) * 100).toFixed(1)}%` : 
                             '0%'}
                         </span>
                       </div>
                     </div>
-                    <div className="mt-3 p-2 bg-slate-900/50 rounded text-xs text-slate-300">
+                    <div className={`mt-3 p-2 rounded text-xs ${isLightTheme ? "bg-slate-100 text-slate-600" : "bg-slate-900/50 text-slate-300"}`}>
                       <p><strong>Interpretation:</strong> {analyticsData.statistics.cost.description}</p>
                     </div>
                   </div>
 
-                  <div className="bg-slate-800/60 rounded-lg p-4 border border-slate-600">
+                  <div className={analyticsPanelClass}>
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-semibold text-white">Attendance & Engagement</h3>
+                      <h3 className={`text-lg font-semibold ${analyticsPrimaryTextClass}`}>Attendance & Engagement</h3>
                       <Button 
                         variant="outline" 
                         size="sm"
@@ -4565,18 +4572,18 @@ RECOMMENDATIONS:
                     </div>
                     {attendeesStats && (
                       <div className="mb-4 grid grid-cols-2 gap-3 text-sm">
-                        <div className="flex justify-between"><span className="text-slate-400">Expected:</span><span className="text-white font-semibold">{attendeesStats.expected_attendees}</span></div>
-                        <div className="flex justify-between"><span className="text-slate-400">Actual:</span><span className="text-white font-semibold">{attendeesStats.event_attendees}</span></div>
-                        <div className="flex justify-between"><span className="text-slate-400">Records:</span><span className="text-white font-semibold">{analyticsData.attendanceRecordsCount}</span></div>
-                        <div className="flex justify-between"><span className="text-slate-400">Attendance Rate:</span><span className="text-white font-semibold">{analyticsData.attendanceRate.toFixed(1)}%</span></div>
-                        <div className="flex justify-between"><span className="text-slate-400">Records Rate:</span><span className="text-white font-semibold">{analyticsData.attendanceRecordsRate.toFixed(1)}%</span></div>
+                        <div className="flex justify-between"><span className={analyticsMutedTextClass}>Expected:</span><span className={`font-semibold ${analyticsPrimaryTextClass}`}>{attendeesStats.expected_attendees}</span></div>
+                        <div className="flex justify-between"><span className={analyticsMutedTextClass}>Actual:</span><span className={`font-semibold ${analyticsPrimaryTextClass}`}>{attendeesStats.event_attendees}</span></div>
+                        <div className="flex justify-between"><span className={analyticsMutedTextClass}>Records:</span><span className={`font-semibold ${analyticsPrimaryTextClass}`}>{analyticsData.attendanceRecordsCount}</span></div>
+                        <div className="flex justify-between"><span className={analyticsMutedTextClass}>Attendance Rate:</span><span className={`font-semibold ${analyticsPrimaryTextClass}`}>{analyticsData.attendanceRate.toFixed(1)}%</span></div>
+                        <div className="flex justify-between"><span className={analyticsMutedTextClass}>Records Rate:</span><span className={`font-semibold ${analyticsPrimaryTextClass}`}>{analyticsData.attendanceRecordsRate.toFixed(1)}%</span></div>
                       </div>
                     )}
                     
                     {/* Feedback Section */}
-                    <div className="mt-4 pt-4 border-t border-slate-600">
+                    <div className={`mt-4 pt-4 border-t ${isLightTheme ? "border-slate-200" : "border-slate-600"}`}>
                       <div className="flex items-center justify-between mb-3">
-                        <h4 className="text-md font-semibold text-white">Feedback Analysis</h4>
+                        <h4 className={`text-md font-semibold ${analyticsPrimaryTextClass}`}>Feedback Analysis</h4>
                         {analyticsData.feedbackMetrics.total > 0 && (
                           <Button 
                             variant="outline" 
@@ -4589,48 +4596,48 @@ RECOMMENDATIONS:
                         )}
                       </div>
                       <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div className="flex justify-between"><span className="text-slate-400">Total Responses:</span><span className="text-white font-semibold">{analyticsData.feedbackMetrics.total}</span></div>
-                        <div className="flex justify-between"><span className="text-slate-400">Avg Rating:</span><span className="text-white font-semibold">{analyticsData.feedbackMetrics.averageRating.toFixed(1)}/5</span></div>
-                        <div className="flex justify-between"><span className="text-slate-400">Positive:</span><span className="text-green-400 font-semibold">{analyticsData.feedbackMetrics.positive}</span></div>
-                        <div className="flex justify-between"><span className="text-slate-400">Neutral:</span><span className="text-yellow-400 font-semibold">{analyticsData.feedbackMetrics.neutral}</span></div>
-                        <div className="flex justify-between"><span className="text-slate-400">Negative:</span><span className="text-red-400 font-semibold">{analyticsData.feedbackMetrics.negative}</span></div>
-                        <div className="flex justify-between"><span className="text-slate-400">Response Rate:</span><span className="text-white font-semibold">{analyticsData.feedbackResponseRate.toFixed(1)}%</span></div>
+                        <div className="flex justify-between"><span className={analyticsMutedTextClass}>Total Responses:</span><span className={`font-semibold ${analyticsPrimaryTextClass}`}>{analyticsData.feedbackMetrics.total}</span></div>
+                        <div className="flex justify-between"><span className={analyticsMutedTextClass}>Avg Rating:</span><span className={`font-semibold ${analyticsPrimaryTextClass}`}>{analyticsData.feedbackMetrics.averageRating.toFixed(1)}/5</span></div>
+                        <div className="flex justify-between"><span className={analyticsMutedTextClass}>Positive:</span><span className="text-green-500 font-semibold">{analyticsData.feedbackMetrics.positive}</span></div>
+                        <div className="flex justify-between"><span className={analyticsMutedTextClass}>Neutral:</span><span className="text-amber-500 font-semibold">{analyticsData.feedbackMetrics.neutral}</span></div>
+                        <div className="flex justify-between"><span className={analyticsMutedTextClass}>Negative:</span><span className="text-red-500 font-semibold">{analyticsData.feedbackMetrics.negative}</span></div>
+                        <div className="flex justify-between"><span className={analyticsMutedTextClass}>Response Rate:</span><span className={`font-semibold ${analyticsPrimaryTextClass}`}>{analyticsData.feedbackResponseRate.toFixed(1)}%</span></div>
                       </div>
                     </div>
                     <div className="space-y-3">
                       <div className="flex justify-between">
-                        <span className="text-slate-400">Total Item Cost:</span>
-                        <span className="text-white font-semibold">PHP {analyticsData.totalItemCost.toFixed(2)}</span>
+                        <span className={analyticsMutedTextClass}>Total Item Cost:</span>
+                        <span className={`font-semibold ${analyticsPrimaryTextClass}`}>PHP {analyticsData.totalItemCost.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-slate-400">Markup Amount:</span>
-                        <span className="text-white font-semibold">PHP {analyticsData.markupAmount.toFixed(2)}</span>
+                        <span className={analyticsMutedTextClass}>Markup Amount:</span>
+                        <span className={`font-semibold ${analyticsPrimaryTextClass}`}>PHP {analyticsData.markupAmount.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-slate-400">Final Event Price:</span>
-                        <span className="text-white font-semibold">PHP {analyticsData.finalEventPrice.toFixed(2)}</span>
+                        <span className={analyticsMutedTextClass}>Final Event Price:</span>
+                        <span className={`font-semibold ${analyticsPrimaryTextClass}`}>PHP {analyticsData.finalEventPrice.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-slate-400">Available Buffer:</span>
-                        <span className="text-white font-semibold">PHP {(analyticsData.finalEventPrice - analyticsData.totalItemCost).toFixed(2)}</span>
+                        <span className={analyticsMutedTextClass}>Available Buffer:</span>
+                        <span className={`font-semibold ${analyticsPrimaryTextClass}`}>PHP {(analyticsData.finalEventPrice - analyticsData.totalItemCost).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-slate-400">Buffer Percentage:</span>
-                        <span className="text-white font-semibold">
+                        <span className={analyticsMutedTextClass}>Buffer Percentage:</span>
+                        <span className={`font-semibold ${analyticsPrimaryTextClass}`}>
                           {analyticsData.totalItemCost > 0 ? 
                             `${(((analyticsData.finalEventPrice - analyticsData.totalItemCost) / analyticsData.totalItemCost) * 100).toFixed(1)}%` : 
                             '0%'}
                         </span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-slate-400">Resources per Member:</span>
-                        <span className="text-white font-semibold">
+                        <span className={analyticsMutedTextClass}>Resources per Member:</span>
+                        <span className={`font-semibold ${analyticsPrimaryTextClass}`}>
                           {analyticsData.memberCount > 0 ? (analyticsData.totalQuantity / analyticsData.memberCount).toFixed(1) : 0} units
                         </span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-slate-400">Budget per Member:</span>
-                        <span className="text-white font-semibold">
+                        <span className={analyticsMutedTextClass}>Budget per Member:</span>
+                        <span className={`font-semibold ${analyticsPrimaryTextClass}`}>
                           {analyticsData.memberCount > 0 ? (analyticsData.finalEventPrice / analyticsData.memberCount).toFixed(2) : 0} PHP
                         </span>
                     </div>
@@ -4643,53 +4650,53 @@ RECOMMENDATIONS:
                         <Button onClick={saveExpectedAttendees} disabled={isSavingExpected}>Save</Button>
                       </div>
                     </div>
-                    <div className="mt-3 p-2 bg-slate-900/50 rounded text-xs text-slate-300">
+                    <div className={`mt-3 p-2 rounded text-xs ${isLightTheme ? "bg-slate-100 text-slate-600" : "bg-slate-900/50 text-slate-300"}`}>
                       <p><strong>Budget Allocation:</strong> You have PHP {(analyticsData.finalEventPrice - analyticsData.totalItemCost).toFixed(2)} available for contingencies, additional resources, or profit. This represents {analyticsData.totalItemCost > 0 ? `${(((analyticsData.finalEventPrice - analyticsData.totalItemCost) / analyticsData.totalItemCost) * 100).toFixed(1)}%` : '0%'} of your base costs.</p>
                     </div>
                   </div>
                 </div>
 
                 {/* AI Insights - Moved to Bottom */}
-                <div className="bg-slate-800/60 rounded-lg p-4 border border-purple-500/20">
-                  <h3 className="text-lg font-semibold text-purple-400 mb-4 flex items-center gap-2">
+                <div className={`${analyticsPanelClass} ${isLightTheme ? "border border-purple-200" : "border border-purple-500/20"}`}>
+                  <h3 className="text-lg font-semibold text-purple-500 mb-4 flex items-center gap-2">
                     <Brain className="w-5 h-5" />
                     AI-Powered Insights
                   </h3>
-                  <div className="bg-slate-900/50 rounded-lg p-4">
+                  <div className={`${analyticsSubPanelClass} ${isLightTheme ? "border border-purple-200" : ""}`}>
                     {isGeneratingInsights ? (
-                      <div className="flex items-center gap-2 text-purple-300">
+                      <div className="flex items-center gap-2 text-purple-500">
                         <Sparkles className="w-4 h-4 animate-pulse" />
                         Generating insights...
                       </div>
                     ) : aiInsights ? (
                       <div>
-                        <div className="text-slate-300 whitespace-pre-wrap text-sm leading-relaxed mb-3">
+                        <div className={`${analyticsMutedTextClass} whitespace-pre-wrap text-sm leading-relaxed mb-3`}>
                           {aiInsights}
                         </div>
                         {event?.insights_generated_at && (
-                          <div className="text-xs text-slate-500 border-t border-slate-700 pt-2">
+                          <div className={`text-xs pt-2 ${isLightTheme ? "text-slate-500 border-t border-slate-200" : "text-slate-500 border-t border-slate-700"}`}>
                             Generated on {new Date(event.insights_generated_at).toLocaleDateString()} at {new Date(event.insights_generated_at).toLocaleTimeString()}
                           </div>
                         )}
                       </div>
                     ) : (
-                      <div className="text-slate-400 text-sm">
+                      <div className={`${analyticsMutedTextClass} text-sm`}>
                         <div className="flex items-center gap-2 mb-2">
-                          <AlertCircle className="w-4 h-4 text-yellow-400" />
-                          <span className="text-yellow-400 font-medium">Insights Required</span>
+                          <AlertCircle className="w-4 h-4 text-yellow-500" />
+                          <span className="text-yellow-500 font-semibold">Insights Required</span>
                         </div>
                         <p>You must generate AI insights before you can save or view detailed analytics. Click "Generate Insights" below to get AI-powered recommendations based on your event's statistical data.</p>
                       </div>
                     )}
                   </div>
                   {/* Usage Info */}
-                  <div className="mb-4 p-3 bg-slate-700/50 border border-slate-600 rounded-lg">
-                    <p className="text-xs text-slate-300">
+                  <div className={`mb-4 p-3 rounded-lg ${isLightTheme ? "bg-purple-50 border border-purple-200 text-purple-700" : "bg-slate-700/50 border border-slate-600 text-slate-300"} text-xs`}>
+                    <p>
                       {insightsUsageInfo ? (
                         <>
                           Insights generated this week: {insightsUsageInfo.insightsGenerated}/{insightsUsageInfo.maxInsights}
                           {!insightsUsageInfo.canGenerateMore && (
-                            <span className="text-red-400 ml-2">(Limit reached)</span>
+                            <span className="text-red-500 ml-2">(Limit reached)</span>
                           )}
                         </>
                       ) : (
@@ -4866,6 +4873,35 @@ RECOMMENDATIONS:
         isEnabled={aiChatEnabled}
       />
     </div>
+    {isLightTheme && (
+      <style jsx global>{`
+        .event-page--light {
+          background-image: linear-gradient(135deg, #f8fafc, #ffffff, #e2e8f0) !important;
+        }
+        .event-page--light .text-white,
+        .event-page--light .text-slate-50,
+        .event-page--light .text-slate-100,
+        .event-page--light .text-slate-200 {
+          color: #0f172a !important;
+        }
+        .event-page--light .text-slate-300,
+        .event-page--light .text-slate-400,
+        .event-page--light .text-slate-500 {
+          color: #475569 !important;
+        }
+        .event-page--light [class*="bg-slate-9"],
+        .event-page--light [class*="bg-slate-8"],
+        .event-page--light [class*="bg-slate-7"],
+        .event-page--light [class*="bg-slate-6"] {
+          background-color: rgba(255, 255, 255, 0.96) !important;
+          border-color: rgba(15, 23, 42, 0.08) !important;
+          color: inherit;
+        }
+        .event-page--light [class*="border-slate"] {
+          border-color: rgba(15, 23, 42, 0.15) !important;
+        }
+      `}</style>
+    )}
     </>
   );
 }

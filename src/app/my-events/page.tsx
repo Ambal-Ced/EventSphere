@@ -416,7 +416,7 @@ function MyEventsDynamicContent() {
           {currentPageEvents.map((event) => (
             <div
               key={event.id}
-              className="group relative overflow-hidden rounded-lg border bg-card p-3 max-[639px]:p-3 sm:p-5 shadow-sm transition-shadow hover:shadow-md"
+              className="group relative overflow-hidden rounded-lg border-2 border-emerald-500/35 bg-card p-3 max-[639px]:p-3 sm:p-5 shadow-sm transition-shadow hover:shadow-md dark:border-emerald-500/25"
             >
               {event.image_url && (
                 <div className="absolute inset-0 z-0 opacity-10 transition-opacity group-hover:opacity-20">
