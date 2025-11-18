@@ -36,7 +36,7 @@ import { Database } from "@/types/supabase";
 import { formatDatePattern, formatDateLong } from "@/lib/date-utils";
 import { useAccountStatusFailsafe } from "@/hooks/useAccountStatusFailsafe";
 import { AccountStatusFailsafePopup } from "@/components/ui/account-status-failsafe-popup";
-import { THEME_STORAGE_KEY, THEME_CHANGE_EVENT, type ThemePreference } from "@/lib/theme";
+import { useThemePreference } from "@/lib/theme";
 
 type StepTone = "green" | "amber";
 
@@ -120,7 +120,7 @@ export default function HomeClient() {
   const [eventCountByDate, setEventCountByDate] = useState<Record<string, number>>({});
   const [eventsByDate, setEventsByDate] = useState<Record<string, { id: string; title: string; date: string }[]>>({});
   const [user, setUser] = useState<any>(null);
-  const [themePreference, setThemePreference] = useState<ThemePreference>("dark");
+  const themePreference = useThemePreference();
   const isLightTheme = themePreference === "light";
   const darkStepStyles: Record<StepTone, StepToneStyle> = {
     green: {
@@ -194,40 +194,6 @@ export default function HomeClient() {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const applyStoredTheme = () => {
-      const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
-      if (stored === "light" || stored === "dark") {
-        setThemePreference(stored);
-      }
-    };
-
-    applyStoredTheme();
-
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key === THEME_STORAGE_KEY && (event.newValue === "light" || event.newValue === "dark")) {
-        setThemePreference(event.newValue);
-      }
-    };
-
-    const handleThemeChange: EventListener = (event) => {
-      const detail = (event as CustomEvent<ThemePreference>).detail;
-      if (detail === "light" || detail === "dark") {
-        setThemePreference(detail);
-      }
-    };
-
-    window.addEventListener("storage", handleStorage);
-    window.addEventListener(THEME_CHANGE_EVENT, handleThemeChange);
-
-    return () => {
-      window.removeEventListener("storage", handleStorage);
-      window.removeEventListener(THEME_CHANGE_EVENT, handleThemeChange);
-    };
   }, []);
 
   useEffect(() => {

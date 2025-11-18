@@ -7,6 +7,8 @@ import { Header } from "@/components/ui/header";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Footer } from "@/components/ui/footer";
 import { CompleteProfileHandler } from "@/components/ui/complete-profile-handler";
+import { ThemeController } from "@/components/theme-controller";
+import { THEME_INIT_SCRIPT } from "@/lib/theme";
 // Revert to simple layout without conditional wrapper
 
 const inter = Inter({ subsets: ["latin"] });
@@ -45,8 +47,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="dark" suppressHydrationWarning>
       <body className={`${inter.className} min-h-screen flex flex-col`}>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        <ThemeController />
         <AuthProvider>
           <div className="flex flex-col min-h-screen">
             <Header />

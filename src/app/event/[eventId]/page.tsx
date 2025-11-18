@@ -81,7 +81,7 @@ import AIChat from "@/components/ai-chat";
 import { useAIDelay } from "@/hooks/useAIDelay";
 import { DefaultSubscriptionManager } from "@/lib/default-subscription-manager";
 import QRCode from "react-qr-code";
-import { THEME_STORAGE_KEY, THEME_CHANGE_EVENT, type ThemePreference } from "@/lib/theme";
+import { useThemePreference } from "@/lib/theme";
 
 interface Event {
   id: string;
@@ -288,49 +288,8 @@ export default function SingleEventPage() {
   ];
   const [isTypeMenuOpen, setIsTypeMenuOpen] = useState(false);
 
-  const [themePreference, setThemePreference] = useState<ThemePreference | null>(null);
-  const resolvedTheme = themePreference ?? "dark";
-  const isLightTheme = resolvedTheme === "light";
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const applyStoredTheme = () => {
-      const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
-      if (stored === "light" || stored === "dark") {
-        setThemePreference(stored);
-      } else {
-        const fallback = document.documentElement.classList.contains("dark") ? "dark" : "light";
-        setThemePreference(fallback);
-      }
-    };
-
-    applyStoredTheme();
-
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key === THEME_STORAGE_KEY) {
-        const value = event.newValue;
-        if (value === "light" || value === "dark") {
-          setThemePreference(value);
-        }
-      }
-    };
-
-    const handleThemeChange: EventListener = (event) => {
-      const detail = (event as CustomEvent<ThemePreference>).detail;
-      if (detail === "light" || detail === "dark") {
-        setThemePreference(detail);
-      }
-    };
-
-    window.addEventListener("storage", handleStorage);
-    window.addEventListener(THEME_CHANGE_EVENT, handleThemeChange);
-
-    return () => {
-      window.removeEventListener("storage", handleStorage);
-      window.removeEventListener(THEME_CHANGE_EVENT, handleThemeChange);
-    };
-  }, []);
+  const themePreference = useThemePreference();
+  const isLightTheme = themePreference === "light";
 
   useEffect(() => {
     if (eventId) {

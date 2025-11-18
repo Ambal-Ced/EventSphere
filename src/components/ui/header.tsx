@@ -7,12 +7,14 @@ import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { User as AuthUser } from "@supabase/supabase-js"; // Supabase User type
 import { cn } from "@/lib/utils";
-import { Bell, MessageSquare, Loader2, Menu, X, Star } from "lucide-react";
+import { Bell, MessageSquare, Loader2, Menu, X, Star, Moon, Sun } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useAuth } from "@/context/auth-context";
 import { UserDataAccess, NotificationDataAccess } from "@/lib/data-access-layer";
+import { Switch } from "@/components/ui/switch";
+import { setThemePreference, useThemePreference } from "@/lib/theme";
 
 type NotificationSource = "notifications" | "admin_notif";
 
@@ -59,6 +61,12 @@ export function Header() {
   const [notifLoading, setNotifLoading] = useState(false);
   const [showRatingTooltip, setShowRatingTooltip] = useState(false);
   const unreadCount = notifs.filter((n) => !n.read_at).length;
+  const themePreference = useThemePreference();
+  const [themeToggleMounted, setThemeToggleMounted] = useState(false);
+
+  useEffect(() => {
+    setThemeToggleMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!user) {
@@ -440,6 +448,25 @@ export function Header() {
 
       {/* Right side: Icons and User Menu/Login */}
       <div className="flex items-center gap-4">
+        {themeToggleMounted && (
+          <div className="hidden md:flex items-center gap-2 pr-2 border-r border-border">
+            <Moon
+              className={`h-4 w-4 ${
+                themePreference === "dark" ? "text-indigo-400" : "text-muted-foreground"
+              }`}
+            />
+            <Switch
+              checked={themePreference === "light"}
+              onCheckedChange={(checked) => setThemePreference(checked ? "light" : "dark")}
+              aria-label="Toggle light mode"
+            />
+            <Sun
+              className={`h-4 w-4 ${
+                themePreference === "light" ? "text-amber-500" : "text-muted-foreground"
+              }`}
+            />
+          </div>
+        )}
         {authLoading ? (
           <div className="h-8 w-8 animate-pulse rounded-full bg-muted"></div>
         ) : user ? (

@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
-import { THEME_STORAGE_KEY, THEME_CHANGE_EVENT, type ThemePreference } from "@/lib/theme";
+import { type ThemePreference, useThemePreference, setThemePreference } from "@/lib/theme";
 
 function SettingsContent() {
   const router = useRouter();
@@ -41,51 +41,24 @@ function SettingsContent() {
   const [isChangingEmail, setIsChangingEmail] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
 
-  const THEME_STORAGE_KEY = "eventsphere:theme";
   const LIGHT_THEME_BG = "#E5E7EB";
   const LIGHT_THEME_TEXT = "#111827";
+  const storedTheme = useThemePreference();
   const [selectedTheme, setSelectedTheme] = useState<ThemePreference>("dark");
   const [isThemeInitialized, setIsThemeInitialized] = useState(false);
 
   // Account deletion UI removed
 
-  // Hydrate theme from localStorage
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
-    if (storedTheme === "light" || storedTheme === "dark") {
+    if (storedTheme) {
       setSelectedTheme(storedTheme);
+      setIsThemeInitialized(true);
     }
-    setIsThemeInitialized(true);
-  }, []);
-
-  // Apply theme to document background/text
-  useEffect(() => {
-    if (typeof document === "undefined" || !isThemeInitialized) return;
-
-    window.localStorage.setItem(THEME_STORAGE_KEY, selectedTheme);
-    window.dispatchEvent(
-      new CustomEvent(THEME_CHANGE_EVENT, { detail: selectedTheme })
-    );
-
-    const root = document.documentElement;
-    const body = document.body;
-
-    if (selectedTheme === "light") {
-      root.classList.remove("dark");
-      body.style.backgroundColor = LIGHT_THEME_BG;
-      body.style.color = LIGHT_THEME_TEXT;
-    } else {
-      if (!root.classList.contains("dark")) {
-        root.classList.add("dark");
-      }
-      body.style.backgroundColor = "";
-      body.style.color = "";
-    }
-  }, [selectedTheme, isThemeInitialized]);
+  }, [storedTheme]);
 
   const handleThemeSelection = (theme: "light" | "dark") => {
     setSelectedTheme(theme);
+    setThemePreference(theme);
   };
 
   useEffect(() => {
