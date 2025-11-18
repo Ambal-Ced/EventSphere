@@ -3123,234 +3123,203 @@ RECOMMENDATIONS:
           {/* Right Sidebar - Green Rectangle Concept (hidden when chat open) */}
           <div className="lg:col-span-1 w-full">
             {!showChat && (
-            <div 
-              className="w-full space-y-4 sm:space-y-6 px-2 sm:px-4 lg:px-0 lg:sticky lg:top-24 lg:self-start lg:pr-2"
-            >
-              {/* Event Actions */}
-              <div className={`${actionSectionClass} rounded-lg p-4 sm:p-6 flex flex-col`}>
-                <h3 className={`text-lg sm:text-xl font-semibold mb-4 sm:mb-6 flex-shrink-0 ${actionHeadingClass}`}>
-                  Event Actions
-                </h3>
-                <div className="space-y-3 sm:space-y-4 flex-1">
-                  <Button
-                    variant="outline"
-                    className={`w-full justify-start ${actionButtonClass}`}
-                    onClick={() => handleEventAction("settings")}
-                  >
-                    <Settings className="w-4 h-4 mr-3" />
-                    Event Settings
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className={`w-full justify-start ${actionButtonClass}`}
-                    onClick={() => handleEventAction("chat")}
-                  >
-                    <MessageCircle className="w-4 h-4 mr-3" />
-                    Event Chat
-                  </Button>
-
-                  {/* Event Notes & Set Status - Role-based visibility */}
-                  {((isOwner && showMoreActions) || (userRole === "moderator" && showMoreActions)) && (
-                    <>
-                    <Button
-                      variant="outline"
-                      className={`w-full justify-start ${isLightTheme ? "border-amber-200 text-amber-700 hover:bg-amber-100 hover:text-amber-800" : "border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300"}`}
-                      onClick={() => handleEventAction("notes")}
-                    >
-                      <FileText className="w-4 h-4 mr-3" />
-                      Event Notes
-                    </Button>
-
-                    {/* Set Status - Only for owners and moderators */}
-                    {(isOwner || userRole === "moderator") && (
+              <div className="lg:sticky lg:top-24 lg:self-start lg:h-[calc(100vh-7rem)] lg:pr-2">
+                <div className="h-full overflow-y-auto space-y-4 sm:space-y-6 px-2 sm:px-4 lg:px-0">
+                  {/* Event Actions */}
+                  <div className={`${actionSectionClass} rounded-lg p-4 sm:p-6 flex flex-col`}>
+                    <h3 className={`text-lg sm:text-xl font-semibold mb-4 sm:mb-6 flex-shrink-0 ${actionHeadingClass}`}>
+                      Event Actions
+                    </h3>
+                    <div className="space-y-3 sm:space-y-4 flex-1">
                       <Button
                         variant="outline"
-                        className={`w-full justify-start ${isLightTheme ? "border-amber-200 text-amber-700 hover:bg-amber-100 hover:text-amber-800" : "border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300"}`}
-                        onClick={() => {
-                          setSelectedStatus(event?.status || "coming_soon");
-                          setShowStatusModal(true);
-                        }}
+                        className={`w-full justify-start ${actionButtonClass}`}
+                        onClick={() => handleEventAction("settings")}
                       >
-                        <Calendar className="w-4 h-4 mr-3" />
-                        Set Status
+                        <Settings className="w-4 h-4 mr-3" />
+                        Event Settings
                       </Button>
-                    )}
-                    </>
-                  )}
-
-                  {/* Public links - Available to owners, moderators, and members */}
-                  {((isOwner && showMoreActions) || (userRole === "moderator" && showMoreActions) || (userRole === "member" && showMoreActions)) && (
+                      <Button
+                        variant="outline"
+                        className={`w-full justify-start ${actionButtonClass}`}
+                        onClick={() => handleEventAction("chat")}
+                      >
+                        <MessageCircle className="w-4 h-4 mr-3" />
+                        Event Chat
+                      </Button>
+                      {((isOwner && showMoreActions) || (userRole === "moderator" && showMoreActions)) && (
+                        <>
+                          <Button
+                            variant="outline"
+                            className={`w-full justify-start ${
+                              isLightTheme
+                                ? "border-amber-200 text-amber-700 hover:bg-amber-100 hover:text-amber-800"
+                                : "border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300"
+                            }`}
+                            onClick={() => handleEventAction("notes")}
+                          >
+                            <FileText className="w-4 h-4 mr-3" />
+                            Event Notes
+                          </Button>
+                          {(isOwner || userRole === "moderator") && (
+                            <Button
+                              variant="outline"
+                              className={`w-full justify-start ${
+                                isLightTheme
+                                  ? "border-amber-200 text-amber-700 hover:bg-amber-100 hover:text-amber-800"
+                                  : "border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300"
+                              }`}
+                              onClick={() => {
+                                setSelectedStatus(event?.status || "coming_soon");
+                                setShowStatusModal(true);
+                              }}
+                            >
+                              <Calendar className="w-4 h-4 mr-3" />
+                              Set Status
+                            </Button>
+                          )}
+                        </>
+                      )}
+                      {((isOwner && showMoreActions) || (userRole === "moderator" && showMoreActions) || (userRole === "member" && showMoreActions)) && (
                         <div className="mt-3 space-y-3">
                           <Button
                             variant="outline"
-                            className={`w-full justify-start ${isLightTheme ? "border-amber-200 text-amber-700 hover:bg-amber-100 hover:text-amber-800" : "border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300"}`}
-                            onClick={() => generatePublicPortal('feedback')}
-                            disabled={isGeneratingPortal.type === 'feedback'}
+                            className={`w-full justify-start ${
+                              isLightTheme
+                                ? "border-amber-200 text-amber-700 hover:bg-amber-100 hover:text-amber-800"
+                                : "border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300"
+                            }`}
+                            onClick={() => generatePublicPortal("feedback")}
+                            disabled={isGeneratingPortal.type === "feedback"}
                           >
                             <span className="flex items-center gap-2 text-sm whitespace-normal break-words leading-snug text-left">
-                              {isGeneratingPortal.type === 'feedback' ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : (
-                                <Link2 className="w-4 h-4" />
-                              )}
-                              {isGeneratingPortal.type === 'feedback' ? 'Generating...' : 'Feedback Link'}
+                              {isGeneratingPortal.type === "feedback" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
+                              {isGeneratingPortal.type === "feedback" ? "Generating..." : "Feedback Link"}
                             </span>
                           </Button>
-
                           <Button
                             variant="outline"
-                            className={`w-full justify-start ${isLightTheme ? "border-amber-200 text-amber-700 hover:bg-amber-100 hover:text-amber-800" : "border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300"}`}
-                            onClick={() => generatePublicPortal('attendance')}
-                            disabled={isGeneratingPortal.type === 'attendance'}
+                            className={`w-full justify-start ${
+                              isLightTheme
+                                ? "border-amber-200 text-amber-700 hover:bg-amber-100 hover:text-amber-800"
+                                : "border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300"
+                            }`}
+                            onClick={() => generatePublicPortal("attendance")}
+                            disabled={isGeneratingPortal.type === "attendance"}
                           >
                             <span className="flex items-center gap-2 text-sm whitespace-normal break-words leading-snug text-left">
-                              {isGeneratingPortal.type === 'attendance' ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : (
-                                <QrCode className="w-4 h-4" />
-                              )}
-                              {isGeneratingPortal.type === 'attendance' ? 'Generating...' : 'Attendance Link'}
+                              {isGeneratingPortal.type === "attendance" ? <Loader2 className="w-4 h-4 animate-spin" /> : <QrCode className="w-4 h-4" />}
+                              {isGeneratingPortal.type === "attendance" ? "Generating..." : "Attendance Link"}
                             </span>
                           </Button>
                         </div>
                       )}
+                      {(isOwner || userRole === "moderator" || userRole === "member") && (
+                        <div className="mt-auto pt-2">
+                          <button
+                            type="button"
+                            aria-label="Toggle more actions"
+                            className="w-full flex items-center justify-center py-1"
+                            onClick={() => setShowMoreActions((s) => !s)}
+                          >
+                            {showMoreActions ? <ChevronUp className="w-6 h-6 text-green-400" /> : <ChevronDown className="w-6 h-6 text-green-400" />}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
 
-                  {/* Expand/Collapse button */}
-                  {(isOwner || userRole === "moderator" || userRole === "member") && (
-                      <div className="mt-auto pt-2">
-                        <button
-                          type="button"
-                          aria-label="Toggle more actions"
-                          className="w-full flex items-center justify-center py-1"
-                          onClick={() => setShowMoreActions((s) => !s)}
-                        >
-                          {showMoreActions ? (
-                            <ChevronUp className="w-6 h-6 text-green-400" />
+                  {/* Event Members */}
+                  <div className={`${membersSectionClass} rounded-lg p-4 sm:p-6 flex flex-col`}>
+                    <h3 className={`text-lg sm:text-xl font-semibold mb-4 sm:mb-6 flex-shrink-0 ${memberHeadingClass}`}>Event Members</h3>
+                    <div className="flex-1 flex flex-col min-h-0 overflow-visible">
+                      <div className="space-y-3 sm:space-y-4 flex-1">
+                        {(() => {
+                          const allMembers: any[] = [];
+                          if (event?.user_id) {
+                            allMembers.push({
+                              id: "owner",
+                              user_id: event.user_id,
+                              role: "owner",
+                              joined_at: event.created_at,
+                              profiles: event.profiles || null,
+                            });
+                          }
+                          const sortedCollaborators = [...collaborators].sort((a, b) => {
+                            if (a.role !== b.role) {
+                              if (a.role === "moderator") return -1;
+                              if (b.role === "moderator") return 1;
+                            }
+                            return new Date(a.joined_at).getTime() - new Date(b.joined_at).getTime();
+                          });
+                          allMembers.push(...sortedCollaborators);
+                          return allMembers.length > 0 ? (
+                            allMembers.map((member) => (
+                              <div key={member.id} className={`flex items-center gap-3 p-3 rounded-lg ${memberCardClass}`}>
+                                <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
+                                  {member.profiles?.avatar_url ? (
+                                    <Image src={member.profiles.avatar_url} alt="Avatar" width={40} height={40} className="rounded-full object-cover" />
+                                  ) : (
+                                    <Users className="w-5 h-5 text-purple-400" />
+                                  )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className={`font-medium truncate ${headingTextClass}`}>
+                                    {member.profiles?.fname && member.profiles?.lname
+                                      ? `${member.profiles.fname} ${member.profiles.lname}`
+                                      : member.profiles?.username || "Unknown User"}
+                                  </div>
+                                  <div className={`text-sm capitalize ${memberRoleTextClass}`}>
+                                    {member.role === "owner" ? "Event Organizer" : member.role}
+                                  </div>
+                                </div>
+                                {isOwner && member.role !== "owner" && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() =>
+                                      handleRemoveCollaborator(
+                                        member.id,
+                                        member.profiles?.fname && member.profiles?.lname
+                                          ? `${member.profiles.fname} ${member.profiles.lname}`
+                                          : member.profiles?.username || "Unknown User"
+                                      )
+                                    }
+                                    disabled={isRemovingCollaborator === member.id}
+                                    className="text-red-400 hover:text-red-300 hover:bg-red-500/20 p-1"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            ))
                           ) : (
-                            <ChevronDown className="w-6 h-6 text-green-400" />
-                          )}
-                        </button>
+                            <div className="text-center py-4">
+                              <Users className="w-8 h-8 text-purple-400 mx-auto mb-2" />
+                              <div className="text-purple-300 text-sm">No members yet</div>
+                            </div>
+                          );
+                        })()}
                       </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Event Members/People */}
-              <div className={`${membersSectionClass} rounded-lg p-4 sm:p-6 flex flex-col`}>
-                <h3 className={`text-lg sm:text-xl font-semibold mb-4 sm:mb-6 flex-shrink-0 ${memberHeadingClass}`}>
-                  Event Members
-                </h3>
-                <div className="flex-1 flex flex-col min-h-0 overflow-visible">
-                  <div 
-                    className="space-y-3 sm:space-y-4 flex-1"
-                  >
-                  {(() => {
-                    // Create a combined list with owner first, then collaborators sorted by joined_at
-                    const allMembers = [];
-                    
-                    // Add event owner first
-                    if (event?.user_id) {
-                      allMembers.push({
-                        id: 'owner',
-                        user_id: event.user_id,
-                        role: 'owner',
-                        joined_at: event.created_at,
-                        profiles: event.profiles || null
-                      });
-                    }
-                    
-                    // Add collaborators sorted by joined_at (oldest first for moderators)
-                    const sortedCollaborators = [...collaborators].sort((a, b) => {
-                      // Sort by role first (moderators before members), then by joined_at
-                      if (a.role !== b.role) {
-                        if (a.role === 'moderator') return -1;
-                        if (b.role === 'moderator') return 1;
-                      }
-                      return new Date(a.joined_at).getTime() - new Date(b.joined_at).getTime();
-                    });
-                    
-                    allMembers.push(...sortedCollaborators);
-                    
-                    return allMembers.length > 0 ? (
-                      allMembers.map((member) => (
-                        <div
-                          key={member.id}
-                          className={`flex items-center gap-3 p-3 rounded-lg ${memberCardClass}`}
+                      <div className="mt-4 flex-shrink-0">
+                        <Button
+                          variant="outline"
+                          className={`w-full justify-start disabled:opacity-50 disabled:cursor-not-allowed ${
+                            isLightTheme
+                              ? "border-purple-200 text-purple-700 hover:bg-purple-100 hover:text-purple-800"
+                              : "border-purple-500/30 text-purple-400 hover:bg-purple-500/20 hover:text-purple-300"
+                          }`}
+                          onClick={() => handleEventAction("invite")}
+                          disabled={!allowInvites}
                         >
-                          <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
-                            {member.profiles?.avatar_url ? (
-                              <Image
-                                src={member.profiles.avatar_url}
-                                alt="Avatar"
-                                width={40}
-                                height={40}
-                                className="rounded-full object-cover"
-                              />
-                            ) : (
-                              <Users className="w-5 h-5 text-purple-400" />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className={`font-medium truncate ${headingTextClass}`}>
-                              {member.profiles?.fname &&
-                              member.profiles?.lname
-                                ? `${member.profiles.fname} ${member.profiles.lname}`
-                                : member.profiles?.username ||
-                                  "Unknown User"}
-                            </div>
-                            <div className={`text-sm capitalize ${memberRoleTextClass}`}>
-                              {member.role === "owner" ? "Event Organizer" : member.role}
-                            </div>
-                          </div>
-                          {isOwner && member.role !== "owner" && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() =>
-                                handleRemoveCollaborator(
-                                  member.id,
-                                  member.profiles?.fname &&
-                                    member.profiles?.lname
-                                    ? `${member.profiles.fname} ${member.profiles.lname}`
-                                    : member.profiles?.username ||
-                                        "Unknown User"
-                                )
-                              }
-                              disabled={
-                                isRemovingCollaborator === member.id
-                              }
-                              className="text-red-400 hover:text-red-300 hover:bg-red-500/20 p-1"
-                            >
-                              <X className="w-4 h-4" />
-                            </Button>
-                          )}
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-center py-4">
-                        <Users className="w-8 h-8 text-purple-400 mx-auto mb-2" />
-                        <div className="text-purple-300 text-sm">
-                          No members yet
-                        </div>
+                          <UserPlus className="w-4 h-4 mr-3" />
+                          Add Members
+                        </Button>
                       </div>
-                    );
-                  })()}
-                  </div>
-                  
-                  <div className="mt-4 flex-shrink-0">
-                    <Button
-                      variant="outline"
-                      className={`w-full justify-start disabled:opacity-50 disabled:cursor-not-allowed ${isLightTheme ? "border-purple-200 text-purple-700 hover:bg-purple-100 hover:text-purple-800" : "border-purple-500/30 text-purple-400 hover:bg-purple-500/20 hover:text-purple-300"}`}
-                      onClick={() => handleEventAction("invite")}
-                      disabled={!allowInvites}
-                    >
-                      <UserPlus className="w-4 h-4 mr-3" />
-                      Add Members
-                    </Button>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
             )}
           </div>
         </div>
