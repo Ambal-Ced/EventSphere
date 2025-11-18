@@ -36,7 +36,7 @@ import { Database } from "@/types/supabase";
 import { formatDatePattern, formatDateLong } from "@/lib/date-utils";
 import { useAccountStatusFailsafe } from "@/hooks/useAccountStatusFailsafe";
 import { AccountStatusFailsafePopup } from "@/components/ui/account-status-failsafe-popup";
-import { useThemePreference } from "@/lib/theme";
+import { useThemePreference } from "@/hooks/use-theme-preference";
 
 type StepTone = "green" | "amber";
 

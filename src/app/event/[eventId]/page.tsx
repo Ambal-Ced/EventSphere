@@ -81,7 +81,7 @@ import AIChat from "@/components/ai-chat";
 import { useAIDelay } from "@/hooks/useAIDelay";
 import { DefaultSubscriptionManager } from "@/lib/default-subscription-manager";
 import QRCode from "react-qr-code";
-import { useThemePreference } from "@/lib/theme";
+import { useThemePreference } from "@/hooks/use-theme-preference";
 
 interface Event {
   id: string;

@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
-import { type ThemePreference, useThemePreference, setThemePreference } from "@/lib/theme";
+import { type ThemePreference, setThemePreference } from "@/lib/theme";
+import { useThemePreference } from "@/hooks/use-theme-preference";
 
 function SettingsContent() {
   const router = useRouter();

@@ -14,7 +14,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useAuth } from "@/context/auth-context";
 import { UserDataAccess, NotificationDataAccess } from "@/lib/data-access-layer";
 import { Switch } from "@/components/ui/switch";
-import { setThemePreference, useThemePreference } from "@/lib/theme";
+import { setThemePreference } from "@/lib/theme";
+import { useThemePreference } from "@/hooks/use-theme-preference";
 
 type NotificationSource = "notifications" | "admin_notif";
 
