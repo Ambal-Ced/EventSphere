@@ -10,6 +10,8 @@ import { Loader2 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { DefaultSubscriptionManager } from "@/lib/default-subscription-manager";
 import { useRouter } from "next/navigation";
+import { useThemePreference } from "@/hooks/use-theme-preference";
+import { useThemePreference } from "@/hooks/use-theme-preference";
 
 // Lazy-load Recharts bits client-side only
 const loadingBox = (h: number = 300) => <div style={{ height: h }} className="w-full animate-pulse rounded bg-slate-700/40" />;
@@ -66,6 +68,8 @@ export default function AnalyticsClient({
   initialFeedback,
 }: AnalyticsClientProps) {
   const router = useRouter();
+  const themePreference = useThemePreference();
+  const isLightTheme = themePreference === "light";
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
   const [scope, setScope] = useState<"owned" | "joined" | "both">("both");
@@ -662,23 +666,44 @@ IMPORTANT:
     setActMax('');
   };
 
+  const filtersCardClass = isLightTheme
+    ? "bg-white border border-slate-200"
+    : "bg-slate-800/60 border border-slate-600";
+  const cardHeadingClass = isLightTheme ? "text-slate-900" : "text-white";
+  const labelClass = isLightTheme ? "text-sm font-medium text-slate-600" : "text-sm font-medium text-slate-300";
+  const inputBaseClass = isLightTheme
+    ? "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400"
+    : "border-slate-600 bg-slate-700 text-white placeholder:text-slate-400";
+
+  const baseCardClass = isLightTheme
+    ? "bg-white border border-slate-200 shadow-sm text-slate-900"
+    : "bg-slate-800/60 border border-slate-600 text-white";
+  const subCardClass = isLightTheme
+    ? "bg-slate-50 border border-slate-200 text-slate-700"
+    : "bg-slate-900/50 border border-slate-700 text-slate-300";
+  const mutedTextClass = isLightTheme ? "text-slate-500" : "text-slate-400";
+
   return (
-    <div className="w-full max-w-6xl mx-auto py-8 pr-3">
+    <div className={`w-full max-w-6xl mx-auto py-8 pr-3 ${isLightTheme ? "analytics-light" : ""}`}>
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-white mb-4">Analytics</h1>
+        <h1 className={`text-3xl font-bold mb-4 ${cardHeadingClass}`}>Analytics</h1>
         
         {/* Filters Section */}
-        <div className="bg-slate-800/60 border border-slate-600 rounded-lg p-4">
+        <div className={`${filtersCardClass} rounded-lg p-4`}>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-white">Filters</h2>
+            <h2 className={`text-lg font-semibold ${cardHeadingClass}`}>Filters</h2>
             <div className="flex items-center gap-2">
               {loading && showStuckRefresh && (
                 <Button
                   onClick={() => { setShowStuckRefresh(false); setRefreshNonce((n) => n + 1); }}
                   variant="outline"
                   size="sm"
-                  className="border-amber-400/30 text-amber-300 hover:bg-amber-400/20 hover:text-amber-200"
+                  className={
+                    isLightTheme
+                      ? "border-amber-200 text-amber-700 hover:bg-amber-50"
+                      : "border-amber-400/30 text-amber-300 hover:bg-amber-400/20 hover:text-amber-200"
+                  }
                 >
                   Retry Load
                 </Button>
@@ -687,7 +712,11 @@ IMPORTANT:
                 onClick={resetAllFilters}
                 variant="outline"
                 size="sm"
-                className="border-red-500/30 text-red-400 hover:bg-red-500/20 hover:text-red-300"
+                className={
+                  isLightTheme
+                    ? "border-red-200 text-red-600 hover:bg-red-50"
+                    : "border-red-500/30 text-red-400 hover:bg-red-500/20 hover:text-red-300"
+                }
               >
                 Reset All
               </Button>
@@ -697,7 +726,7 @@ IMPORTANT:
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
             {/* Scope Filter */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-300">Scope</label>
+              <label className={labelClass}>Scope</label>
                 <Select value={scope} onValueChange={(v: any) => setScope(v)}>
                   <SelectTrigger className="w-full max-w-[180px]">
                     <SelectValue placeholder="Scope" />
@@ -712,7 +741,7 @@ IMPORTANT:
 
             {/* Type Filter */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-300">Event Type</label>
+              <label className={labelClass}>Event Type</label>
                 <Select value={typeFilter} onValueChange={(v:any)=>setTypeFilter(v)}>
                   <SelectTrigger className="w-full max-w-[180px]">
                     <SelectValue placeholder="Event Type"/>
@@ -735,20 +764,20 @@ IMPORTANT:
 
             {/* Date Range */}
             <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-medium text-slate-300">Date Range</label>
+              <label className={labelClass}>Date Range</label>
               <div className="flex flex-col sm:flex-row gap-2 w-full sm:max-w-[380px]">
                   <input 
                     type="date" 
                     value={dateFrom} 
                     onChange={e=>setDateFrom(e.target.value)} 
-                    className="h-10 rounded-md border border-slate-600 bg-slate-700 text-white px-3 text-sm flex-1 min-w-0"
+                    className={`h-10 rounded-md border px-3 text-sm flex-1 min-w-0 ${inputBaseClass}`}
                     placeholder="From"
                   />
                   <input 
                     type="date" 
                     value={dateTo} 
                     onChange={e=>setDateTo(e.target.value)} 
-                    className="h-10 rounded-md border border-slate-600 bg-slate-700 text-white px-3 text-sm flex-1 min-w-0"
+                    className={`h-10 rounded-md border px-3 text-sm flex-1 min-w-0 ${inputBaseClass}`}
                     placeholder="To"
                   />
               </div>
@@ -756,42 +785,42 @@ IMPORTANT:
 
             {/* Expected Attendees */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-300">Expected Attendees</label>
+              <label className={labelClass}>Expected Attendees</label>
                 <div className="flex gap-1 max-w-[200px] mx-auto">
                   <input 
                     type="number" 
                     placeholder="Min" 
                     value={expMin} 
                     onChange={e=>setExpMin(e.target.value)} 
-                    className="h-10 w-20 rounded-md border border-slate-600 bg-slate-700 text-white px-2 text-sm"
+                    className={`h-10 w-20 rounded-md border px-2 text-sm ${inputBaseClass}`}
                   />
                   <input 
                     type="number" 
                     placeholder="Max" 
                     value={expMax} 
                     onChange={e=>setExpMax(e.target.value)} 
-                    className="h-10 w-20 rounded-md border border-slate-600 bg-slate-700 text-white px-2 text-sm"
+                    className={`h-10 w-20 rounded-md border px-2 text-sm ${inputBaseClass}`}
                   />
               </div>
             </div>
 
             {/* Actual Attendees */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-300">Actual Attendees</label>
+              <label className={labelClass}>Actual Attendees</label>
                 <div className="flex gap-1 max-w-[200px] mx-auto">
                   <input 
                     type="number" 
                     placeholder="Min" 
                     value={actMin} 
                     onChange={e=>setActMin(e.target.value)} 
-                    className="h-10 w-20 rounded-md border border-slate-600 bg-slate-700 text-white px-2 text-sm"
+                    className={`h-10 w-20 rounded-md border px-2 text-sm ${inputBaseClass}`}
                   />
                   <input 
                     type="number" 
                     placeholder="Max" 
                     value={actMax} 
                     onChange={e=>setActMax(e.target.value)} 
-                    className="h-10 w-20 rounded-md border border-slate-600 bg-slate-700 text-white px-2 text-sm"
+                    className={`h-10 w-20 rounded-md border px-2 text-sm ${inputBaseClass}`}
                   />
               </div>
             </div>
@@ -806,44 +835,44 @@ IMPORTANT:
       ) : aggregates ? (
         <div className="space-y-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-slate-800/60 rounded-lg p-4 text-center border border-green-500/20">
-              <div className="text-slate-400 text-sm">Total Events</div>
-              <div className="text-lg sm:text-xl md:text-2xl font-bold text-white break-words">{aggregates.totalEvents}</div>
+            <div className={`${baseCardClass} rounded-lg p-4 text-center border border-green-500/20`}>
+              <div className={`${mutedTextClass} text-sm`}>Total Events</div>
+              <div className={`text-lg sm:text-xl md:text-2xl font-bold break-words ${cardHeadingClass}`}>{aggregates.totalEvents}</div>
             </div>
-            <div className="bg-slate-800/60 rounded-lg p-4 text-center border border-amber-500/20">
-              <div className="text-slate-400 text-sm">Total Items</div>
-              <div className="text-lg sm:text-xl md:text-2xl font-bold text-white break-words">{aggregates.totalItems}</div>
+            <div className={`${baseCardClass} rounded-lg p-4 text-center border border-amber-500/20`}>
+              <div className={`${mutedTextClass} text-sm`}>Total Items</div>
+              <div className={`text-lg sm:text-xl md:text-2xl font-bold break-words ${cardHeadingClass}`}>{aggregates.totalItems}</div>
             </div>
-            <div className="bg-slate-800/60 rounded-lg p-4 text-center border border-blue-500/20">
-              <div className="text-slate-400 text-sm">Total Item Cost</div>
-              <div className="text-sm sm:text-lg md:text-xl lg:text-2xl font-bold text-white break-words">PHP {aggregates.totalItemCost.toFixed(2)}</div>
+            <div className={`${baseCardClass} rounded-lg p-4 text-center border border-blue-500/20`}>
+              <div className={`${mutedTextClass} text-sm`}>Total Item Cost</div>
+              <div className={`text-sm sm:text-lg md:text-xl lg:text-2xl font-bold break-words ${cardHeadingClass}`}>PHP {aggregates.totalItemCost.toFixed(2)}</div>
             </div>
-            <div className="bg-slate-800/60 rounded-lg p-4 text-center border border-purple-500/20">
-              <div className="text-slate-400 text-sm">Estimated Revenue</div>
-              <div className="text-sm sm:text-lg md:text-xl lg:text-2xl font-bold text-white break-words">PHP {aggregates.estRevenue.toFixed(2)}</div>
+            <div className={`${baseCardClass} rounded-lg p-4 text-center border border-purple-500/20`}>
+              <div className={`${mutedTextClass} text-sm`}>Estimated Revenue</div>
+              <div className={`text-sm sm:text-lg md:text-xl lg:text-2xl font-bold break-words ${cardHeadingClass}`}>PHP {aggregates.estRevenue.toFixed(2)}</div>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-slate-800/60 rounded-lg p-4 border border-slate-600">
-              <div className="text-slate-400 text-sm">Avg Items / Event</div>
-              <div className="text-xl font-semibold text-white">{aggregates.avgItemsPerEvent.toFixed(1)}</div>
+            <div className={`${baseCardClass} rounded-lg p-4`}>
+              <div className={`${mutedTextClass} text-sm`}>Avg Items / Event</div>
+              <div className={`text-xl font-semibold ${cardHeadingClass}`}>{aggregates.avgItemsPerEvent.toFixed(1)}</div>
             </div>
-            <div className="bg-slate-800/60 rounded-lg p-4 border border-slate-600">
-              <div className="text-slate-400 text-sm">Avg Cost / Event</div>
-              <div className="text-xl font-semibold text-white">PHP {aggregates.avgCostPerEvent.toFixed(2)}</div>
+            <div className={`${baseCardClass} rounded-lg p-4`}>
+              <div className={`${mutedTextClass} text-sm`}>Avg Cost / Event</div>
+              <div className={`text-xl font-semibold ${cardHeadingClass}`}>PHP {aggregates.avgCostPerEvent.toFixed(2)}</div>
             </div>
-            <div className="bg-slate-800/60 rounded-lg p-4 border border-slate-600">
-              <div className="text-slate-400 text-sm">Events With Items</div>
-              <div className="text-xl font-semibold text-white">{new Set(items.map(i => i.event_id)).size}</div>
+            <div className={`${baseCardClass} rounded-lg p-4`}>
+              <div className={`${mutedTextClass} text-sm`}>Events With Items</div>
+              <div className={`text-xl font-semibold ${cardHeadingClass}`}>{new Set(items.map(i => i.event_id)).size}</div>
             </div>
           </div>
 
           {/* Attendance Overview Pie */}
           {mounted && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-slate-800/60 rounded-lg p-4 border border-slate-600 md:col-span-1">
-                <h3 className="text-lg font-semibold text-white mb-3">Attendance Overview</h3>
+              <div className={`${baseCardClass} rounded-lg p-4 md:col-span-1`}>
+                <h3 className={`text-lg font-semibold mb-3 ${cardHeadingClass}`}>Attendance Overview</h3>
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>

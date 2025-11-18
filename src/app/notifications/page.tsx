@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
+import { useThemePreference } from "@/hooks/use-theme-preference";
 import { 
   Bell, 
   Check, 
@@ -38,6 +39,8 @@ interface Notification {
 
 export default function NotificationsPage() {
   const router = useRouter();
+  const themePreference = useThemePreference();
+  const isLightTheme = themePreference === "light";
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [markingRead, setMarkingRead] = useState<string | null>(null);
@@ -271,7 +274,7 @@ export default function NotificationsPage() {
   }
 
   return (
-    <div className="container mx-auto py-8">
+    <div className={`container mx-auto py-8 ${isLightTheme ? "notifications-light" : ""}`}>
       {/* Header */}
       <div className="mb-8">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4">

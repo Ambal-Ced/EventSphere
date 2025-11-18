@@ -3124,7 +3124,7 @@ RECOMMENDATIONS:
           <div className="lg:col-span-1 w-full">
             {!showChat && (
             <div 
-              className="w-full space-y-4 sm:space-y-6 px-2 sm:px-4 lg:px-0 lg:sticky lg:top-24 lg:self-start lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto lg:pr-2 lg:scrollbar-thin"
+              className="w-full space-y-4 sm:space-y-6 px-2 sm:px-4 lg:px-0 lg:sticky lg:top-24 lg:self-start lg:pr-2"
             >
               {/* Event Actions */}
               <div className={`${actionSectionClass} rounded-lg p-4 sm:p-6 flex flex-col`}>
