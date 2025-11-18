@@ -11,7 +11,6 @@ import dynamic from "next/dynamic";
 import { DefaultSubscriptionManager } from "@/lib/default-subscription-manager";
 import { useRouter } from "next/navigation";
 import { useThemePreference } from "@/hooks/use-theme-preference";
-import { useThemePreference } from "@/hooks/use-theme-preference";
 
 // Lazy-load Recharts bits client-side only
 const loadingBox = (h: number = 300) => <div style={{ height: h }} className="w-full animate-pulse rounded bg-slate-700/40" />;
