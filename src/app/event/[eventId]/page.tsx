@@ -3123,7 +3123,7 @@ RECOMMENDATIONS:
           {/* Right Sidebar - Green Rectangle Concept (hidden when chat open) */}
           <div className="lg:col-span-1 w-full">
             {!showChat && (
-              <div className="space-y-4 sm:space-y-6 px-2 sm:px-4 lg:px-0">
+              <div className="lg:sticky lg:top-20 space-y-4 sm:space-y-6 px-2 sm:px-4 lg:px-0">
                   {/* Event Actions */}
                   <div className={`${actionSectionClass} rounded-lg p-4 sm:p-6 flex flex-col`}>
                     <h3 className={`text-lg sm:text-xl font-semibold mb-4 sm:mb-6 flex-shrink-0 ${actionHeadingClass}`}>
