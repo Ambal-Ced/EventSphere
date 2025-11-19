@@ -288,14 +288,39 @@ export default function SingleEventPage() {
   ];
   const [isTypeMenuOpen, setIsTypeMenuOpen] = useState(false);
 
-  const themePreference = useThemePreference();
-  const isLightTheme = themePreference === "light";
+const themePreference = useThemePreference();
+const isLightTheme = themePreference === "light";
+const [sidebarBottomOffset, setSidebarBottomOffset] = useState(24);
 
   useEffect(() => {
     if (eventId) {
       fetchEvent();
     }
   }, [eventId]);
+
+  useEffect(() => {
+    const updateSidebarOffset = () => {
+      const footerEl = document.getElementById("site-footer");
+      if (!footerEl) {
+        setSidebarBottomOffset(24);
+        return;
+      }
+      const footerRect = footerEl.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      const overlap = Math.max(0, viewportHeight - footerRect.top);
+      const nextOffset = overlap > 0 ? overlap + 24 : 24;
+      setSidebarBottomOffset((prev) => (prev === nextOffset ? prev : nextOffset));
+    };
+
+    updateSidebarOffset();
+    window.addEventListener("scroll", updateSidebarOffset);
+    window.addEventListener("resize", updateSidebarOffset);
+
+    return () => {
+      window.removeEventListener("scroll", updateSidebarOffset);
+      window.removeEventListener("resize", updateSidebarOffset);
+    };
+  }, []);
 
   useEffect(() => {
     if (event) {
@@ -3126,7 +3151,10 @@ RECOMMENDATIONS:
       {/* Fixed Right Sidebar - large screens */}
       {!showChat && (
         <div className="hidden lg:block">
-                <div className="fixed right-8 top-40 bottom-16 w-[320px] space-y-1.5 sm:space-y-2 overflow-y-auto pr-2">
+                <div
+                  className="fixed right-8 top-40 w-[320px] space-y-1.5 sm:space-y-2 overflow-y-auto pr-2 transition-all duration-200 ease-out"
+                  style={{ bottom: sidebarBottomOffset }}
+                >
                   {/* Event Actions */}
                   <div className={`${actionSectionClass} rounded-lg p-3.5 sm:p-4.5 flex flex-col`}>
                     <h3 className={`text-lg sm:text-xl font-semibold mb-2 sm:mb-3 flex-shrink-0 ${actionHeadingClass}`}>
