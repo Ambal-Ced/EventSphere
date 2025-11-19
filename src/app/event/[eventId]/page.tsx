@@ -2320,10 +2320,10 @@ RECOMMENDATIONS:
       </div>
 
       {/* Main Content with gutter */}
-      <div className="w-full py-4 sm:py-6 lg:py-8 px-4 sm:px-6 lg:px-0 lg:pr-3">
-        <div className="relative max-w-7xl mx-auto flex flex-col lg:flex-row gap-4 sm:gap-6 lg:gap-8 lg:items-start">
+      <div className="w-full py-4 sm:py-6 lg:py-8 px-4 sm:px-6 lg:px-10">
+        <div className="relative max-w-7xl mx-auto lg:pr-[340px]">
           {/* Main Content Area */}
-          <div className="flex-1 space-y-4 sm:space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Event Title */}
             <div className="text-center">
               {isEditingEvent ? (
@@ -3120,16 +3120,19 @@ RECOMMENDATIONS:
             </div>
           </div>
 
-          {/* Right Sidebar - only large screens */}
-          {!showChat && (
-            <aside className="hidden lg:block w-[320px] flex-shrink-0">
-              <div className="sticky top-24 space-y-4 sm:space-y-6 pr-2 max-h-[calc(100vh-6rem)] overflow-y-auto">
+        </div>
+      </div>
+
+      {/* Fixed Right Sidebar - large screens */}
+      {!showChat && (
+        <div className="hidden lg:block">
+                <div className="fixed right-8 top-40 bottom-16 w-[320px] space-y-1.5 sm:space-y-2 overflow-y-auto pr-2">
                   {/* Event Actions */}
-                  <div className={`${actionSectionClass} rounded-lg p-4 sm:p-6 flex flex-col`}>
-                    <h3 className={`text-lg sm:text-xl font-semibold mb-4 sm:mb-6 flex-shrink-0 ${actionHeadingClass}`}>
+                  <div className={`${actionSectionClass} rounded-lg p-3.5 sm:p-4.5 flex flex-col`}>
+                    <h3 className={`text-lg sm:text-xl font-semibold mb-2 sm:mb-3 flex-shrink-0 ${actionHeadingClass}`}>
                       Event Actions
                     </h3>
-                    <div className="space-y-3 sm:space-y-4 flex-1">
+                    <div className="space-y-1.5 sm:space-y-2.5 flex-1">
                       <Button
                         variant="outline"
                         className={`w-full justify-start ${actionButtonClass}`}
@@ -3146,6 +3149,7 @@ RECOMMENDATIONS:
                         <MessageCircle className="w-4 h-4 mr-3" />
                         Event Chat
                       </Button>
+
                       {((isOwner && showMoreActions) || (userRole === "moderator" && showMoreActions)) && (
                         <>
                           <Button
@@ -3160,6 +3164,7 @@ RECOMMENDATIONS:
                             <FileText className="w-4 h-4 mr-3" />
                             Event Notes
                           </Button>
+
                           {(isOwner || userRole === "moderator") && (
                             <Button
                               variant="outline"
@@ -3179,8 +3184,9 @@ RECOMMENDATIONS:
                           )}
                         </>
                       )}
+
                       {((isOwner && showMoreActions) || (userRole === "moderator" && showMoreActions) || (userRole === "member" && showMoreActions)) && (
-                        <div className="mt-3 space-y-3">
+                        <div className="mt-2 space-y-2.5">
                           <Button
                             variant="outline"
                             className={`w-full justify-start ${
@@ -3196,6 +3202,7 @@ RECOMMENDATIONS:
                               {isGeneratingPortal.type === "feedback" ? "Generating..." : "Feedback Link"}
                             </span>
                           </Button>
+
                           <Button
                             variant="outline"
                             className={`w-full justify-start ${
@@ -3213,8 +3220,9 @@ RECOMMENDATIONS:
                           </Button>
                         </div>
                       )}
+
                       {(isOwner || userRole === "moderator" || userRole === "member") && (
-                        <div className="mt-auto pt-2">
+                        <div className="mt-auto pt-0 pb-0">
                           <button
                             type="button"
                             aria-label="Toggle more actions"
@@ -3229,10 +3237,10 @@ RECOMMENDATIONS:
                   </div>
 
                   {/* Event Members */}
-                  <div className={`${membersSectionClass} rounded-lg p-4 sm:p-6 flex flex-col`}>
-                    <h3 className={`text-lg sm:text-xl font-semibold mb-4 sm:mb-6 flex-shrink-0 ${memberHeadingClass}`}>Event Members</h3>
+                  <div className={`${membersSectionClass} rounded-lg p-3.5 sm:p-4.5 flex flex-col`}>
+                    <h3 className={`text-lg sm:text-xl font-semibold mb-2.5 sm:mb-3 flex-shrink-0 ${memberHeadingClass}`}>Event Members</h3>
                     <div className="flex-1 flex flex-col min-h-0 overflow-visible">
-                      <div className="space-y-3 sm:space-y-4 flex-1">
+                      <div className="space-y-1.5 sm:space-y-2.5 flex-1">
                         {(() => {
                           const allMembers: any[] = [];
                           if (event?.user_id) {
@@ -3254,12 +3262,12 @@ RECOMMENDATIONS:
                           allMembers.push(...sortedCollaborators);
                           return allMembers.length > 0 ? (
                             allMembers.map((member) => (
-                              <div key={member.id} className={`flex items-center gap-3 p-3 rounded-lg ${memberCardClass}`}>
-                                <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
+                              <div key={member.id} className={`flex items-center gap-2.5 p-2 rounded-lg ${memberCardClass}`}>
+                                <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center">
                                   {member.profiles?.avatar_url ? (
-                                    <Image src={member.profiles.avatar_url} alt="Avatar" width={40} height={40} className="rounded-full object-cover" />
+                                    <Image src={member.profiles.avatar_url} alt="Avatar" width={32} height={32} className="rounded-full object-cover" />
                                   ) : (
-                                    <Users className="w-5 h-5 text-purple-400" />
+                                    <Users className="w-4 h-4 text-purple-400" />
                                   )}
                                 </div>
                                 <div className="flex-1 min-w-0">
@@ -3300,7 +3308,8 @@ RECOMMENDATIONS:
                           );
                         })()}
                       </div>
-                      <div className="mt-4 flex-shrink-0">
+
+                      <div className="mt-3 flex-shrink-0">
                         <Button
                           variant="outline"
                           className={`w-full justify-start disabled:opacity-50 disabled:cursor-not-allowed ${
@@ -3317,11 +3326,9 @@ RECOMMENDATIONS:
                       </div>
                     </div>
                   </div>
-                </div>
-            </aside>
-          )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Invite Modal */}
       {showInviteModal && (
