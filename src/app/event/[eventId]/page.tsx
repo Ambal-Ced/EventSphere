@@ -2321,7 +2321,7 @@ RECOMMENDATIONS:
 
       {/* Main Content with gutter */}
       <div className="w-full py-4 sm:py-6 lg:py-8 px-4 sm:px-6 lg:px-0 lg:pr-3">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8 relative max-w-7xl mx-auto lg:items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8 relative max-w-7xl mx-auto">
           {/* Main Content Area - Takes 3 columns */}
           <div className="lg:col-span-3 space-y-4 sm:space-y-6">
             {/* Event Title */}
@@ -3121,9 +3121,10 @@ RECOMMENDATIONS:
           </div>
 
           {/* Right Sidebar - Green Rectangle Concept (hidden when chat open) */}
-          <div className="lg:col-span-1 w-full">
+          <div className="lg:col-span-1 w-full lg:h-full lg:self-stretch">
             {!showChat && (
-              <div className="lg:sticky lg:top-20 space-y-4 sm:space-y-6 px-2 sm:px-4 lg:px-0">
+              <div className="lg:h-full lg:sticky lg:top-24 px-2 sm:px-4 lg:px-0">
+                <div className="space-y-4 sm:space-y-6 lg:h-full">
                   {/* Event Actions */}
                   <div className={`${actionSectionClass} rounded-lg p-4 sm:p-6 flex flex-col`}>
                     <h3 className={`text-lg sm:text-xl font-semibold mb-4 sm:mb-6 flex-shrink-0 ${actionHeadingClass}`}>
@@ -3318,6 +3319,7 @@ RECOMMENDATIONS:
                     </div>
                   </div>
                 </div>
+              </div>
             )}
           </div>
         </div>
