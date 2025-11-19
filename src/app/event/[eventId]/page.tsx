@@ -3318,7 +3318,6 @@ RECOMMENDATIONS:
                     </div>
                   </div>
                 </div>
-              </div>
             )}
           </div>
         </div>
