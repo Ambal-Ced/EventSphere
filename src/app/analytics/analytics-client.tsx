@@ -681,6 +681,79 @@ IMPORTANT:
     ? "bg-slate-50 border border-slate-200 text-slate-700"
     : "bg-slate-900/50 border border-slate-700 text-slate-300";
   const mutedTextClass = isLightTheme ? "text-slate-500" : "text-slate-400";
+  
+  // Chart container classes
+  const chartContainerClass = isLightTheme
+    ? "bg-white border border-slate-200 shadow-sm"
+    : "bg-slate-800/60 border border-slate-600";
+  const chartSubContainerClass = isLightTheme
+    ? "bg-slate-50 border border-slate-200"
+    : "bg-slate-700/50 border border-slate-600";
+  const chartTitleClass = isLightTheme
+    ? "text-lg font-semibold text-slate-900 mb-3"
+    : "text-lg font-semibold text-white mb-3";
+  const chartSubTitleClass = isLightTheme
+    ? "text-sm font-semibold text-slate-700 mb-3"
+    : "text-sm font-semibold text-slate-300 mb-3";
+  
+  // Predictive analytics classes
+  const predictiveContainerClass = isLightTheme
+    ? "bg-white border border-blue-200 shadow-sm"
+    : "bg-slate-800/60 border border-blue-500/20";
+  const predictiveSubTextClass = isLightTheme
+    ? "text-xs text-slate-500"
+    : "text-xs text-slate-400";
+  
+  // Warning box classes
+  const warningBoxClass = isLightTheme
+    ? "bg-amber-50 border border-amber-200"
+    : "bg-amber-900/30 border border-amber-500/50";
+  const warningIconClass = isLightTheme ? "text-amber-600" : "text-amber-400";
+  const warningTitleClass = isLightTheme
+    ? "text-sm font-semibold text-amber-800 mb-1"
+    : "text-sm font-semibold text-amber-300 mb-1";
+  const warningTextClass = isLightTheme
+    ? "text-xs text-amber-700/90"
+    : "text-xs text-amber-200/80";
+  
+  // Summary section classes
+  const summaryBorderClass = isLightTheme
+    ? "border-t border-slate-300"
+    : "border-t border-slate-600";
+  const summaryTitleClass = isLightTheme
+    ? "text-sm font-semibold text-slate-700 mb-3"
+    : "text-sm font-semibold text-slate-300 mb-3";
+  const summaryLabelClass = isLightTheme
+    ? "text-xs text-slate-500"
+    : "text-xs text-slate-400";
+  const summaryValueClass = isLightTheme
+    ? "text-lg font-semibold text-slate-900"
+    : "text-lg font-semibold text-white";
+  const summaryValueXlClass = isLightTheme
+    ? "text-xl font-semibold text-slate-900"
+    : "text-xl font-semibold text-white";
+  
+  // AI Insights classes
+  const aiInsightsContainerClass = isLightTheme
+    ? "bg-white border border-purple-200 shadow-sm"
+    : "bg-slate-800/60 border border-purple-500/20";
+  const aiInsightsUsageClass = isLightTheme
+    ? "bg-slate-50 border border-slate-200"
+    : "bg-slate-700/50 border border-slate-600";
+  const aiInsightsUsageTextClass = isLightTheme
+    ? "text-xs text-slate-600"
+    : "text-xs text-slate-300";
+  const aiInsightsTextareaClass = isLightTheme
+    ? "w-full min-h-[120px] p-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 leading-relaxed resize-vertical focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+    : "w-full min-h-[120px] p-3 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-200 leading-relaxed resize-vertical focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent";
+  const aiInsightsHelperTextClass = isLightTheme
+    ? "text-xs text-slate-500"
+    : "text-xs text-slate-400";
+  
+  // Loading/empty state classes
+  const loadingTextClass = isLightTheme
+    ? "text-slate-600"
+    : "text-slate-400";
 
   return (
     <div className={`w-full max-w-6xl mx-auto py-8 pr-3 ${isLightTheme ? "analytics-light" : ""}`}>
@@ -908,14 +981,14 @@ IMPORTANT:
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
-                <div className="mt-3 text-sm text-slate-300">
+                <div className={`mt-3 text-sm ${mutedTextClass}`}>
                   Avg Rating: <span className="font-semibold">{aggregates.avgRating.toFixed(1)}/5</span>
                 </div>
               </div>
 
             {/* Cost over Time */}
-            <div className="bg-slate-800/60 rounded-lg p-4 border border-slate-600 md:col-span-2">
-              <h3 className="text-lg font-semibold text-white mb-3">Total Item Cost Over Time</h3>
+            <div className={`${chartContainerClass} rounded-lg p-4 md:col-span-2`}>
+              <h3 className={chartTitleClass}>Total Item Cost Over Time</h3>
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={lineData} margin={{ left: 8, right: 8 }}>
@@ -932,8 +1005,8 @@ IMPORTANT:
           )}
 
           {/* Cost vs Expected Attendees */}
-          <div className="bg-slate-800/60 rounded-lg p-4 border border-slate-600">
-            <h3 className="text-lg font-semibold text-white mb-3">Cost vs Expected Attendees</h3>
+          <div className={`${chartContainerClass} rounded-lg p-4`}>
+            <h3 className={chartTitleClass}>Cost vs Expected Attendees</h3>
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <ScatterChart>
@@ -949,8 +1022,8 @@ IMPORTANT:
           </div>
 
           {/* Top events by cost */}
-          <div className="bg-slate-800/60 rounded-lg p-4 border border-slate-600">
-            <h3 className="text-lg font-semibold text-white mb-3">Top Events by Total Item Cost</h3>
+          <div className={`${chartContainerClass} rounded-lg p-4`}>
+            <h3 className={chartTitleClass}>Top Events by Total Item Cost</h3>
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={costChartData.map((item: any, idx: number) => ({ ...item, _index: idx }))} margin={{ left: 8, right: 8 }}>
@@ -970,30 +1043,30 @@ IMPORTANT:
 
           {/* Predictive Analytics Charts */}
           {loadingPredictions && (
-            <div className="bg-slate-800/60 rounded-lg p-4 border border-blue-500/20">
-              <div className="flex items-center gap-2 text-slate-400">
+            <div className={`${predictiveContainerClass} rounded-lg p-4`}>
+              <div className={`flex items-center gap-2 ${loadingTextClass}`}>
                 <Loader2 className="w-4 h-4 animate-spin" />
                 Loading predictive analytics...
               </div>
             </div>
           )}
           {!loadingPredictions && (!predictionsData || !predictionsData.predictions || predictionsData.predictions.length === 0) && events.length > 0 && (
-            <div className="bg-slate-800/60 rounded-lg p-4 border border-blue-500/20">
+            <div className={`${predictiveContainerClass} rounded-lg p-4`}>
               <div className="text-center py-8">
-                <p className="text-slate-400 mb-2">Predictive analytics will appear here</p>
-                <p className="text-xs text-slate-500">Loading predictions based on your event data...</p>
+                <p className={`${loadingTextClass} mb-2`}>Predictive analytics will appear here</p>
+                <p className={predictiveSubTextClass}>Loading predictions based on your event data...</p>
               </div>
             </div>
           )}
           {predictionsData && predictionsData.predictions && (
-            <div className="bg-slate-800/60 rounded-lg p-4 border border-blue-500/20">
+            <div className={`${predictiveContainerClass} rounded-lg p-4`}>
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-blue-400 mb-1">Predictive Analytics (Next 6 Months)</h3>
-                  <p className="text-xs text-slate-400">Monthly forecasts based on your historical event data</p>
+                  <h3 className={`text-lg font-semibold ${isLightTheme ? "text-blue-600" : "text-blue-400"} mb-1`}>Predictive Analytics (Next 6 Months)</h3>
+                  <p className={predictiveSubTextClass}>Monthly forecasts based on your historical event data</p>
                 </div>
                 {loadingPredictions && (
-                  <div className="flex items-center gap-2 text-sm text-slate-400">
+                  <div className={`flex items-center gap-2 text-sm ${loadingTextClass}`}>
                     <Loader2 className="w-4 h-4 animate-spin" />
                     Updating predictions...
                   </div>
@@ -1002,16 +1075,16 @@ IMPORTANT:
 
               {/* Data Quality Warning */}
               {predictionsData.data_quality && predictionsData.data_quality.has_low_accuracy && (
-                <div className="mb-4 p-3 bg-amber-900/30 border border-amber-500/50 rounded-lg">
+                <div className={`mb-4 p-3 ${warningBoxClass} rounded-lg`}>
                   <div className="flex items-start gap-2">
-                    <div className="text-amber-400 mt-0.5">
+                    <div className={`${warningIconClass} mt-0.5`}>
                       <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                       </svg>
                     </div>
                     <div className="flex-1">
-                      <div className="text-sm font-semibold text-amber-300 mb-1">Low Prediction Accuracy Warning</div>
-                      <div className="text-xs text-amber-200/80">
+                      <div className={warningTitleClass}>Low Prediction Accuracy Warning</div>
+                      <div className={warningTextClass}>
                         {predictionsData.data_quality.message}. Predictions may have <strong>very low accuracy</strong> due to insufficient or inconsistent historical data. 
                         {predictionsData.data_quality.data_points > 0 && (
                           <span> Only {predictionsData.data_quality.data_points} data point{predictionsData.data_quality.data_points !== 1 ? 's' : ''} available.</span>
@@ -1027,8 +1100,8 @@ IMPORTANT:
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {/* Predicted Cost */}
-                <div className="bg-slate-700/50 rounded-lg p-4 border border-slate-600">
-                  <h4 className="text-sm font-semibold text-slate-300 mb-3">Predicted Event Costs (Monthly)</h4>
+                <div className={`${chartSubContainerClass} rounded-lg p-4`}>
+                  <h4 className={chartSubTitleClass}>Predicted Event Costs (Monthly)</h4>
                   <div className="h-64">
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={[
@@ -1068,8 +1141,8 @@ IMPORTANT:
                 </div>
 
                 {/* Predicted Revenue */}
-                <div className="bg-slate-700/50 rounded-lg p-4 border border-slate-600">
-                  <h4 className="text-sm font-semibold text-slate-300 mb-3">Predicted Revenue (Monthly)</h4>
+                <div className={`${chartSubContainerClass} rounded-lg p-4`}>
+                  <h4 className={chartSubTitleClass}>Predicted Revenue (Monthly)</h4>
                   <div className="h-64">
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={[
@@ -1123,8 +1196,8 @@ IMPORTANT:
                 </div>
 
                 {/* Predicted Events */}
-                <div className="bg-slate-700/50 rounded-lg p-4 border border-slate-600">
-                  <h4 className="text-sm font-semibold text-slate-300 mb-3">Predicted Event Creation (Monthly)</h4>
+                <div className={`${chartSubContainerClass} rounded-lg p-4`}>
+                  <h4 className={chartSubTitleClass}>Predicted Event Creation (Monthly)</h4>
                   <div className="h-64">
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={[
@@ -1163,8 +1236,8 @@ IMPORTANT:
                 </div>
 
                 {/* Predicted Attendance */}
-                <div className="bg-slate-700/50 rounded-lg p-4 border border-slate-600">
-                  <h4 className="text-sm font-semibold text-slate-300 mb-3">Predicted Expected Attendance (Monthly)</h4>
+                <div className={`${chartSubContainerClass} rounded-lg p-4`}>
+                  <h4 className={chartSubTitleClass}>Predicted Expected Attendance (Monthly)</h4>
                   <div className="h-64">
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={[
@@ -1210,25 +1283,25 @@ IMPORTANT:
 
               {/* Prediction Summary */}
               {predictionsData.trends && (
-                <div className="mt-4 pt-4 border-t border-slate-600">
-                  <h4 className="text-sm font-semibold text-slate-300 mb-3">Prediction Summary</h4>
+                <div className={`mt-4 pt-4 ${summaryBorderClass}`}>
+                  <h4 className={summaryTitleClass}>Prediction Summary</h4>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
                     <div>
-                      <div className="text-xs text-slate-400">Avg Daily Cost</div>
-                      <div className="text-lg font-semibold text-white">PHP {predictionsData.trends.avg_daily_cost?.toFixed(2) || "0.00"}</div>
+                      <div className={summaryLabelClass}>Avg Daily Cost</div>
+                      <div className={summaryValueClass}>PHP {predictionsData.trends.avg_daily_cost?.toFixed(2) || "0.00"}</div>
                     </div>
                     <div>
-                      <div className="text-xs text-slate-400">Avg Daily Revenue</div>
-                      <div className="text-lg font-semibold text-white">PHP {predictionsData.trends.avg_daily_revenue?.toFixed(2) || "0.00"}</div>
+                      <div className={summaryLabelClass}>Avg Daily Revenue</div>
+                      <div className={summaryValueClass}>PHP {predictionsData.trends.avg_daily_revenue?.toFixed(2) || "0.00"}</div>
                     </div>
                     <div>
-                      <div className="text-xs text-slate-400">Cost Growth</div>
+                      <div className={summaryLabelClass}>Cost Growth</div>
                       <div className={`text-lg font-semibold ${(predictionsData.trends.cost_growth_rate || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                         {predictionsData.trends.cost_growth_rate?.toFixed(1) || "0.0"}%
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs text-slate-400">Revenue Growth</div>
+                      <div className={summaryLabelClass}>Revenue Growth</div>
                       <div className={`text-lg font-semibold ${(predictionsData.trends.revenue_growth_rate || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                         {predictionsData.trends.revenue_growth_rate?.toFixed(1) || "0.0"}%
                       </div>
@@ -1237,37 +1310,37 @@ IMPORTANT:
                   
                   {/* Next Month Predictions */}
                   {predictionsData.predictions_summary && (
-                    <div className="bg-slate-700/50 rounded-lg p-4 border border-slate-600">
-                      <h5 className="text-xs font-semibold text-blue-400 mb-3">Next Month Forecast</h5>
+                    <div className={`${chartSubContainerClass} rounded-lg p-4`}>
+                      <h5 className={`text-xs font-semibold ${isLightTheme ? "text-blue-600" : "text-blue-400"} mb-3`}>Next Month Forecast</h5>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
                         <div>
-                          <div className="text-xs text-slate-400">Predicted Event Count</div>
-                          <div className="text-xl font-semibold text-white">{predictionsData.predictions_summary.next_month_event_count || 0}</div>
-                          <div className="text-xs text-slate-500 mt-1">events</div>
+                          <div className={summaryLabelClass}>Predicted Event Count</div>
+                          <div className={summaryValueXlClass}>{predictionsData.predictions_summary.next_month_event_count || 0}</div>
+                          <div className={`${predictiveSubTextClass} mt-1`}>events</div>
                         </div>
                         <div>
-                          <div className="text-xs text-slate-400">Estimated Revenue</div>
+                          <div className={summaryLabelClass}>Estimated Revenue</div>
                           <div className="text-xl font-semibold text-green-400">PHP {predictionsData.predictions_summary.next_month_estimated_revenue?.toFixed(2) || "0.00"}</div>
                         </div>
                         <div>
-                          <div className="text-xs text-slate-400">Estimated Cost</div>
+                          <div className={summaryLabelClass}>Estimated Cost</div>
                           <div className="text-xl font-semibold text-amber-400">PHP {predictionsData.predictions_summary.next_month_estimated_cost?.toFixed(2) || "0.00"}</div>
                         </div>
                       </div>
                       {predictionsData.predictions_summary.next_6_months_total_events !== undefined && (
-                        <div className="pt-3 border-t border-slate-600">
-                          <h6 className="text-xs font-semibold text-slate-400 mb-2">Next 6 Months Total</h6>
+                        <div className={`pt-3 ${summaryBorderClass}`}>
+                          <h6 className={`text-xs font-semibold ${summaryLabelClass} mb-2`}>Next 6 Months Total</h6>
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                             <div>
-                              <div className="text-slate-500">Total Events</div>
-                              <div className="text-white font-semibold">{predictionsData.predictions_summary.next_6_months_total_events || 0}</div>
+                              <div className={predictiveSubTextClass}>Total Events</div>
+                              <div className={`${summaryValueClass} font-semibold`}>{predictionsData.predictions_summary.next_6_months_total_events || 0}</div>
                             </div>
                             <div>
-                              <div className="text-slate-500">Total Revenue</div>
+                              <div className={predictiveSubTextClass}>Total Revenue</div>
                               <div className="text-green-400 font-semibold">PHP {predictionsData.predictions_summary.next_6_months_total_revenue?.toFixed(2) || "0.00"}</div>
                             </div>
                             <div>
-                              <div className="text-slate-500">Total Cost</div>
+                              <div className={predictiveSubTextClass}>Total Cost</div>
                               <div className="text-amber-400 font-semibold">PHP {predictionsData.predictions_summary.next_6_months_total_cost?.toFixed(2) || "0.00"}</div>
                             </div>
                           </div>
@@ -1280,32 +1353,32 @@ IMPORTANT:
                   {predictionsData.popular_insights && (
                     <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {predictionsData.popular_insights.top_categories && predictionsData.popular_insights.top_categories.length > 0 && (
-                        <div className="bg-slate-700/50 rounded-lg p-4 border border-slate-600">
-                          <h5 className="text-xs font-semibold text-purple-400 mb-2">Top Event Categories</h5>
+                        <div className={`${chartSubContainerClass} rounded-lg p-4`}>
+                          <h5 className={`text-xs font-semibold ${isLightTheme ? "text-purple-600" : "text-purple-400"} mb-2`}>Top Event Categories</h5>
                           <div className="space-y-1">
                             {predictionsData.popular_insights.top_categories.slice(0, 3).map((cat: any, idx: number) => (
                               <div key={idx} className="flex justify-between text-xs">
-                                <span className="text-slate-300">{cat.category}</span>
-                                <span className="text-slate-400">{cat.count} events</span>
+                                <span className={isLightTheme ? "text-slate-700" : "text-slate-300"}>{cat.category}</span>
+                                <span className={mutedTextClass}>{cat.count} events</span>
                               </div>
                             ))}
                           </div>
                           {predictionsData.popular_insights.predicted_popular_category && (
-                            <div className="mt-2 pt-2 border-t border-slate-600">
-                              <div className="text-xs text-slate-400">Predicted Popular:</div>
-                              <div className="text-sm font-semibold text-purple-300">{predictionsData.popular_insights.predicted_popular_category}</div>
+                            <div className={`mt-2 pt-2 ${summaryBorderClass}`}>
+                              <div className={summaryLabelClass}>Predicted Popular:</div>
+                              <div className={`text-sm font-semibold ${isLightTheme ? "text-purple-700" : "text-purple-300"}`}>{predictionsData.popular_insights.predicted_popular_category}</div>
                             </div>
                           )}
                         </div>
                       )}
                       {predictionsData.popular_insights.popular_events && predictionsData.popular_insights.popular_events.length > 0 && (
-                        <div className="bg-slate-700/50 rounded-lg p-4 border border-slate-600">
-                          <h5 className="text-xs font-semibold text-cyan-400 mb-2">Most Popular Events</h5>
+                        <div className={`${chartSubContainerClass} rounded-lg p-4`}>
+                          <h5 className={`text-xs font-semibold ${isLightTheme ? "text-cyan-600" : "text-cyan-400"} mb-2`}>Most Popular Events</h5>
                           <div className="space-y-2">
                             {predictionsData.popular_insights.popular_events.slice(0, 3).map((ev: any, idx: number) => (
                               <div key={idx} className="text-xs">
-                                <div className="text-slate-300 font-medium truncate">{ev.name}</div>
-                                <div className="text-slate-400">PHP {ev.revenue?.toFixed(2) || "0.00"} revenue • {ev.attendees || 0} attendees</div>
+                                <div className={`${isLightTheme ? "text-slate-700" : "text-slate-300"} font-medium truncate`}>{ev.name}</div>
+                                <div className={mutedTextClass}>PHP {ev.revenue?.toFixed(2) || "0.00"} revenue • {ev.attendees || 0} attendees</div>
                               </div>
                             ))}
                           </div>
@@ -1319,13 +1392,13 @@ IMPORTANT:
           )}
 
           {/* AI Analytics Insights */}
-          <div className="bg-slate-800/60 rounded-lg p-4 border border-purple-500/20">
-            <h3 className="text-lg font-semibold text-purple-400 mb-2">AI Analytics Insights</h3>
+          <div className={`${aiInsightsContainerClass} rounded-lg p-4`}>
+            <h3 className={`text-lg font-semibold ${isLightTheme ? "text-purple-600" : "text-purple-400"} mb-2`}>AI Analytics Insights</h3>
             
             {/* Usage Info */}
             {insightsUsageInfo && (
-              <div className="mb-4 p-3 bg-slate-700/50 border border-slate-600 rounded-lg">
-                <p className="text-xs text-slate-300">
+              <div className={`mb-4 p-3 ${aiInsightsUsageClass} rounded-lg`}>
+                <p className={aiInsightsUsageTextClass}>
                   Insights generated this week: {insightsUsageInfo.insightsGenerated}/{insightsUsageInfo.maxInsights}
                   {!insightsUsageInfo.canGenerateMore && (
                     <span className="text-red-400 ml-2">(Limit reached)</span>
@@ -1338,25 +1411,25 @@ IMPORTANT:
               <div className="space-y-3">
                 {/* Quick Summary */}
                 {predictionsData && predictionsData.trends && (
-                  <div className="p-3 bg-gradient-to-r from-purple-900/30 to-blue-900/30 border border-purple-500/30 rounded-lg">
-                    <h4 className="text-sm font-semibold text-purple-300 mb-2">Quick Summary</h4>
+                  <div className={`p-3 ${isLightTheme ? "bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200" : "bg-gradient-to-r from-purple-900/30 to-blue-900/30 border border-purple-500/30"} rounded-lg`}>
+                    <h4 className={`text-sm font-semibold ${isLightTheme ? "text-purple-700" : "text-purple-300"} mb-2`}>Quick Summary</h4>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                       <div>
-                        <div className="text-slate-400">Avg Daily Cost</div>
-                        <div className="text-white font-semibold">PHP {predictionsData.trends.avg_daily_cost?.toFixed(2) || "0.00"}</div>
+                        <div className={summaryLabelClass}>Avg Daily Cost</div>
+                        <div className={summaryValueClass}>PHP {predictionsData.trends.avg_daily_cost?.toFixed(2) || "0.00"}</div>
                       </div>
                       <div>
-                        <div className="text-slate-400">Avg Daily Revenue</div>
-                        <div className="text-white font-semibold">PHP {predictionsData.trends.avg_daily_revenue?.toFixed(2) || "0.00"}</div>
+                        <div className={summaryLabelClass}>Avg Daily Revenue</div>
+                        <div className={summaryValueClass}>PHP {predictionsData.trends.avg_daily_revenue?.toFixed(2) || "0.00"}</div>
                       </div>
                       <div>
-                        <div className="text-slate-400">Cost Growth</div>
+                        <div className={summaryLabelClass}>Cost Growth</div>
                         <div className={`font-semibold ${(predictionsData.trends.cost_growth_rate || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                           {predictionsData.trends.cost_growth_rate?.toFixed(1) || "0.0"}%
                         </div>
                       </div>
                       <div>
-                        <div className="text-slate-400">Revenue Growth</div>
+                        <div className={summaryLabelClass}>Revenue Growth</div>
                         <div className={`font-semibold ${(predictionsData.trends.revenue_growth_rate || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                           {predictionsData.trends.revenue_growth_rate?.toFixed(1) || "0.0"}%
                         </div>
@@ -1367,10 +1440,10 @@ IMPORTANT:
                 <textarea
                   value={aiInsights}
                   onChange={(e) => setAiInsights(e.target.value)}
-                  className="w-full min-h-[120px] p-3 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-200 leading-relaxed resize-vertical focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className={aiInsightsTextareaClass}
                   placeholder="Generated insights will appear here..."
                 />
-                <div className="flex items-center justify-between text-xs text-slate-400">
+                <div className={`flex items-center justify-between ${aiInsightsHelperTextClass}`}>
                   <span>You can edit the insights above</span>
                   <div className="flex items-center gap-2">
                     {isSaving && (
@@ -1386,7 +1459,7 @@ IMPORTANT:
                 </div>
               </div>
             ) : (
-              <p className="text-slate-400">Generate AI-powered analytics insights that include descriptive analytics (current performance and historical trends) and predictive insights (forecasts for the next 30 days) in a concise paragraph format.</p>
+              <p className={aiInsightsHelperTextClass}>Generate AI-powered analytics insights that include descriptive analytics (current performance and historical trends) and predictive insights (forecasts for the next 30 days) in a concise paragraph format.</p>
             )}
             <div className="mt-3">
               <Button 
@@ -1411,7 +1484,7 @@ IMPORTANT:
           </div>
         </div>
       ) : (
-        <div className="text-slate-400">No events to analyze.</div>
+        <div className={loadingTextClass}>No events to analyze.</div>
       )}
     </div>
   );
