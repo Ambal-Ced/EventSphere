@@ -496,7 +496,7 @@ export function Header() {
                 <div className={`absolute right-0 top-full mt-2 transition-opacity duration-200 z-50 ${
                   isNewUser ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
                 } ${!isNewUser ? 'pointer-events-none' : ''}`}>
-                  <div className={`bg-slate-900 text-white rounded-lg p-4 shadow-lg border border-slate-700 min-w-[250px] max-w-[300px] relative ${isNewUser ? '' : 'pointer-events-auto'}`}>
+                  <div className={`${themePreference === 'light' ? 'bg-white text-slate-900 border-slate-200' : 'bg-slate-900 text-white border-slate-700'} rounded-lg p-4 shadow-lg border min-w-[250px] max-w-[300px] relative ${isNewUser ? '' : 'pointer-events-auto'}`}>
                     {/* Close button */}
                     <button
                       onClick={(e) => {
@@ -507,7 +507,7 @@ export function Header() {
                           localStorage.setItem(storageKey, Date.now().toString());
                         }
                       }}
-                      className="absolute top-2 right-2 text-slate-400 hover:text-white transition-colors"
+                      className={`absolute top-2 right-2 transition-colors ${themePreference === 'light' ? 'text-slate-400 hover:text-slate-600' : 'text-slate-400 hover:text-white'}`}
                       aria-label="Close"
                     >
                       <X className="h-4 w-4" />
@@ -518,7 +518,7 @@ export function Header() {
                         <p className="font-medium text-sm mb-1">
                           EventTria - Please Rate Us
                         </p>
-                        <p className="text-xs text-slate-300 leading-relaxed">
+                        <p className={`text-xs leading-relaxed ${themePreference === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
                           Let us know what we can do to improve our website. Your feedback helps us serve you better!
                         </p>
                       </div>
@@ -543,7 +543,7 @@ export function Header() {
                     </div>
                   </div>
                   {/* Arrow pointing up */}
-                  <div className="absolute -top-1 right-4 w-2 h-2 bg-slate-900 border-l border-t border-slate-700 transform rotate-45"></div>
+                  <div className={`absolute -top-1 right-4 w-2 h-2 border-l border-t transform rotate-45 ${themePreference === 'light' ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-700'}`}></div>
                 </div>
               )}
             </div>
@@ -628,7 +628,7 @@ export function Header() {
 
               {/* Hover Tooltip */}
               <div className="absolute right-0 top-full mt-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
-                <div className="bg-slate-900 text-white rounded-lg p-3 shadow-lg border border-slate-700 min-w-[200px]">
+                <div className={`${themePreference === 'light' ? 'bg-white text-slate-900 border-slate-200' : 'bg-slate-900 text-white border-slate-700'} rounded-lg p-3 shadow-lg border min-w-[200px]`}>
                   <div className="flex items-center gap-3 mb-2">
                     <Avatar className="h-10 w-10">
                       <AvatarImage
@@ -643,16 +643,16 @@ export function Header() {
                       <p className="font-medium text-sm">
                         {profile?.fname} {profile?.lname}
                       </p>
-                      <p className="text-xs text-slate-300">{user?.email}</p>
+                      <p className={`text-xs ${themePreference === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>{user?.email}</p>
                     </div>
                   </div>
-                  <div className="text-xs text-slate-300 text-center">
+                  <div className={`text-xs text-center ${themePreference === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
                     Click to view profile
                   </div>
                 </div>
 
                 {/* Arrow pointing up */}
-                <div className="absolute -top-1 right-4 w-2 h-2 bg-slate-900 border-l border-t border-slate-700 transform rotate-45"></div>
+                <div className={`absolute -top-1 right-4 w-2 h-2 border-l border-t transform rotate-45 ${themePreference === 'light' ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-700'}`}></div>
               </div>
             </div>
 
