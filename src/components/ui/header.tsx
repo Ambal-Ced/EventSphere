@@ -450,23 +450,46 @@ export function Header() {
       {/* Right side: Icons and User Menu/Login */}
       <div className="flex items-center gap-4">
         {themeToggleMounted && (
-          <div className="hidden md:flex items-center gap-2 pr-2 border-r border-border">
-            <Moon
-              className={`h-4 w-4 ${
-                themePreference === "dark" ? "text-indigo-400" : "text-muted-foreground"
-              }`}
-            />
-            <Switch
-              checked={themePreference === "light"}
-              onCheckedChange={(checked) => setThemePreference(checked ? "light" : "dark")}
-              aria-label="Toggle light mode"
-            />
-            <Sun
-              className={`h-4 w-4 ${
-                themePreference === "light" ? "text-amber-500" : "text-muted-foreground"
-              }`}
-            />
-          </div>
+          <>
+            {/* Desktop theme toggle */}
+            <div className="hidden md:flex items-center gap-2 pr-2 border-r border-border">
+              <Moon
+                className={`h-4 w-4 ${
+                  themePreference === "dark" ? "text-indigo-400" : "text-muted-foreground"
+                }`}
+              />
+              <Switch
+                checked={themePreference === "light"}
+                onCheckedChange={(checked) => setThemePreference(checked ? "light" : "dark")}
+                aria-label="Toggle light mode"
+              />
+              <Sun
+                className={`h-4 w-4 ${
+                  themePreference === "light" ? "text-amber-500" : "text-muted-foreground"
+                }`}
+              />
+            </div>
+            {/* Mobile theme toggle - shown when user is signed in, to the left of profile */}
+            {user && (
+              <div className="md:hidden flex items-center gap-2">
+                <Moon
+                  className={`h-4 w-4 ${
+                    themePreference === "dark" ? "text-indigo-400" : "text-muted-foreground"
+                  }`}
+                />
+                <Switch
+                  checked={themePreference === "light"}
+                  onCheckedChange={(checked) => setThemePreference(checked ? "light" : "dark")}
+                  aria-label="Toggle light mode"
+                />
+                <Sun
+                  className={`h-4 w-4 ${
+                    themePreference === "light" ? "text-amber-500" : "text-muted-foreground"
+                  }`}
+                />
+              </div>
+            )}
+          </>
         )}
         {authLoading ? (
           <div className="h-8 w-8 animate-pulse rounded-full bg-muted"></div>
@@ -677,14 +700,35 @@ export function Header() {
               </Button>
             </div>
             
-            {/* Mobile hamburger menu for non-authenticated users */}
-            <button
-              className="sm:hidden inline-flex h-10 w-10 items-center justify-center rounded-md hover:bg-muted/50"
-              aria-label="Open menu"
-              onClick={() => setMobileOpen((v) => !v)}
-            >
-              {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </button>
+            {/* Mobile: Theme toggle and hamburger menu for non-authenticated users */}
+            <div className="sm:hidden flex items-center gap-2">
+              {themeToggleMounted && (
+                <div className="flex items-center gap-1.5">
+                  <Moon
+                    className={`h-4 w-4 ${
+                      themePreference === "dark" ? "text-indigo-400" : "text-muted-foreground"
+                    }`}
+                  />
+                  <Switch
+                    checked={themePreference === "light"}
+                    onCheckedChange={(checked) => setThemePreference(checked ? "light" : "dark")}
+                    aria-label="Toggle light mode"
+                  />
+                  <Sun
+                    className={`h-4 w-4 ${
+                      themePreference === "light" ? "text-amber-500" : "text-muted-foreground"
+                    }`}
+                  />
+                </div>
+              )}
+              <button
+                className="inline-flex h-10 w-10 items-center justify-center rounded-md hover:bg-muted/50"
+                aria-label="Open menu"
+                onClick={() => setMobileOpen((v) => !v)}
+              >
+                {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </button>
+            </div>
           </>
         )}
       </div>
