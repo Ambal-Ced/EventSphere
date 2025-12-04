@@ -174,6 +174,11 @@ export default function SingleEventPage() {
   const [inviteRole, setInviteRole] = useState<"moderator" | "member">(
     "member"
   );
+  // Subtitle for invited user (display label under their name in Event Members)
+  const [inviteSubtitleChoice, setInviteSubtitleChoice] = useState<
+    "collaborator" | "owner" | "other"
+  >("collaborator");
+  const [inviteSubtitleCustom, setInviteSubtitleCustom] = useState<string>("");
   const [inviteCode, setInviteCode] = useState<string>("");
   const [isGeneratingInvite, setIsGeneratingInvite] = useState(false);
   const [showQRCode, setShowQRCode] = useState(false);
@@ -509,9 +514,37 @@ const [sidebarBottomOffset, setSidebarBottomOffset] = useState(24);
             .from("profiles")
             .select("id, username, fname, lname, avatar_url")
             .in("id", ids);
+
+          // Also fetch collaborator subtitle/role for these users in this event
+          const { data: collabs } = await supabase
+            .from("event_collaborators")
+            .select("user_id, role, subtitle_choice, subtitle_custom")
+            .eq("event_id", event.id)
+            .in("user_id", ids);
+
+          const collabMap: Record<string, any> = {};
+          for (const c of collabs || []) {
+            let subtitle = "";
+            if (c.subtitle_choice === "owner") subtitle = "Event Owner";
+            else if (c.subtitle_choice === "collaborator")
+              subtitle = "Event Collaborator";
+            else if (c.subtitle_choice === "other")
+              subtitle = c.subtitle_custom || "";
+
+            collabMap[c.user_id] = {
+              role: c.role,
+              subtitle,
+            };
+          }
+
           if (profiles) {
             const next: Record<string, any> = {};
-            for (const p of profiles) next[p.id] = p;
+            for (const p of profiles) {
+              next[p.id] = {
+                ...p,
+                collab: collabMap[p.id],
+              };
+            }
             setUserMap((prev) => ({ ...prev, ...next }));
           }
         }
@@ -534,14 +567,44 @@ const [sidebarBottomOffset, setSidebarBottomOffset] = useState(24);
             setChatMessages((prev) => [...prev, payload.new]);
             const uid = payload.new?.user_id;
             if (uid && !userMap[uid]) {
-              supabase
-                .from("profiles")
-                .select("id, username, fname, lname, avatar_url")
-                .eq("id", uid)
-                .single()
-                .then(({ data }) => {
-                  if (data) setUserMap((prev) => ({ ...prev, [uid]: data }));
-                });
+              Promise.all([
+                supabase
+                  .from("profiles")
+                  .select("id, username, fname, lname, avatar_url")
+                  .eq("id", uid)
+                  .single(),
+                supabase
+                  .from("event_collaborators")
+                  .select("user_id, role, subtitle_choice, subtitle_custom")
+                  .eq("event_id", event.id)
+                  .eq("user_id", uid)
+                  .maybeSingle(),
+              ]).then(([profileResult, collabResult]) => {
+                const profile = profileResult.data;
+                const collab = collabResult.data;
+                if (profile) {
+                  let subtitle = "";
+                  if (collab) {
+                    if (collab.subtitle_choice === "owner") subtitle = "Event Owner";
+                    else if (collab.subtitle_choice === "collaborator")
+                      subtitle = "Event Collaborator";
+                    else if (collab.subtitle_choice === "other")
+                      subtitle = collab.subtitle_custom || "";
+                  }
+                  setUserMap((prev) => ({
+                    ...prev,
+                    [uid]: {
+                      ...profile,
+                      collab: collab
+                        ? {
+                            role: collab.role,
+                            subtitle,
+                          }
+                        : undefined,
+                    },
+                  }));
+                }
+              });
             }
           }
         )
@@ -1297,6 +1360,15 @@ const [sidebarBottomOffset, setSidebarBottomOffset] = useState(24);
   const generateInviteCode = async () => {
     if (!event) return;
 
+    // For "Other" subtitle, require a non-empty custom label
+    if (
+      inviteSubtitleChoice === "other" &&
+      !inviteSubtitleCustom.trim()
+    ) {
+      toast.error("Please enter a custom subtitle (e.g. Caterer).");
+      return;
+    }
+
     setIsGeneratingInvite(true);
     try {
       const {
@@ -1315,6 +1387,12 @@ const [sidebarBottomOffset, setSidebarBottomOffset] = useState(24);
           event_id: event.id,
           invite_code: inviteCode,
           role: inviteRole,
+          // New optional subtitle metadata for invited user
+          subtitle_choice: inviteSubtitleChoice, // 'collaborator' | 'owner' | 'other'
+          subtitle_custom:
+            inviteSubtitleChoice === "other"
+              ? inviteSubtitleCustom.trim()
+              : null,
           created_by: user.id,
           max_uses: 20,
           expires_at: new Date(
@@ -1327,6 +1405,9 @@ const [sidebarBottomOffset, setSidebarBottomOffset] = useState(24);
       if (error) throw error;
 
       setInviteCode(inviteCode);
+      // Reset subtitle input for next time
+      setInviteSubtitleChoice("collaborator");
+      setInviteSubtitleCustom("");
       toast.success("Invite code generated successfully!");
     } catch (error: any) {
       toast.error("Failed to generate invite code: " + error.message);
@@ -1426,23 +1507,47 @@ const [sidebarBottomOffset, setSidebarBottomOffset] = useState(24);
     }
 
     try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        toast.error("You need to be signed in to add items.");
+        return;
+      }
+
+      // Owners and moderators (and, later, users with an \"Event Owner\" subtitle)
+      // can have their items approved immediately. Everyone else creates a pending request.
+      const isItemApprover = canEdit;
+      const nowIso = new Date().toISOString();
+
       console.log("Attempting to insert item:", {
         event_id: event.id,
         item_name: newItem.item_name.trim(),
         item_description: newItem.item_description.trim(),
         item_quantity: newItem.item_quantity,
         cost: newItem.cost,
+        status: isItemApprover ? "approved" : "pending",
       });
+
+      const payload: any = {
+        event_id: event.id,
+        item_name: newItem.item_name.trim(),
+        item_description: newItem.item_description.trim(),
+        item_quantity: newItem.item_quantity,
+        cost: newItem.cost,
+        status: isItemApprover ? "approved" : "pending",
+        requested_by: user.id,
+      };
+
+      if (isItemApprover) {
+        payload.approved_by = user.id;
+        payload.approved_at = nowIso;
+      }
 
       const { data, error } = await supabase
         .from("event_items")
-        .insert({
-          event_id: event.id,
-          item_name: newItem.item_name.trim(),
-          item_description: newItem.item_description.trim(),
-          item_quantity: newItem.item_quantity,
-          cost: newItem.cost,
-        })
+        .insert(payload)
         .select()
         .single();
 
@@ -1453,12 +1558,110 @@ const [sidebarBottomOffset, setSidebarBottomOffset] = useState(24);
 
       console.log("Item inserted successfully:", data);
       setEventItems((prev) => [...prev, data]);
-      setNewItem({ item_name: "", item_description: "", item_quantity: 1, cost: 0.00 });
+      setNewItem({ item_name: "", item_description: "", item_quantity: 1, cost: 0.0 });
       setShowAddForm(false);
-      toast.success("Item added successfully!");
+      toast.success(
+        isItemApprover
+          ? "Item added successfully!"
+          : "Item submitted for approval. It will appear once approved by the event owner or moderator."
+      );
     } catch (error: any) {
       console.error("Error in handleAddItem:", error);
       toast.error("Failed to add item: " + error.message);
+    }
+  };
+
+  const handleApproveItem = async (itemId: string) => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        toast.error("You need to be signed in to approve items.");
+        return;
+      }
+
+      if (!canEdit) {
+        toast.error("Only the event owner or moderators can approve items.");
+        return;
+      }
+
+      const nowIso = new Date().toISOString();
+
+      const { error } = await supabase
+        .from("event_items")
+        .update({
+          status: "approved",
+          approved_by: user.id,
+          approved_at: nowIso,
+        })
+        .eq("id", itemId);
+
+      if (error) {
+        console.error("Supabase error in handleApproveItem:", error);
+        throw error;
+      }
+
+      setEventItems((prev) =>
+        prev.map((item) =>
+          item.id === itemId
+            ? { ...item, status: "approved", approved_by: user.id, approved_at: nowIso }
+            : item
+        )
+      );
+
+      toast.success("Item approved.");
+    } catch (error: any) {
+      console.error("Error in handleApproveItem:", error);
+      toast.error("Failed to approve item: " + error.message);
+    }
+  };
+
+  const handleRejectItem = async (itemId: string) => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        toast.error("You need to be signed in to reject items.");
+        return;
+      }
+
+      if (!canEdit) {
+        toast.error("Only the event owner or moderators can reject items.");
+        return;
+      }
+
+      const nowIso = new Date().toISOString();
+
+      const { error } = await supabase
+        .from("event_items")
+        .update({
+          status: "rejected",
+          approved_by: user.id,
+          approved_at: nowIso,
+        })
+        .eq("id", itemId);
+
+      if (error) {
+        console.error("Supabase error in handleRejectItem:", error);
+        throw error;
+      }
+
+      setEventItems((prev) =>
+        prev.map((item) =>
+          item.id === itemId
+            ? { ...item, status: "rejected", approved_by: user.id, approved_at: nowIso }
+            : item
+        )
+      );
+
+      toast.success("Item rejected.");
+    } catch (error: any) {
+      console.error("Error in handleRejectItem:", error);
+      toast.error("Failed to reject item: " + error.message);
     }
   };
 
@@ -1620,7 +1823,7 @@ const [sidebarBottomOffset, setSidebarBottomOffset] = useState(24);
       // Check if user is collaborator
       const { data: collaborator } = await supabase
         .from("event_collaborators")
-        .select("role")
+        .select("role, subtitle_choice, subtitle_custom")
         .eq("event_id", event.id)
         .eq("user_id", user.id)
         .single();
@@ -1631,6 +1834,22 @@ const [sidebarBottomOffset, setSidebarBottomOffset] = useState(24);
           collaborator.role
         );
         setUserRole(collaborator.role);
+
+        // Treat collaborators with an "Event Owner" subtitle as approvers as well.
+        const derivedSubtitle =
+          collaborator.subtitle_choice === "owner"
+            ? "Event Owner"
+            : collaborator.subtitle_choice === "collaborator"
+            ? "Event Collaborator"
+            : collaborator.subtitle_choice === "other"
+            ? collaborator.subtitle_custom || ""
+            : "";
+        if (derivedSubtitle === "Event Owner") {
+          console.log(
+            "checkUserAccess: collaborator has Event Owner subtitle – granting edit permissions"
+          );
+          setUserRole("moderator");
+        }
       } else {
         console.log("checkUserAccess: User is not a collaborator");
       }
@@ -2698,7 +2917,16 @@ RECOMMENDATIONS:
                                 </div>
                               ) : (
                                 <div className="text-blue-400 text-lg font-bold">
-                                  {event.markup_type === 'percentage' ? `${event.markup_value}%` : `PHP ${event.markup_value}`}
+                                  {event.markup_type === "percentage"
+                                    ? (() => {
+                                        const base = analytics?.totalItemCost ?? 0;
+                                        const percent = event.markup_value ?? 0;
+                                        const amount = (base * percent) / 100;
+                                        return `${percent}% (PHP ${amount.toFixed(
+                                          2
+                                        )})`;
+                                      })()
+                                    : `PHP ${event.markup_value}`}
                                 </div>
                               )}
                             </td>
@@ -2783,8 +3011,8 @@ RECOMMENDATIONS:
                 })()}
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
-                {/* Add New Item Box (only editors) */}
-                {canEdit && (
+                {/* Add New Item Box (any signed-in user can propose an item; approvers auto-approve, others go to pending) */}
+                {currentUserId && (
                   <div
                     onClick={() => setShowAddForm(true)}
                     className="border-2 border-dashed border-green-500/50 rounded-lg p-6 text-center cursor-pointer hover:border-green-500/70 hover:bg-green-500/5 transition-all h-52 flex flex-col items-center justify-center bg-slate-700/50"
@@ -2799,12 +3027,21 @@ RECOMMENDATIONS:
                   </div>
                 )}
 
-                {/* Existing Items (view for all; actions only for editors) */}
+                {/* Existing Items (approved items – view for all; actions only for editors) */}
                 {(() => {
+                  const approvedItems = eventItems.filter(
+                    (item) => !item.status || item.status === "approved"
+                  );
+                  const pendingItems = eventItems.filter(
+                    (item) => item.status === "pending"
+                  );
+
                   // Show 7 items initially, then hide the rest
                   const maxItemsInitial = 7;
-                  const itemsToShow = showAllItems ? eventItems : eventItems.slice(0, maxItemsInitial);
-                  const hasMoreItems = eventItems.length > maxItemsInitial;
+                  const itemsToShow = showAllItems
+                    ? approvedItems
+                    : approvedItems.slice(0, maxItemsInitial);
+                  const hasMoreItems = approvedItems.length > maxItemsInitial;
                   
                   return (
                     <>
@@ -2882,7 +3119,7 @@ RECOMMENDATIONS:
                             onClick={() => setShowAllItems(true)}
                             className="border-green-500/30 text-green-400 hover:bg-green-500/20 hover:text-green-300"
                           >
-                            See More ({eventItems.length - maxItemsInitial} more items)
+                            See More ({approvedItems.length - maxItemsInitial} more items)
                           </Button>
                         </div>
                       )}
@@ -2897,6 +3134,81 @@ RECOMMENDATIONS:
                           >
                             Show Less
                           </Button>
+                        </div>
+                      )}
+
+                      {/* Pending items list – visible only to approvers */}
+                      {canEdit && pendingItems.length > 0 && (
+                        <div className="col-span-full mt-6">
+                          <h4 className="text-sm font-semibold text-amber-300 mb-2">
+                            Pending Items (awaiting approval)
+                          </h4>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
+                            {pendingItems.map((item) => (
+                              <div
+                                key={item.id}
+                                className="bg-slate-800/70 border border-amber-500/40 rounded-lg p-4 h-48 sm:h-52 relative flex flex-col"
+                              >
+                                <div className="absolute top-2 left-2 text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-semibold uppercase tracking-wide">
+                                  Pending approval
+                                </div>
+
+                                <div className="pt-6 flex-1 flex flex-col">
+                                  <div className="text-amber-300 text-lg font-semibold mb-2 truncate">
+                                    {item.item_name}
+                                  </div>
+                                  <div
+                                    className="text-slate-300 text-sm mb-3 overflow-hidden flex-1"
+                                    style={{
+                                      display: "-webkit-box",
+                                      WebkitLineClamp: 2,
+                                      WebkitBoxOrient: "vertical",
+                                      lineHeight: "1.4",
+                                      maxHeight: "2.8em",
+                                    }}
+                                  >
+                                    {item.item_description}
+                                  </div>
+                                  <div className="space-y-2 mt-auto">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-slate-400 text-xs font-medium">
+                                        Quantity:
+                                      </span>
+                                      <span className="w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center text-white text-xs font-bold">
+                                        {item.item_quantity}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-slate-400 text-xs font-medium">
+                                        Cost:
+                                      </span>
+                                      <span className="text-amber-300 text-xs font-bold">
+                                        PHP {(item.cost || 0).toFixed(2)}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="mt-3 flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
+                                    onClick={() => handleApproveItem(item.id)}
+                                  >
+                                    Approve
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="flex-1 border-red-500/40 text-red-300 hover:bg-red-500/15 text-xs"
+                                    onClick={() => handleRejectItem(item.id)}
+                                  >
+                                    Reject
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </>
@@ -3396,6 +3708,44 @@ RECOMMENDATIONS:
                     </SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              {/* Subtitle for invited user (what shows under their name in Event Members) */}
+              <div className="space-y-2">
+                <Label className="text-white">Subtitle for Invited User</Label>
+                <Select
+                  value={inviteSubtitleChoice}
+                  onValueChange={(
+                    value: "collaborator" | "owner" | "other"
+                  ) => setInviteSubtitleChoice(value)}
+                >
+                  <SelectTrigger className="bg-slate-700 border-amber-500/30 text-white">
+                    <SelectValue placeholder="Choose subtitle" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="collaborator">
+                      Event Collaborator
+                    </SelectItem>
+                    <SelectItem value="owner">Event Owner</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {inviteSubtitleChoice === "other" && (
+                  <div className="space-y-1">
+                    <Label className="text-white text-sm">
+                      Custom subtitle (for example: Caterer)
+                    </Label>
+                    <Input
+                      value={inviteSubtitleCustom}
+                      onChange={(e) =>
+                        setInviteSubtitleCustom(e.target.value)
+                      }
+                      placeholder="e.g. Caterer, Photographer, Sponsor"
+                      className="bg-slate-700 border-amber-500/30 text-white placeholder:text-slate-400"
+                    />
+                  </div>
+                )}
               </div>
 
               {!inviteCode ? (
@@ -4058,36 +4408,71 @@ RECOMMENDATIONS:
                 // Check if current user owns this message
                 const isCurrentUserMessage = m.user_id === currentUserId;
                 
+                const profile = userMap[m.user_id];
+                const displayName =
+                  profile?.fname && profile?.lname
+                    ? `${profile.fname} ${profile.lname}`
+                    : profile?.username || "Unknown";
+
+                // Subtitle priority:
+                // 1) Explicit subtitle from collaborator record
+                // 2) Mapped from collaborator role
+                // 3) If message is from event creator, show "Event Organizer"
+                let subtitle =
+                  profile?.collab?.subtitle ||
+                  (profile?.collab?.role === "owner"
+                    ? "Event Organizer"
+                    : profile?.collab?.role === "moderator"
+                    ? "Moderator"
+                    : profile?.collab?.role === "member"
+                    ? "Member"
+                    : "");
+
+                if (!subtitle && event && m.user_id === event.user_id) {
+                  subtitle = "Event Organizer";
+                }
+
                 return (
-                  <div key={m.id} className="bg-slate-800/60 border border-slate-700 rounded-md p-3 text-slate-200 group relative">
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="text-xs text-slate-300 font-medium truncate max-w-[60%]">
-                      {(userMap[m.user_id]?.fname && userMap[m.user_id]?.lname)
-                        ? `${userMap[m.user_id].fname} ${userMap[m.user_id].lname}`
-                        : userMap[m.user_id]?.username || "Unknown"}
-                    </div>
-                      <div className="flex items-center gap-2">
-                    <div className="text-xs text-slate-400">
-                      {m.created_at ? new Date(m.created_at).toLocaleString() : ""}
-                    </div>
-                        {/* Show delete button for message owner, event owner, or moderators */}
-                        {m.message !== "Message deleted" && (isCurrentUserMessage || canEdit) && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteMessage(m.id)}
-                            disabled={deletingMessageId === m.id}
-                            className="h-6 w-6 p-0 text-slate-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            {deletingMessageId === m.id ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              <Trash2 className="h-3 w-3" />
-                            )}
-                          </Button>
+                  <div
+                    key={m.id}
+                    className="bg-slate-800/60 border border-slate-700 rounded-md p-3 text-slate-200 group relative"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="max-w-[60%]">
+                        <div className="text-xs text-slate-300 font-medium truncate">
+                          {displayName}
+                        </div>
+                        {subtitle && (
+                          <div className="text-[11px] text-emerald-300">
+                            {subtitle}
+                          </div>
                         )}
-                  </div>
-                </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="text-xs text-slate-400">
+                          {m.created_at
+                            ? new Date(m.created_at).toLocaleString()
+                            : ""}
+                        </div>
+                        {/* Show delete button for message owner, event owner, or moderators */}
+                        {m.message !== "Message deleted" &&
+                          (isCurrentUserMessage || canEdit) && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteMessage(m.id)}
+                              disabled={deletingMessageId === m.id}
+                              className="h-6 w-6 p-0 text-slate-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              {deletingMessageId === m.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-3 w-3" />
+                              )}
+                            </Button>
+                          )}
+                      </div>
+                    </div>
                     <div className="whitespace-pre-wrap break-words">
                       {m.message === "Message deleted" ? (
                         <span className="text-slate-500 italic">{m.message}</span>

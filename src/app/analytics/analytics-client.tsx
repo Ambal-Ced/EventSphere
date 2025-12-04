@@ -139,7 +139,11 @@ export default function AnalyticsClient({
 
         if (all.length > 0) {
           const [itemsResult, attResult, fbResult] = await Promise.all([
-            supabase.from("event_items").select("event_id,cost,item_quantity").in("event_id", all.map((e) => e.id)),
+            supabase
+              .from("event_items")
+              .select("event_id,cost,item_quantity")
+              .eq("status", "approved")
+              .in("event_id", all.map((e) => e.id)),
             supabase.from("attendees").select("event_id,expected_attendees,event_attendees").in("event_id", all.map((e) => e.id)),
             supabase.from("feedback_responses").select("event_id,rating,sentiment").in("event_id", all.map((e) => e.id)),
           ]);

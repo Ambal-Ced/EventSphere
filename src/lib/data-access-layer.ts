@@ -257,7 +257,10 @@ export class AnalyticsDataAccess {
     const [attendance, feedback, items] = await Promise.all([
       supabase.from("attendance_portals").select("*").eq("event_id", eventId),
       supabase.from("feedback_portals").select("*").eq("event_id", eventId),
-      supabase.from("event_items").select("*").eq("event_id", eventId),
+      supabase
+        .from("event_items")
+        .select("*")
+        .eq("event_id", eventId),
     ]);
 
     return {
