@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 
@@ -169,6 +169,7 @@ export default function SingleEventPage() {
   const [chatImageFile, setChatImageFile] = useState<File | null>(null);
   const [chatImagePreview, setChatImagePreview] = useState<string>("");
   const [messageToDelete, setMessageToDelete] = useState<string | null>(null);
+  const chatImageInputRef = useRef<HTMLInputElement>(null);
   
   // Script delete confirmation state
   const [showScriptDeleteConfirm, setShowScriptDeleteConfirm] = useState(false);
@@ -5126,7 +5127,7 @@ RECOMMENDATIONS:
               })
             )}
           </div>
-          <div className="p-3 border-t border-slate-700 bg-slate-800/60">
+          <div className="p-3 border-t border-slate-700 bg-slate-800/60 flex-shrink-0">
             {chatImagePreview && (
               <div className="mb-2 relative">
                 <Image
@@ -5151,6 +5152,7 @@ RECOMMENDATIONS:
             )}
             <div className="flex items-center gap-2">
               <input
+                ref={chatImageInputRef}
                 type="file"
                 accept="image/*"
                 className="hidden"
@@ -5172,16 +5174,15 @@ RECOMMENDATIONS:
                   }
                 }}
               />
-              <label htmlFor="chat-image-upload" className="cursor-pointer">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="text-slate-300 hover:text-white hover:bg-slate-700"
-                >
-                  <ImagePlus className="w-5 h-5" />
-                </Button>
-              </label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => chatImageInputRef.current?.click()}
+                className="text-slate-300 hover:text-white hover:bg-slate-700"
+              >
+                <ImagePlus className="w-5 h-5" />
+              </Button>
               <Input
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
