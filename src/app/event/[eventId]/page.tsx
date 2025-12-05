@@ -56,6 +56,7 @@ import {
   ArrowLeft,
   X,
   Camera,
+  ImagePlus,
   Loader2,
   Edit,
   UserPlus,
@@ -165,6 +166,8 @@ export default function SingleEventPage() {
   const [showMessageDeleteConfirm, setShowMessageDeleteConfirm] = useState(false);
   const [showAllItems, setShowAllItems] = useState(false);
   const [showMessageDeleteSuccess, setShowMessageDeleteSuccess] = useState(false);
+  const [chatImageFile, setChatImageFile] = useState<File | null>(null);
+  const [chatImagePreview, setChatImagePreview] = useState<string>("");
   const [messageToDelete, setMessageToDelete] = useState<string | null>(null);
   
   // Script delete confirmation state
@@ -795,23 +798,51 @@ const [sidebarBottomOffset, setSidebarBottomOffset] = useState(24);
   };
 
   const handleSendMessage = async () => {
-    if (!event || !newMessage.trim() || isSending) return;
+    if (!event || (!newMessage.trim() && !chatImageFile) || isSending) return;
     setIsSending(true);
     try {
       const {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) throw new Error("You must be signed in to chat");
+
+      let imageUrl: string | null = null;
+
+      // Upload image if provided
+      if (chatImageFile) {
+        const fileExt = chatImageFile.name.split(".").pop() || "jpg";
+        const fileName = `chat-${event.id}-${user.id}-${Date.now()}.${fileExt}`;
+        const filePath = `${event.id}/${fileName}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from("chat-images")
+          .upload(filePath, chatImageFile, { upsert: true });
+
+        if (uploadError) {
+          console.error("Image upload error:", uploadError);
+          throw new Error("Failed to upload image");
+        }
+
+        const { data: publicData } = supabase.storage
+          .from("chat-images")
+          .getPublicUrl(filePath);
+        
+        imageUrl = publicData?.publicUrl || null;
+      }
+
       const { error } = await supabase.from("event_chat").insert({
         event_id: event.id,
         user_id: user.id,
-        message: newMessage.trim(),
-        message_type: "text",
+        message: newMessage.trim() || (imageUrl ? "[Image]" : ""),
+        message_type: chatImageFile ? "image" : "text",
+        image_url: imageUrl,
         is_deleted: false,
         is_edited: false,
       });
       if (error) throw error;
       setNewMessage("");
+      setChatImageFile(null);
+      setChatImagePreview("");
     } catch (err: any) {
       toast.error(err.message || "Failed to send message");
     } finally {
@@ -1828,8 +1859,10 @@ const [sidebarBottomOffset, setSidebarBottomOffset] = useState(24);
       const isEventOwner = event.user_id === user.id;
       
       // Fetch pending rejections for event owner
+      // Declare at function scope to ensure it's accessible throughout
+      let pendingRejection: any = null;
       if (isEventOwner) {
-        const { data: pendingRejection, error: rejectionError } = await supabase
+        const { data: pendingRejectionData, error: rejectionError } = await supabase
           .from("event_pricing_approvals")
           .select("*")
           .eq("event_id", event.id)
@@ -1841,14 +1874,16 @@ const [sidebarBottomOffset, setSidebarBottomOffset] = useState(24);
 
         if (rejectionError) throw rejectionError;
         
-        if (pendingRejection) {
+        if (pendingRejectionData) {
+          pendingRejection = pendingRejectionData;
           setPricingApproval(pendingRejection);
           setShowPricingApprovalPopup(true);
+          return; // Don't check for approvals if there's a pending rejection
         }
       }
 
       // Fetch recent approval for event owner (to show approval notification)
-      if (isEventOwner) {
+      if (isEventOwner && !pendingRejection) {
         const { data: recentApproval, error: approvalError } = await supabase
           .from("event_pricing_approvals")
           .select("*")
@@ -3133,133 +3168,6 @@ RECOMMENDATIONS:
               </div>
             )}
 
-            {/* Event Members - Mobile/Tablet (shown below Analytics, hidden on large screens where sidebar shows) */}
-            {!showChat && (
-              <div className="lg:hidden p-4 sm:p-6">
-                <div className={`${membersSectionClass} rounded-lg p-3.5 sm:p-4.5 flex flex-col`}>
-                  <h3 className={`text-lg sm:text-xl font-semibold mb-2.5 sm:mb-3 flex-shrink-0 ${memberHeadingClass}`}>Event Members</h3>
-                  <div className="flex-1 flex flex-col min-h-0 overflow-visible">
-                    <div className="space-y-1.5 sm:space-y-2.5 flex-1">
-                      {(() => {
-                        const allMembers: any[] = [];
-                        if (event?.user_id) {
-                          allMembers.push({
-                            id: "owner",
-                            user_id: event.user_id,
-                            role: "owner",
-                            joined_at: event.created_at,
-                            profiles: event.profiles || null,
-                            subtitle_choice: null,
-                            subtitle_custom: null,
-                          });
-                        }
-                        const sortedCollaborators = [...collaborators].sort((a, b) => {
-                          if (a.role !== b.role) {
-                            if (a.role === "moderator") return -1;
-                            if (b.role === "moderator") return 1;
-                          }
-                          return new Date(a.joined_at).getTime() - new Date(b.joined_at).getTime();
-                        });
-                        allMembers.push(...sortedCollaborators);
-                        return allMembers.length > 0 ? (
-                          allMembers.map((member) => (
-                            <div key={member.id} className={`flex items-center gap-2.5 p-2 rounded-lg ${memberCardClass}`}>
-                              <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center">
-                                {member.profiles?.avatar_url ? (
-                                  <Image src={member.profiles.avatar_url} alt="Avatar" width={32} height={32} className="rounded-full object-cover" />
-                                ) : (
-                                  <Users className="w-4 h-4 text-purple-400" />
-                                )}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className={`font-medium truncate ${headingTextClass}`}>
-                                  {member.profiles?.fname && member.profiles?.lname
-                                    ? `${member.profiles.fname} ${member.profiles.lname}`
-                                    : member.profiles?.username || "Unknown User"}
-                                </div>
-                                <div className={`text-sm ${memberRoleTextClass}`}>
-                                  {(() => {
-                                    // 1) Derive base role label
-                                    let baseRole =
-                                      member.role === "owner"
-                                        ? "Event Organizer"
-                                        : member.role === "moderator"
-                                        ? "Moderator"
-                                        : member.role === "member"
-                                        ? "Member"
-                                        : (member.role || "")
-                                            ?.toString()
-                                            .replace(/_/g, " ");
-
-                                    // 2) Derive subtitle from collaborator metadata
-                                    let subtitle = "";
-                                    if (member.subtitle_choice === "owner") {
-                                      subtitle = "Event Owner";
-                                    } else if (
-                                      member.subtitle_choice === "collaborator"
-                                    ) {
-                                      subtitle = "Event Collaborator";
-                                    } else if (member.subtitle_choice === "other") {
-                                      subtitle = member.subtitle_custom || "";
-                                    }
-
-                                    // 3) If subtitle exists, show "Role / Subtitle"
-                                    if (subtitle) {
-                                      return `${baseRole} / ${subtitle}`;
-                                    }
-                                    return baseRole;
-                                  })()}
-                                </div>
-                              </div>
-                              {isOwner && member.role !== "owner" && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() =>
-                                    handleRemoveCollaborator(
-                                      member.id,
-                                      member.profiles?.fname && member.profiles?.lname
-                                        ? `${member.profiles.fname} ${member.profiles.lname}`
-                                        : member.profiles?.username || "Unknown User"
-                                    )
-                                  }
-                                  disabled={isRemovingCollaborator === member.id}
-                                  className="text-red-400 hover:text-red-300 hover:bg-red-500/20 p-1"
-                                >
-                                  <X className="w-4 h-4" />
-                                </Button>
-                              )}
-                            </div>
-                          ))
-                        ) : (
-                          <div className="text-center py-4">
-                            <Users className="w-8 h-8 text-purple-400 mx-auto mb-2" />
-                            <div className="text-purple-300 text-sm">No members yet</div>
-                          </div>
-                        );
-                      })()}
-                    </div>
-
-                    <div className="mt-3 flex-shrink-0">
-                      <Button
-                        variant="outline"
-                        className={`w-full justify-start disabled:opacity-50 disabled:cursor-not-allowed ${
-                          isLightTheme
-                            ? "border-purple-200 text-purple-700 hover:bg-purple-100 hover:text-purple-800"
-                            : "border-purple-500/30 text-purple-400 hover:bg-purple-500/20 hover:text-purple-300"
-                        }`}
-                        onClick={() => handleEventAction("invite")}
-                        disabled={!allowInvites}
-                      >
-                        <UserPlus className="w-4 h-4 mr-3" />
-                        Add Members
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* Event Items Management */}
             <div className="p-4 sm:p-6">
               <div className="mb-6">
@@ -3661,6 +3569,246 @@ RECOMMENDATIONS:
                 })()}
               </div>
             </div>
+
+            {/* Event Actions - Mobile/Tablet (shown below Event Items, hidden on large screens where sidebar shows) */}
+            {!showChat && (
+              <div className="block lg:hidden p-4 sm:p-6">
+                <div className={`${actionSectionClass} rounded-lg p-3.5 sm:p-4.5 flex flex-col mb-4`}>
+                  <h3 className={`text-lg sm:text-xl font-semibold mb-2 sm:mb-3 flex-shrink-0 ${actionHeadingClass}`}>
+                    Event Actions
+                  </h3>
+                  <div className="space-y-1.5 sm:space-y-2.5 flex-1">
+                    <Button
+                      variant="outline"
+                      className={`w-full justify-start ${actionButtonClass}`}
+                      onClick={() => handleEventAction("settings")}
+                    >
+                      <Settings className="w-4 h-4 mr-3" />
+                      Event Settings
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className={`w-full justify-start ${actionButtonClass}`}
+                      onClick={() => handleEventAction("chat")}
+                    >
+                      <MessageCircle className="w-4 h-4 mr-3" />
+                      Event Chat
+                    </Button>
+
+                    {((isOwner && showMoreActions) || (userRole === "moderator" && showMoreActions)) && (
+                      <>
+                        <Button
+                          variant="outline"
+                          className={`w-full justify-start ${
+                            isLightTheme
+                              ? "border-amber-200 text-amber-700 hover:bg-amber-100 hover:text-amber-800"
+                              : "border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300"
+                          }`}
+                          onClick={() => handleEventAction("notes")}
+                        >
+                          <FileText className="w-4 h-4 mr-3" />
+                          Event Notes
+                        </Button>
+
+                        {(isOwner || userRole === "moderator") && (
+                          <Button
+                            variant="outline"
+                            className={`w-full justify-start ${
+                              isLightTheme
+                                ? "border-amber-200 text-amber-700 hover:bg-amber-100 hover:text-amber-800"
+                                : "border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300"
+                            }`}
+                            onClick={() => {
+                              setSelectedStatus(event?.status || "coming_soon");
+                              setShowStatusModal(true);
+                            }}
+                          >
+                            <Calendar className="w-4 h-4 mr-3" />
+                            Set Status
+                          </Button>
+                        )}
+                      </>
+                    )}
+
+                    {((isOwner && showMoreActions) || (userRole === "moderator" && showMoreActions) || (userRole === "member" && showMoreActions)) && (
+                      <div className="mt-2 space-y-2.5">
+                        <Button
+                          variant="outline"
+                          className={`w-full justify-start ${
+                            isLightTheme
+                              ? "border-amber-200 text-amber-700 hover:bg-amber-100 hover:text-amber-800"
+                              : "border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300"
+                          }`}
+                          onClick={() => generatePublicPortal("feedback")}
+                          disabled={isGeneratingPortal.type === "feedback"}
+                        >
+                          <span className="flex items-center gap-2 text-sm whitespace-normal break-words leading-snug text-left">
+                            {isGeneratingPortal.type === "feedback" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
+                            {isGeneratingPortal.type === "feedback" ? "Generating..." : "Feedback Link"}
+                          </span>
+                        </Button>
+
+                        <Button
+                          variant="outline"
+                          className={`w-full justify-start ${
+                            isLightTheme
+                              ? "border-amber-200 text-amber-700 hover:bg-amber-100 hover:text-amber-800"
+                              : "border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300"
+                          }`}
+                          onClick={() => generatePublicPortal("attendance")}
+                          disabled={isGeneratingPortal.type === "attendance"}
+                        >
+                          <span className="flex items-center gap-2 text-sm whitespace-normal break-words leading-snug text-left">
+                            {isGeneratingPortal.type === "attendance" ? <Loader2 className="w-4 h-4 animate-spin" /> : <QrCode className="w-4 h-4" />}
+                            {isGeneratingPortal.type === "attendance" ? "Generating..." : "Attendance Link"}
+                          </span>
+                        </Button>
+                      </div>
+                    )}
+
+                    {(isOwner || userRole === "moderator" || userRole === "member") && (
+                      <div className="mt-auto pt-0 pb-0">
+                        <button
+                          type="button"
+                          aria-label="Toggle more actions"
+                          className="w-full flex items-center justify-center py-1"
+                          onClick={() => setShowMoreActions((s) => !s)}
+                        >
+                          {showMoreActions ? <ChevronUp className="w-6 h-6 text-green-400" /> : <ChevronDown className="w-6 h-6 text-green-400" />}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Event Members - Mobile/Tablet (shown below Event Actions, hidden on large screens where sidebar shows) */}
+            {!showChat && (
+              <div className="block lg:hidden p-4 sm:p-6">
+                <div className={`${membersSectionClass} rounded-lg p-3.5 sm:p-4.5 flex flex-col`}>
+                  <h3 className={`text-lg sm:text-xl font-semibold mb-2.5 sm:mb-3 flex-shrink-0 ${memberHeadingClass}`}>Event Members</h3>
+                  <div className="flex-1 flex flex-col min-h-0 overflow-visible">
+                    <div className="space-y-1.5 sm:space-y-2.5 flex-1">
+                      {(() => {
+                        const allMembers: any[] = [];
+                        if (event?.user_id) {
+                          allMembers.push({
+                            id: "owner",
+                            user_id: event.user_id,
+                            role: "owner",
+                            joined_at: event.created_at,
+                            profiles: event.profiles || null,
+                            subtitle_choice: null,
+                            subtitle_custom: null,
+                          });
+                        }
+                        const sortedCollaborators = [...collaborators].sort((a, b) => {
+                          if (a.role !== b.role) {
+                            if (a.role === "moderator") return -1;
+                            if (b.role === "moderator") return 1;
+                          }
+                          return new Date(a.joined_at).getTime() - new Date(b.joined_at).getTime();
+                        });
+                        allMembers.push(...sortedCollaborators);
+                        return allMembers.length > 0 ? (
+                          allMembers.map((member) => (
+                            <div key={member.id} className={`flex items-center gap-2.5 p-2 rounded-lg ${memberCardClass}`}>
+                              <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center">
+                                {member.profiles?.avatar_url ? (
+                                  <Image src={member.profiles.avatar_url} alt="Avatar" width={32} height={32} className="rounded-full object-cover" />
+                                ) : (
+                                  <Users className="w-4 h-4 text-purple-400" />
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className={`font-medium truncate ${headingTextClass}`}>
+                                  {member.profiles?.fname && member.profiles?.lname
+                                    ? `${member.profiles.fname} ${member.profiles.lname}`
+                                    : member.profiles?.username || "Unknown User"}
+                                </div>
+                                <div className={`text-sm ${memberRoleTextClass}`}>
+                                  {(() => {
+                                    // 1) Derive base role label
+                                    let baseRole =
+                                      member.role === "owner"
+                                        ? "Event Organizer"
+                                        : member.role === "moderator"
+                                        ? "Moderator"
+                                        : member.role === "member"
+                                        ? "Member"
+                                        : (member.role || "")
+                                            ?.toString()
+                                            .replace(/_/g, " ");
+
+                                    // 2) Derive subtitle from collaborator metadata
+                                    let subtitle = "";
+                                    if (member.subtitle_choice === "owner") {
+                                      subtitle = "Event Owner";
+                                    } else if (
+                                      member.subtitle_choice === "collaborator"
+                                    ) {
+                                      subtitle = "Event Collaborator";
+                                    } else if (member.subtitle_choice === "other") {
+                                      subtitle = member.subtitle_custom || "";
+                                    }
+
+                                    // 3) If subtitle exists, show "Role / Subtitle"
+                                    if (subtitle) {
+                                      return `${baseRole} / ${subtitle}`;
+                                    }
+                                    return baseRole;
+                                  })()}
+                                </div>
+                              </div>
+                              {isOwner && member.role !== "owner" && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() =>
+                                    handleRemoveCollaborator(
+                                      member.id,
+                                      member.profiles?.fname && member.profiles?.lname
+                                        ? `${member.profiles.fname} ${member.profiles.lname}`
+                                        : member.profiles?.username || "Unknown User"
+                                    )
+                                  }
+                                  disabled={isRemovingCollaborator === member.id}
+                                  className="text-red-400 hover:text-red-300 hover:bg-red-500/20 p-1"
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
+                              )}
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-center py-4">
+                            <Users className="w-8 h-8 text-purple-400 mx-auto mb-2" />
+                            <div className="text-purple-300 text-sm">No members yet</div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    <div className="mt-3 flex-shrink-0">
+                      <Button
+                        variant="outline"
+                        className={`w-full justify-start disabled:opacity-50 disabled:cursor-not-allowed ${
+                          isLightTheme
+                            ? "border-purple-200 text-purple-700 hover:bg-purple-100 hover:text-purple-800"
+                            : "border-purple-500/30 text-purple-400 hover:bg-purple-500/20 hover:text-purple-300"
+                        }`}
+                        onClick={() => handleEventAction("invite")}
+                        disabled={!allowInvites}
+                      >
+                        <UserPlus className="w-4 h-4 mr-3" />
+                        Add Members
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Event Script */}
             <div className="p-4 sm:p-6">
@@ -4954,7 +5102,23 @@ RECOMMENDATIONS:
                       {m.message === "Message deleted" ? (
                         <span className="text-slate-500 italic">{m.message}</span>
                       ) : (
-                        m.message
+                        <>
+                          {m.message_type === "image" && m.image_url ? (
+                            <div className="mt-2">
+                              <Image
+                                src={m.image_url}
+                                alt="Chat image"
+                                width={400}
+                                height={400}
+                                className="rounded-lg max-w-full h-auto cursor-pointer hover:opacity-90 transition-opacity"
+                                onClick={() => window.open(m.image_url, "_blank")}
+                              />
+                            </div>
+                          ) : null}
+                          {m.message && m.message !== "[Image]" && (
+                            <div>{m.message}</div>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
@@ -4963,7 +5127,61 @@ RECOMMENDATIONS:
             )}
           </div>
           <div className="p-3 border-t border-slate-700 bg-slate-800/60">
+            {chatImagePreview && (
+              <div className="mb-2 relative">
+                <Image
+                  src={chatImagePreview}
+                  alt="Preview"
+                  width={200}
+                  height={200}
+                  className="rounded-lg max-w-[200px] h-auto"
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setChatImageFile(null);
+                    setChatImagePreview("");
+                  }}
+                  className="absolute top-1 right-1 h-6 w-6 p-0 bg-red-500/80 hover:bg-red-600 text-white"
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            )}
             <div className="flex items-center gap-2">
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                id="chat-image-upload"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    // Check file size (max 5MB)
+                    if (file.size > 5 * 1024 * 1024) {
+                      toast.error("Image size must be less than 5MB");
+                      return;
+                    }
+                    setChatImageFile(file);
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                      setChatImagePreview(e.target?.result as string);
+                    };
+                    reader.readAsDataURL(file);
+                  }
+                }}
+              />
+              <label htmlFor="chat-image-upload" className="cursor-pointer">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-slate-300 hover:text-white hover:bg-slate-700"
+                >
+                  <ImagePlus className="w-5 h-5" />
+                </Button>
+              </label>
               <Input
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
@@ -4976,8 +5194,15 @@ RECOMMENDATIONS:
                   }
                 }}
               />
-              <Button onClick={handleSendMessage} disabled={isSending || !newMessage.trim()} className="bg-emerald-600 hover:bg-emerald-700 text-white">
-                Send
+              <Button onClick={handleSendMessage} disabled={isSending || (!newMessage.trim() && !chatImageFile)} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                {isSending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  "Send"
+                )}
               </Button>
             </div>
           </div>
