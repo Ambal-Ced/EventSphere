@@ -63,6 +63,7 @@ import {
   Download,
   Plus,
   CheckCircle,
+  XCircle,
   FileText,
   AlertCircle,
   Save,
@@ -293,6 +294,18 @@ export default function SingleEventPage() {
     'Other',
   ];
   const [isTypeMenuOpen, setIsTypeMenuOpen] = useState(false);
+
+  // Pricing approval state
+  const [hasEventOwnerSubtitle, setHasEventOwnerSubtitle] = useState(false);
+  const [showRejectionDialog, setShowRejectionDialog] = useState(false);
+  const [rejectionType, setRejectionType] = useState<"cancel" | "bargain" | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [proposedMarkupType, setProposedMarkupType] = useState<"percentage" | "fixed">("percentage");
+  const [proposedMarkupValue, setProposedMarkupValue] = useState(0);
+  const [isSubmittingRejection, setIsSubmittingRejection] = useState(false);
+  const [pricingApproval, setPricingApproval] = useState<any>(null);
+  const [showPricingApprovalPopup, setShowPricingApprovalPopup] = useState(false);
+  const [isResolvingApproval, setIsResolvingApproval] = useState(false);
 
 const themePreference = useThemePreference();
 const isLightTheme = themePreference === "light";
@@ -1801,6 +1814,256 @@ const [sidebarBottomOffset, setSidebarBottomOffset] = useState(24);
     setNewItem({ item_name: "", item_description: "", item_quantity: 1, cost: 0.00 });
   };
 
+  // Pricing approval functions
+  const fetchPricingApproval = async () => {
+    if (!event) return;
+    
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Check if user is event owner
+      const isEventOwner = event.user_id === user.id;
+      
+      // Fetch pending rejections for event owner
+      if (isEventOwner) {
+        const { data: pendingRejection, error: rejectionError } = await supabase
+          .from("event_pricing_approvals")
+          .select("*")
+          .eq("event_id", event.id)
+          .eq("status", "pending")
+          .neq("rejection_type", "approve") // Exclude approvals
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (rejectionError) throw rejectionError;
+        
+        if (pendingRejection) {
+          setPricingApproval(pendingRejection);
+          setShowPricingApprovalPopup(true);
+        }
+      }
+
+      // Fetch recent approval for event owner (to show approval notification)
+      if (isEventOwner) {
+        const { data: recentApproval, error: approvalError } = await supabase
+          .from("event_pricing_approvals")
+          .select("*")
+          .eq("event_id", event.id)
+          .eq("rejection_type", "approve")
+          .eq("status", "accepted")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (!approvalError && recentApproval) {
+          // Check if this approval was created recently (within last 24 hours) and not yet seen
+          const approvalDate = new Date(recentApproval.created_at);
+          const hoursSinceApproval = (Date.now() - approvalDate.getTime()) / (1000 * 60 * 60);
+          
+          // Show approval notification if it's recent (within 24 hours) and no pending rejection
+          if (hoursSinceApproval < 24 && !pendingRejection) {
+            setPricingApproval({ ...recentApproval, is_approval_notification: true });
+            setShowPricingApprovalPopup(true);
+          }
+        }
+      }
+
+      // For Event Owner subtitle users, check if pricing is already approved
+      if (!isEventOwner && hasEventOwnerSubtitle) {
+        const { data: existingApproval, error: checkError } = await supabase
+          .from("event_pricing_approvals")
+          .select("*")
+          .eq("event_id", event.id)
+          .eq("rejection_type", "approve")
+          .eq("status", "accepted")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (!checkError && existingApproval) {
+          // Pricing is already approved, hide buttons
+          setPricingApproval({ ...existingApproval, is_approved: true });
+        }
+      }
+    } catch (error: any) {
+      console.error("Error fetching pricing approval:", error);
+    }
+  };
+
+  const handleApprovePricing = async () => {
+    if (!event) return;
+    
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+
+      // Debug: Check if user has Event Owner subtitle
+      const { data: collaboratorCheck } = await supabase
+        .from("event_collaborators")
+        .select("subtitle_choice")
+        .eq("event_id", event.id)
+        .eq("user_id", user.id)
+        .single();
+
+      console.log("User collaborator check for approval:", collaboratorCheck);
+      if (!collaboratorCheck || collaboratorCheck.subtitle_choice !== "owner") {
+        console.warn("User does not have Event Owner subtitle, but attempting approval anyway");
+      }
+
+      // Create an approval record to notify the event creator
+      const { data: approvalData, error } = await supabase
+        .from("event_pricing_approvals")
+        .insert({
+          event_id: event.id,
+          rejected_by: user.id,
+          rejection_type: "approve", // Using this field to track approval
+          status: "accepted",
+          resolved_by: user.id,
+          resolved_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Supabase error in handleApprovePricing:", error);
+        console.error("Error details:", {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        });
+        throw error;
+      }
+      
+      // Create notification for event creator
+      const { error: notifError } = await supabase.from("notifications").insert({
+        user_id: event.user_id,
+        type: "pricing_approved",
+        title: "Pricing Approved",
+        message: `The Event Owner has approved the pricing for "${event.title}". You can proceed with the event.`,
+        event_id: event.id,
+        link_url: `/event/${event.id}`,
+        metadata: { approval_id: approvalData.id, approved_by: user.id }
+      });
+
+      if (notifError) {
+        console.error("Error creating notification:", notifError);
+        // Don't throw - approval was successful, notification is secondary
+      }
+      
+      toast.success("Pricing approved! The event creator has been notified.");
+      
+      // Hide buttons by setting a flag that pricing is approved
+      setPricingApproval({ ...approvalData, is_approved: true });
+    } catch (error: any) {
+      console.error("Error approving pricing:", error);
+      const errorMessage = error?.message || error?.details || error?.hint || "Unknown error occurred";
+      console.error("Full error object:", JSON.stringify(error, null, 2));
+      toast.error("Failed to approve pricing: " + errorMessage);
+    }
+  };
+
+  const handleSubmitRejection = async () => {
+    if (!event || !rejectionType) return;
+    
+    setIsSubmittingRejection(true);
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+
+      const payload: any = {
+        event_id: event.id,
+        rejected_by: user.id,
+        rejection_type: rejectionType,
+        rejection_reason: rejectionReason.trim(),
+        status: "pending",
+      };
+
+      if (rejectionType === "bargain") {
+        payload.proposed_markup_type = proposedMarkupType;
+        payload.proposed_markup_value = proposedMarkupValue;
+      }
+
+      const { error } = await supabase
+        .from("event_pricing_approvals")
+        .insert(payload);
+
+      if (error) throw error;
+
+      toast.success("Pricing rejection submitted. The event creator will be notified.");
+      setShowRejectionDialog(false);
+      setRejectionType(null);
+      setRejectionReason("");
+      setProposedMarkupValue(0);
+      setPricingApproval(payload);
+    } catch (error: any) {
+      console.error("Error submitting rejection:", error);
+      toast.error("Failed to submit rejection: " + error.message);
+    } finally {
+      setIsSubmittingRejection(false);
+    }
+  };
+
+  const handleResolvePricingApproval = async (accept: boolean) => {
+    if (!pricingApproval || !event) return;
+    
+    setIsResolvingApproval(true);
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+
+      const updatePayload: any = {
+        status: accept ? "accepted" : "rejected",
+        resolved_by: user.id,
+        resolved_at: new Date().toISOString(),
+      };
+
+      // If accepted and it's a bargain, update the event markup
+      if (accept && pricingApproval.rejection_type === "bargain" && pricingApproval.proposed_markup_type) {
+        const { error: eventError } = await supabase
+          .from("events")
+          .update({
+            markup_type: pricingApproval.proposed_markup_type,
+            markup_value: pricingApproval.proposed_markup_value,
+          })
+          .eq("id", event.id);
+
+        if (eventError) throw eventError;
+      }
+
+      const { error } = await supabase
+        .from("event_pricing_approvals")
+        .update(updatePayload)
+        .eq("id", pricingApproval.id);
+
+      if (error) throw error;
+
+      toast.success(accept ? "Pricing approval accepted!" : "Pricing approval rejected.");
+      setPricingApproval(null);
+      setShowPricingApprovalPopup(false);
+      
+      // Refresh event data if markup was updated
+      if (accept && pricingApproval.rejection_type === "bargain") {
+        fetchEvent();
+      }
+    } catch (error: any) {
+      console.error("Error resolving pricing approval:", error);
+      toast.error("Failed to resolve approval: " + error.message);
+    } finally {
+      setIsResolvingApproval(false);
+    }
+  };
+
   // Check user role and ownership
   const checkUserAccess = async () => {
     if (!event) {
@@ -1871,9 +2134,13 @@ const [sidebarBottomOffset, setSidebarBottomOffset] = useState(24);
             "checkUserAccess: collaborator has Event Owner subtitle – granting edit permissions"
           );
           setUserRole("moderator");
+          setHasEventOwnerSubtitle(true);
+        } else {
+          setHasEventOwnerSubtitle(false);
         }
       } else {
         console.log("checkUserAccess: User is not a collaborator");
+        setHasEventOwnerSubtitle(false);
       }
     } catch (error: any) {
       console.error("checkUserAccess: Error:", error);
@@ -2866,6 +3133,133 @@ RECOMMENDATIONS:
               </div>
             )}
 
+            {/* Event Members - Mobile/Tablet (shown below Analytics, hidden on large screens where sidebar shows) */}
+            {!showChat && (
+              <div className="lg:hidden p-4 sm:p-6">
+                <div className={`${membersSectionClass} rounded-lg p-3.5 sm:p-4.5 flex flex-col`}>
+                  <h3 className={`text-lg sm:text-xl font-semibold mb-2.5 sm:mb-3 flex-shrink-0 ${memberHeadingClass}`}>Event Members</h3>
+                  <div className="flex-1 flex flex-col min-h-0 overflow-visible">
+                    <div className="space-y-1.5 sm:space-y-2.5 flex-1">
+                      {(() => {
+                        const allMembers: any[] = [];
+                        if (event?.user_id) {
+                          allMembers.push({
+                            id: "owner",
+                            user_id: event.user_id,
+                            role: "owner",
+                            joined_at: event.created_at,
+                            profiles: event.profiles || null,
+                            subtitle_choice: null,
+                            subtitle_custom: null,
+                          });
+                        }
+                        const sortedCollaborators = [...collaborators].sort((a, b) => {
+                          if (a.role !== b.role) {
+                            if (a.role === "moderator") return -1;
+                            if (b.role === "moderator") return 1;
+                          }
+                          return new Date(a.joined_at).getTime() - new Date(b.joined_at).getTime();
+                        });
+                        allMembers.push(...sortedCollaborators);
+                        return allMembers.length > 0 ? (
+                          allMembers.map((member) => (
+                            <div key={member.id} className={`flex items-center gap-2.5 p-2 rounded-lg ${memberCardClass}`}>
+                              <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center">
+                                {member.profiles?.avatar_url ? (
+                                  <Image src={member.profiles.avatar_url} alt="Avatar" width={32} height={32} className="rounded-full object-cover" />
+                                ) : (
+                                  <Users className="w-4 h-4 text-purple-400" />
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className={`font-medium truncate ${headingTextClass}`}>
+                                  {member.profiles?.fname && member.profiles?.lname
+                                    ? `${member.profiles.fname} ${member.profiles.lname}`
+                                    : member.profiles?.username || "Unknown User"}
+                                </div>
+                                <div className={`text-sm ${memberRoleTextClass}`}>
+                                  {(() => {
+                                    // 1) Derive base role label
+                                    let baseRole =
+                                      member.role === "owner"
+                                        ? "Event Organizer"
+                                        : member.role === "moderator"
+                                        ? "Moderator"
+                                        : member.role === "member"
+                                        ? "Member"
+                                        : (member.role || "")
+                                            ?.toString()
+                                            .replace(/_/g, " ");
+
+                                    // 2) Derive subtitle from collaborator metadata
+                                    let subtitle = "";
+                                    if (member.subtitle_choice === "owner") {
+                                      subtitle = "Event Owner";
+                                    } else if (
+                                      member.subtitle_choice === "collaborator"
+                                    ) {
+                                      subtitle = "Event Collaborator";
+                                    } else if (member.subtitle_choice === "other") {
+                                      subtitle = member.subtitle_custom || "";
+                                    }
+
+                                    // 3) If subtitle exists, show "Role / Subtitle"
+                                    if (subtitle) {
+                                      return `${baseRole} / ${subtitle}`;
+                                    }
+                                    return baseRole;
+                                  })()}
+                                </div>
+                              </div>
+                              {isOwner && member.role !== "owner" && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() =>
+                                    handleRemoveCollaborator(
+                                      member.id,
+                                      member.profiles?.fname && member.profiles?.lname
+                                        ? `${member.profiles.fname} ${member.profiles.lname}`
+                                        : member.profiles?.username || "Unknown User"
+                                    )
+                                  }
+                                  disabled={isRemovingCollaborator === member.id}
+                                  className="text-red-400 hover:text-red-300 hover:bg-red-500/20 p-1"
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
+                              )}
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-center py-4">
+                            <Users className="w-8 h-8 text-purple-400 mx-auto mb-2" />
+                            <div className="text-purple-300 text-sm">No members yet</div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    <div className="mt-3 flex-shrink-0">
+                      <Button
+                        variant="outline"
+                        className={`w-full justify-start disabled:opacity-50 disabled:cursor-not-allowed ${
+                          isLightTheme
+                            ? "border-purple-200 text-purple-700 hover:bg-purple-100 hover:text-purple-800"
+                            : "border-purple-500/30 text-purple-400 hover:bg-purple-500/20 hover:text-purple-300"
+                        }`}
+                        onClick={() => handleEventAction("invite")}
+                        disabled={!allowInvites}
+                      >
+                        <UserPlus className="w-4 h-4 mr-3" />
+                        Add Members
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Event Items Management */}
             <div className="p-4 sm:p-6">
               <div className="mb-6">
@@ -2880,17 +3274,43 @@ RECOMMENDATIONS:
                     <div className="bg-slate-800/50 rounded-lg border border-slate-600 overflow-hidden mb-6">
                       <div className="flex items-center justify-between p-3 bg-slate-700/50 border-b border-slate-600">
                         <h4 className="text-slate-300 text-sm font-medium">Pricing Summary</h4>
-                        {isOwner && !isEditingMarkup && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleEditMarkup}
-                            className="text-amber-400 hover:bg-amber-500/20 hover:text-amber-300"
-                          >
-                            <Edit className="w-4 h-4 mr-1" />
-                            Edit
-                          </Button>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {/* Approve/Reject buttons - only for users with Event Owner subtitle */}
+                          {/* Hide buttons if pricing is already approved or if there's a pending approval */}
+                          {hasEventOwnerSubtitle && !isEditingMarkup && !pricingApproval?.is_approved && !pricingApproval?.is_approval_notification && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleApprovePricing}
+                                className="text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300"
+                              >
+                                <CheckCircle className="w-4 h-4 mr-1" />
+                                Approve
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setShowRejectionDialog(true)}
+                                className="text-red-400 hover:bg-red-500/20 hover:text-red-300"
+                              >
+                                <XCircle className="w-4 h-4 mr-1" />
+                                Reject
+                              </Button>
+                            </>
+                          )}
+                          {isOwner && !isEditingMarkup && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={handleEditMarkup}
+                              className="text-amber-400 hover:bg-amber-500/20 hover:text-amber-300"
+                            >
+                              <Edit className="w-4 h-4 mr-1" />
+                              Edit
+                            </Button>
+                          )}
+                        </div>
                       </div>
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm min-w-[500px]">
@@ -3159,8 +3579,8 @@ RECOMMENDATIONS:
                         </div>
                       )}
 
-                      {/* Pending items list – visible only to approvers */}
-                      {canEdit && pendingItems.length > 0 && (
+                      {/* Pending items list – visible to all members, styled in yellow/amber */}
+                      {pendingItems.length > 0 && (
                         <div className="col-span-full mt-6">
                           <h4 className="text-sm font-semibold text-amber-300 mb-2">
                             Pending Items (awaiting approval)
@@ -3169,10 +3589,10 @@ RECOMMENDATIONS:
                             {pendingItems.map((item) => (
                               <div
                                 key={item.id}
-                                className="bg-slate-800/70 border border-amber-500/40 rounded-lg p-4 h-48 sm:h-52 relative flex flex-col"
+                                className="bg-slate-800/70 border border-amber-500/50 rounded-lg p-4 h-48 sm:h-52 relative flex flex-col"
                               >
-                                <div className="absolute top-2 left-2 text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-semibold uppercase tracking-wide">
-                                  Pending approval
+                                <div className="absolute top-2 left-2 text-[10px] px-2 py-0.5 rounded-full bg-amber-500/30 text-amber-200 font-semibold uppercase tracking-wide border border-amber-400/50">
+                                  Pending
                                 </div>
 
                                 <div className="pt-6 flex-1 flex flex-col">
@@ -3211,23 +3631,26 @@ RECOMMENDATIONS:
                                   </div>
                                 </div>
 
-                                <div className="mt-3 flex gap-2">
-                                  <Button
-                                    size="sm"
-                                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
-                                    onClick={() => handleApproveItem(item.id)}
-                                  >
-                                    Approve
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="flex-1 border-red-500/40 text-red-300 hover:bg-red-500/15 text-xs"
-                                    onClick={() => handleRejectItem(item.id)}
-                                  >
-                                    Reject
-                                  </Button>
-                                </div>
+                                {/* Approve/Reject buttons - only visible to approvers */}
+                                {canEdit && (
+                                  <div className="mt-3 flex gap-2">
+                                    <Button
+                                      size="sm"
+                                      className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
+                                      onClick={() => handleApproveItem(item.id)}
+                                    >
+                                      Approve
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="flex-1 border-red-500/40 text-red-300 hover:bg-red-500/15 text-xs"
+                                      onClick={() => handleRejectItem(item.id)}
+                                    >
+                                      Reject
+                                    </Button>
+                                  </div>
+                                )}
                               </div>
                             ))}
                           </div>
@@ -5260,6 +5683,226 @@ RECOMMENDATIONS:
               >
                 {isRemovingCollaborator === collaboratorToRemove?.id ? "Removing..." : "Remove"}
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pricing Rejection Dialog */}
+      {showRejectionDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-slate-800 border border-red-500/30 rounded-lg p-6 w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold text-white">Reject Pricing</h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setShowRejectionDialog(false);
+                  setRejectionType(null);
+                  setRejectionReason("");
+                  setProposedMarkupValue(0);
+                }}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <Label className="text-white mb-2 block">Reason for Rejection *</Label>
+                <div className="space-y-2">
+                  <Button
+                    variant={rejectionType === "cancel" ? "default" : "outline"}
+                    className={`w-full ${rejectionType === "cancel" ? "bg-red-600 hover:bg-red-700" : "border-red-500/30 text-red-400 hover:bg-red-500/20"}`}
+                    onClick={() => setRejectionType("cancel")}
+                  >
+                    Cancel Event
+                  </Button>
+                  <Button
+                    variant={rejectionType === "bargain" ? "default" : "outline"}
+                    className={`w-full ${rejectionType === "bargain" ? "bg-amber-600 hover:bg-amber-700" : "border-amber-500/30 text-amber-400 hover:bg-amber-500/20"}`}
+                    onClick={() => setRejectionType("bargain")}
+                  >
+                    Bargain Price (Markup)
+                  </Button>
+                </div>
+              </div>
+
+              {rejectionType === "bargain" && (
+                <div className="space-y-3 p-3 bg-slate-700/50 rounded-lg">
+                  <Label className="text-white">Proposed Markup</Label>
+                  <div className="flex gap-2">
+                    <Select
+                      value={proposedMarkupType}
+                      onValueChange={(value: "percentage" | "fixed") => setProposedMarkupType(value)}
+                    >
+                      <SelectTrigger className="bg-slate-600 border-amber-500/30 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="percentage">Percentage (%)</SelectItem>
+                        <SelectItem value="fixed">Fixed (PHP)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={proposedMarkupValue}
+                      onChange={(e) => setProposedMarkupValue(parseFloat(e.target.value) || 0)}
+                      placeholder={proposedMarkupType === "percentage" ? "e.g., 10" : "e.g., 500"}
+                      className="bg-slate-600 border-amber-500/30 text-white"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <Label className="text-white">Additional Reason (Optional)</Label>
+                <textarea
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  placeholder="Explain your reason for rejection..."
+                  className="w-full mt-2 p-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 min-h-[100px]"
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => {
+                    setShowRejectionDialog(false);
+                    setRejectionType(null);
+                    setRejectionReason("");
+                    setProposedMarkupValue(0);
+                  }}
+                  variant="outline"
+                  className="flex-1 border-slate-500/30 text-slate-300 hover:bg-slate-500/20"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSubmitRejection}
+                  disabled={!rejectionType || isSubmittingRejection}
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                >
+                  {isSubmittingRejection ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    "Submit Rejection"
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pricing Approval Popup - Shows for event creator */}
+      {showPricingApprovalPopup && pricingApproval && isOwner && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-slate-800 border border-amber-500/30 rounded-lg p-6 w-full max-w-lg mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold text-white flex items-center gap-2">
+                {pricingApproval.is_approval_notification ? (
+                  <>
+                    <CheckCircle className="w-5 h-5 text-emerald-400" />
+                    Pricing Approved
+                  </>
+                ) : (
+                  <>
+                    <AlertCircle className="w-5 h-5 text-amber-400" />
+                    Pricing Rejection Notification
+                  </>
+                )}
+              </h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setShowPricingApprovalPopup(false);
+                  if (pricingApproval.is_approval_notification) {
+                    setPricingApproval(null);
+                  }
+                }}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              {pricingApproval.is_approval_notification ? (
+                // Approval notification
+                <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
+                  <p className="text-emerald-300 mb-2">
+                    <strong className="text-emerald-200">Great news!</strong>
+                  </p>
+                  <p className="text-slate-300">
+                    The Event Owner has approved the pricing for this event. You can now proceed with the event planning.
+                  </p>
+                </div>
+              ) : (
+                // Rejection notification
+                <>
+                  <div className="p-4 bg-slate-700/50 rounded-lg">
+                    <p className="text-slate-300 mb-2">
+                      <strong className="text-white">Rejection Type:</strong>{" "}
+                      {pricingApproval.rejection_type === "cancel" ? "Cancel Event" : "Bargain Price"}
+                    </p>
+                    {pricingApproval.rejection_type === "bargain" && (
+                      <p className="text-slate-300 mb-2">
+                        <strong className="text-white">Proposed Markup:</strong>{" "}
+                        {pricingApproval.proposed_markup_type === "percentage"
+                          ? `${pricingApproval.proposed_markup_value}%`
+                          : `PHP ${pricingApproval.proposed_markup_value}`}
+                      </p>
+                    )}
+                    {pricingApproval.rejection_reason && (
+                      <div className="mt-3">
+                        <strong className="text-white block mb-1">Reason:</strong>
+                        <p className="text-slate-300 text-sm">{pricingApproval.rejection_reason}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => handleResolvePricingApproval(false)}
+                      disabled={isResolvingApproval}
+                      variant="outline"
+                      className="flex-1 border-red-500/30 text-red-400 hover:bg-red-500/20"
+                    >
+                      {isResolvingApproval ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        "Reject"
+                      )}
+                    </Button>
+                    <Button
+                      onClick={() => handleResolvePricingApproval(true)}
+                      disabled={isResolvingApproval}
+                      className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                    >
+                      {isResolvingApproval ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        "Accept"
+                      )}
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>

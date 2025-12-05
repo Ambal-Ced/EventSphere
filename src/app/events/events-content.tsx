@@ -527,17 +527,48 @@ export default function EventsPageContent() {
       if (joinError) throw joinError;
 
       // 4b) Update collaborator subtitle based on invite metadata (if present)
-      if (invite.subtitle_choice) {
-        const { error: collabUpdateError } = await supabase
-          .from('event_collaborators')
-          .update({
-            subtitle_choice: invite.subtitle_choice,
-            subtitle_custom:
-              invite.subtitle_choice === 'other' ? invite.subtitle_custom : null,
-          })
-          .eq('event_id', invite.event_id)
-          .eq('user_id', user.id);
-        if (collabUpdateError) console.error('Failed to update collaborator subtitle', collabUpdateError);
+      // Wait a small moment to ensure the RPC insert is complete
+      if (invite.subtitle_choice || invite.subtitle_custom) {
+        // Small delay to ensure RPC insert is committed
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Normalize subtitle_choice to ensure it matches the constraint
+        let normalizedSubtitleChoice: 'collaborator' | 'owner' | 'other' | null = null;
+        if (invite.subtitle_choice) {
+          const choice = invite.subtitle_choice.toLowerCase().trim();
+          if (choice === 'collaborator' || choice === 'owner' || choice === 'other') {
+            normalizedSubtitleChoice = choice as 'collaborator' | 'owner' | 'other';
+          } else {
+            console.warn('Invalid subtitle_choice value:', invite.subtitle_choice);
+          }
+        }
+        
+        const updatePayload: any = {};
+        if (normalizedSubtitleChoice) {
+          updatePayload.subtitle_choice = normalizedSubtitleChoice;
+        }
+        if (normalizedSubtitleChoice === 'other' && invite.subtitle_custom) {
+          updatePayload.subtitle_custom = invite.subtitle_custom.trim();
+        } else if (normalizedSubtitleChoice && normalizedSubtitleChoice !== 'other') {
+          updatePayload.subtitle_custom = null;
+        }
+        
+        if (Object.keys(updatePayload).length > 0) {
+          const { data: updateData, error: collabUpdateError } = await supabase
+            .from('event_collaborators')
+            .update(updatePayload)
+            .eq('event_id', invite.event_id)
+            .eq('user_id', user.id)
+            .select();
+          
+          if (collabUpdateError) {
+            console.error('Failed to update collaborator subtitle:', collabUpdateError);
+            console.error('Update payload was:', updatePayload);
+            // Don't throw - the join was successful, subtitle is just metadata
+          } else {
+            console.log('Successfully updated collaborator subtitle:', updateData);
+          }
+        }
       }
 
       // 5) Create notifications for successful event joining
