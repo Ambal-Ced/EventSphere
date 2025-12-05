@@ -424,7 +424,7 @@ function EventsPageContent() {
       console.log("🔵 Looking for invite code:", normalizedCode);
       const { data: inviteData, error: inviteError } = await supabase
         .from("event_invites")
-        .select("id,event_id,role,invite_code,created_by,expires_at,current_uses,max_uses,is_active")
+        .select("id,event_id,role,invite_code,created_by,expires_at,current_uses,max_uses,is_active,subtitle_choice,subtitle_custom")
         .eq("invite_code", normalizedCode)
         .limit(1)
         .maybeSingle();
@@ -510,7 +510,7 @@ function EventsPageContent() {
       if (!invite) {
         const { data: inviteData, error: inviteError } = await supabase
           .from('event_invites')
-          .select(`id,event_id,role,invite_code,created_by,expires_at,current_uses,max_uses,is_active, events:event_id(*)`)
+          .select(`id,event_id,role,invite_code,created_by,expires_at,current_uses,max_uses,is_active,subtitle_choice,subtitle_custom, events:event_id(*)`)
           .eq('invite_code', code)
           .limit(1)
           .maybeSingle();
@@ -533,6 +533,20 @@ function EventsPageContent() {
       const { data: rpcRes, error: joinError } = await supabase
         .rpc('join_event_with_code', { p_user: user.id, p_code: invite.invite_code });
       if (joinError) throw joinError;
+
+      // 4b) Update collaborator subtitle based on invite metadata (if present)
+      if (invite.subtitle_choice) {
+        const { error: collabUpdateError } = await supabase
+          .from('event_collaborators')
+          .update({
+            subtitle_choice: invite.subtitle_choice,
+            subtitle_custom:
+              invite.subtitle_choice === 'other' ? invite.subtitle_custom : null,
+          })
+          .eq('event_id', invite.event_id)
+          .eq('user_id', user.id);
+        if (collabUpdateError) console.error('Failed to update collaborator subtitle', collabUpdateError);
+      }
 
       // 5) Create notifications for successful event joining
       try {

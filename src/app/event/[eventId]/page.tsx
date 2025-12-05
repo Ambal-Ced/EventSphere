@@ -160,6 +160,7 @@ export default function SingleEventPage() {
   const [userMap, setUserMap] = useState<Record<string, any>>({});
   const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showMessageDeleteConfirm, setShowMessageDeleteConfirm] = useState(false);
   const [showAllItems, setShowAllItems] = useState(false);
   const [showMessageDeleteSuccess, setShowMessageDeleteSuccess] = useState(false);
@@ -347,8 +348,14 @@ const [sidebarBottomOffset, setSidebarBottomOffset] = useState(24);
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (user && event) {
-        checkUserAccess();
+      if (user) {
+        setIsAuthenticated(true);
+        if (!currentUserId) setCurrentUserId(user.id);
+        if (event) {
+          checkUserAccess();
+        }
+      } else {
+        setIsAuthenticated(false);
       }
     };
 
@@ -358,8 +365,15 @@ const [sidebarBottomOffset, setSidebarBottomOffset] = useState(24);
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_IN" && session?.user && event) {
-        checkUserAccess();
+      if (event === "SIGNED_IN" && session?.user) {
+        setIsAuthenticated(true);
+        if (!currentUserId) setCurrentUserId(session.user.id);
+        if (event) {
+          checkUserAccess();
+        }
+      } else if (event === "SIGNED_OUT") {
+        setIsAuthenticated(false);
+        setCurrentUserId(null);
       }
     });
 
@@ -1553,6 +1567,12 @@ const [sidebarBottomOffset, setSidebarBottomOffset] = useState(24);
 
       if (error) {
         console.error("Supabase error:", error);
+        console.error("Error details:", {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        });
         throw error;
       }
 
@@ -1567,7 +1587,9 @@ const [sidebarBottomOffset, setSidebarBottomOffset] = useState(24);
       );
     } catch (error: any) {
       console.error("Error in handleAddItem:", error);
-      toast.error("Failed to add item: " + error.message);
+      const errorMessage = error?.message || error?.details || error?.hint || "Unknown error occurred";
+      console.error("Full error object:", JSON.stringify(error, null, 2));
+      toast.error("Failed to add item: " + errorMessage);
     }
   };
 
@@ -3012,7 +3034,7 @@ RECOMMENDATIONS:
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
                 {/* Add New Item Box (any signed-in user can propose an item; approvers auto-approve, others go to pending) */}
-                {currentUserId && (
+                {isAuthenticated && (
                   <div
                     onClick={() => setShowAddForm(true)}
                     className="border-2 border-dashed border-green-500/50 rounded-lg p-6 text-center cursor-pointer hover:border-green-500/70 hover:bg-green-500/5 transition-all h-52 flex flex-col items-center justify-center bg-slate-700/50"
@@ -3590,6 +3612,8 @@ RECOMMENDATIONS:
                               role: "owner",
                               joined_at: event.created_at,
                               profiles: event.profiles || null,
+                              subtitle_choice: null,
+                              subtitle_custom: null,
                             });
                           }
                           const sortedCollaborators = [...collaborators].sort((a, b) => {
@@ -3616,8 +3640,38 @@ RECOMMENDATIONS:
                                       ? `${member.profiles.fname} ${member.profiles.lname}`
                                       : member.profiles?.username || "Unknown User"}
                                   </div>
-                                  <div className={`text-sm capitalize ${memberRoleTextClass}`}>
-                                    {member.role === "owner" ? "Event Organizer" : member.role}
+                                  <div className={`text-sm ${memberRoleTextClass}`}>
+                                    {(() => {
+                                      // 1) Derive base role label
+                                      let baseRole =
+                                        member.role === "owner"
+                                          ? "Event Organizer"
+                                          : member.role === "moderator"
+                                          ? "Moderator"
+                                          : member.role === "member"
+                                          ? "Member"
+                                          : (member.role || "")
+                                              ?.toString()
+                                              .replace(/_/g, " ");
+
+                                      // 2) Derive subtitle from collaborator metadata
+                                      let subtitle = "";
+                                      if (member.subtitle_choice === "owner") {
+                                        subtitle = "Event Owner";
+                                      } else if (
+                                        member.subtitle_choice === "collaborator"
+                                      ) {
+                                        subtitle = "Event Collaborator";
+                                      } else if (member.subtitle_choice === "other") {
+                                        subtitle = member.subtitle_custom || "";
+                                      }
+
+                                      // 3) If subtitle exists, show "Role / Subtitle"
+                                      if (subtitle) {
+                                        return `${baseRole} / ${subtitle}`;
+                                      }
+                                      return baseRole;
+                                    })()}
                                   </div>
                                 </div>
                                 {isOwner && member.role !== "owner" && (
