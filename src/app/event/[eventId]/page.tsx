@@ -815,15 +815,23 @@ const [sidebarBottomOffset, setSidebarBottomOffset] = useState(24);
         const fileName = `chat-${event.id}-${user.id}-${Date.now()}.${fileExt}`;
         const filePath = `${event.id}/${fileName}`;
         
-        const { error: uploadError } = await supabase.storage
+        const { error: uploadError, data: uploadData } = await supabase.storage
           .from("chat-images")
           .upload(filePath, chatImageFile, { upsert: true });
 
         if (uploadError) {
           console.error("Image upload error:", uploadError);
-          throw new Error("Failed to upload image");
+          // Provide more specific error message
+          if (uploadError.message?.includes("Bucket") || uploadError.message?.includes("not found")) {
+            throw new Error("Chat image storage is not configured. Please contact support.");
+          } else if (uploadError.message?.includes("permission") || uploadError.message?.includes("403")) {
+            throw new Error("You don't have permission to upload images. Please contact support.");
+          } else {
+            throw new Error(`Failed to upload image: ${uploadError.message || "Unknown error"}`);
+          }
         }
 
+        // Get public URL
         const { data: publicData } = supabase.storage
           .from("chat-images")
           .getPublicUrl(filePath);
@@ -831,7 +839,8 @@ const [sidebarBottomOffset, setSidebarBottomOffset] = useState(24);
         imageUrl = publicData?.publicUrl || null;
       }
 
-      const { error } = await supabase.from("event_chat").insert({
+      // Insert message into database
+      const { error, data } = await supabase.from("event_chat").insert({
         event_id: event.id,
         user_id: user.id,
         message: newMessage.trim() || (imageUrl ? "[Image]" : ""),
@@ -839,12 +848,25 @@ const [sidebarBottomOffset, setSidebarBottomOffset] = useState(24);
         image_url: imageUrl,
         is_deleted: false,
         is_edited: false,
-      });
-      if (error) throw error;
+      }).select();
+
+      if (error) {
+        console.error("Database insert error:", error);
+        // Provide more specific error message for RLS violations
+        if (error.code === "42501" || error.message?.includes("row-level security") || error.message?.includes("RLS")) {
+          throw new Error("You don't have permission to send messages in this event. You may need to be added as a collaborator.");
+        } else if (error.message?.includes("permission") || error.message?.includes("403")) {
+          throw new Error("Permission denied. You may need to be added as a collaborator to send messages.");
+        } else {
+          throw new Error(`Failed to send message: ${error.message || "Unknown error"}`);
+        }
+      }
+
       setNewMessage("");
       setChatImageFile(null);
       setChatImagePreview("");
     } catch (err: any) {
+      console.error("Send message error:", err);
       toast.error(err.message || "Failed to send message");
     } finally {
       setIsSending(false);
@@ -5011,8 +5033,8 @@ RECOMMENDATIONS:
 
       {/* Full-height Right Chat Sidebar */}
       {showChat && (
-        <div className="fixed right-0 top-0 h-screen w-full sm:w-[420px] bg-slate-900 border-l border-slate-700 z-50 flex flex-col">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700 bg-slate-800/70 backdrop-blur">
+        <div className="fixed inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[420px] bg-slate-900 border-l border-slate-700 z-50 flex flex-col">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700 bg-slate-800/70 backdrop-blur flex-shrink-0">
             <div className="flex items-center gap-2 text-white">
               <MessageCircle className="w-4 h-4" />
               <span className="font-semibold">Event Chat</span>
@@ -5026,7 +5048,7 @@ RECOMMENDATIONS:
               <X className="w-4 h-4" />
             </Button>
           </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
             {chatMessages.length === 0 ? (
               <div className="text-slate-400 text-sm">No messages yet.</div>
             ) : (
@@ -5127,7 +5149,7 @@ RECOMMENDATIONS:
               })
             )}
           </div>
-          <div className="p-3 border-t border-slate-700 bg-slate-800/60 flex-shrink-0">
+          <div className="p-3 pb-4 sm:pb-3 border-t border-slate-700 bg-slate-800/60 flex-shrink-0">
             {chatImagePreview && (
               <div className="mb-2 relative">
                 <Image
